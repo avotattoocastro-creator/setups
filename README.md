@@ -4,7 +4,7 @@ A WinUI 3 (Windows App SDK) desktop application for AI-assisted motorsport setup
 
 ## Prerequisites
 
-- **Windows 10/11** (version 1809 or later, 19041 recommended)
+- **Windows 10/11** (version 1809 / build 17763 or later; build 19041 recommended)
 - **Visual Studio 2022** (version 17.8+)
   - Workload: **.NET Desktop Development**
   - Workload: **Windows Application Development** (includes Windows App SDK)

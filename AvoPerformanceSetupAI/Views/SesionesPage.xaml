@@ -91,7 +91,8 @@
                             <controls:DataGridTextColumn Header="Setup"    Binding="{Binding Setup}"   Width="*"    IsReadOnly="True"/>
                             <controls:DataGridTextColumn Header="Best Lap" Binding="{Binding BestLap}" Width="110"  IsReadOnly="True"/>
                             <controls:DataGridTextColumn Header="Iter"     Binding="{Binding Iter}"    Width="60"   IsReadOnly="True"/>
-                            <controls:DataGridCheckBoxColumn Header="Exported" Binding="{Binding Exported}" Width="80" IsReadOnly="True"/>
+                            <controls:DataGridCheckBoxColumn Header="Exported" Binding="{Binding Exported}" Width="80" IsReadOnly="True"
+                                                            x:Name="ExportedColumn"/>
                         </controls:DataGrid.Columns>
                     </controls:DataGrid>
                 </StackPanel>
