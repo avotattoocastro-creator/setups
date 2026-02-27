@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.ControlPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent"
+    RequestedTheme="Dark">
+
+    <ScrollViewer Padding="24">
+        <StackPanel Spacing="16" MaxWidth="600">
+            <TextBlock Text="Control" FontSize="24" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+            <TextBlock Text="Real-time control panel will appear here." Foreground="#FF8AABAB"/>
+
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Telemetry Status" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="● Waiting for connection..." Foreground="#FF8AABAB"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
