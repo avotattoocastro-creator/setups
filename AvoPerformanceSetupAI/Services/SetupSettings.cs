@@ -13,5 +13,8 @@ public sealed partial class SetupSettings : ObservableObject
     [ObservableProperty]
     private string _rootFolder = string.Empty;
 
+    [ObservableProperty]
+    private string _outputFolder = string.Empty;
+
     private SetupSettings() { }
 }

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -23,19 +24,29 @@ public partial class SessionsViewModel : ObservableObject
     [ObservableProperty] private string _brainInfo = "Python | latency: 12 ms";
     [ObservableProperty] private string _riskLevel = "LOW";
     [ObservableProperty] private bool _isRunning;
+    [ObservableProperty] private bool _isConnected;
 
-    // ── Selected setup file from disk ────────────────────────────────────────
+    // ── Selected items ───────────────────────────────────────────────────────
     [ObservableProperty] private string? _selectedSetupFile;
+    [ObservableProperty] private SetupIteration? _selectedIteration;
 
     /// <summary>Controls hint text visibility: Visible when no files are loaded.</summary>
     [ObservableProperty] private Visibility _setupFilesHintVisibility = Visibility.Visible;
+
+    // ── Backup path for Rollback ─────────────────────────────────────────────
+    private string? _backupPath;
+    private const string BackupExtension = ".bak";
+
+    // ── Known simulator process names ────────────────────────────────────────
+    private static readonly string[] SimProcessNames =
+        ["acs", "AC2-Win64-Shipping", "AssettoCorsaCompetizione", "ACCS", "acc"];
 
     // ── Dynamic collections from file system ─────────────────────────────────
     public ObservableCollection<string> Cars { get; } = new();
     public ObservableCollection<string> Tracks { get; } = new();
     public ObservableCollection<string> SetupFiles { get; } = new();
 
-    // ── Static collections ────────────────────────────────────────────────────
+    // ── Collections ───────────────────────────────────────────────────────────
     public ObservableCollection<SetupIteration> Iterations { get; } = new();
     public ObservableCollection<Proposal> LastProposals { get; } = new();
     public ObservableCollection<string> SetupSources { get; } = new() { "Local File", "Server", "Git Repo" };
@@ -69,6 +80,20 @@ public partial class SessionsViewModel : ObservableObject
 
     partial void OnCarIdChanged(string value) => LoadTracks(value);
     partial void OnTrackIdChanged(string value) => LoadSetupFiles(value);
+
+    partial void OnSelectedSetupFileChanged(string? value)
+    {
+        ApplyCommand.NotifyCanExecuteChanged();
+        ApplyProposalCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedIterationChanged(SetupIteration? value)
+    {
+        if (value != null)
+            SelectedSetupFile = value.Setup;
+        ApplyCommand.NotifyCanExecuteChanged();
+        ApplyProposalCommand.NotifyCanExecuteChanged();
+    }
 
     // ── File-system loaders ───────────────────────────────────────────────────
 
@@ -200,6 +225,12 @@ public partial class SessionsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanStart))]
     private void Start()
     {
+        if (string.IsNullOrEmpty(CarId) || string.IsNullOrEmpty(TrackId))
+        {
+            AppLogger.Instance.Warn("Selecciona un coche y un circuito antes de iniciar la sesión.");
+            return;
+        }
+
         IsRunning = true;
         StatusText = "● RUNNING";
         AppLogger.Instance.Info($"Sesión INICIADA — Coche: {CarId}  Circuito: {TrackId}  Modo: {Mode}");
@@ -225,35 +256,157 @@ public partial class SessionsViewModel : ObservableObject
 
     private bool CanStop() => IsRunning;
 
-    [RelayCommand]
+    /// <summary>
+    /// Copia el archivo de setup seleccionado a la carpeta de destino configurada en Configuración.
+    /// Marca la iteración como Exported en el DataGrid.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanApply))]
     private void Apply()
     {
-        StatusText = "● APPLYING...";
-        AppLogger.Instance.Ai("Calculando nueva iteración de setup...");
-        AppLogger.Instance.Data($"Aplicando iteración #{Iterations.Count} al simulador.");
+        var outFolder = SetupSettings.Instance.OutputFolder;
+        if (string.IsNullOrEmpty(outFolder))
+        {
+            StatusText = "● ERROR";
+            AppLogger.Instance.Error("Carpeta de destino no configurada. Ve a la pestaña Configuración y selecciona la carpeta de destino.");
+            return;
+        }
+
+        var sourceFile = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile!);
+        var destFile = Path.Combine(outFolder, SelectedSetupFile!);
+
+        try
+        {
+            Directory.CreateDirectory(outFolder);
+            File.Copy(sourceFile, destFile, overwrite: true);
+
+            // Mark the iteration as Exported in the DataGrid
+            var iter = Iterations.FirstOrDefault(i => i.Setup == SelectedSetupFile);
+            if (iter != null)
+                iter.Exported = true;
+
+            StatusText = "● APPLIED";
+            AppLogger.Instance.Info($"Setup aplicado correctamente: {SelectedSetupFile}");
+            AppLogger.Instance.Data($"Destino: {destFile}");
+        }
+        catch (Exception ex)
+        {
+            StatusText = "● APPLY ERROR";
+            AppLogger.Instance.Error($"Error al copiar el setup: {ex.Message}");
+        }
     }
 
-    [RelayCommand]
-    private void ApplyProposal()
-    {
-        StatusText = "● PROPOSAL APPLIED";
-        AppLogger.Instance.Ai("Propuesta de IA aceptada y aplicada al setup activo.");
-        foreach (var p in LastProposals)
-            AppLogger.Instance.Data($"  Parámetro: {p.Parameter}  {p.From} → {p.To}  (Δ {p.Delta})");
-    }
+    private bool CanApply() => !string.IsNullOrEmpty(SelectedSetupFile);
 
-    [RelayCommand]
-    private void Rollback()
-    {
-        StatusText = "● ROLLED BACK";
-        AppLogger.Instance.Warn("Rollback ejecutado — setup restaurado a la iteración anterior.");
-    }
-
+    /// <summary>
+    /// Detecta si hay un proceso del simulador (AC / ACC) en ejecución y actualiza el estado de conexión.
+    /// </summary>
     [RelayCommand]
     private void Connect()
     {
-        StatusText = "● CONNECTED";
-        AppLogger.Instance.Info("Conexión con el simulador establecida.");
-        AppLogger.Instance.Data($"Telemetría activa — Coche: {CarId}  Circuito: {TrackId}");
+        var simProcessNames = SimProcessNames;
+        var found = simProcessNames.Any(name => Process.GetProcessesByName(name).Length > 0);
+
+        if (found)
+        {
+            IsConnected = true;
+            StatusText = "● CONNECTED";
+            AppLogger.Instance.Info("✔ Simulador detectado — conexión establecida.");
+            AppLogger.Instance.Data($"Telemetría activa — Coche: {CarId}  Circuito: {TrackId}");
+        }
+        else
+        {
+            IsConnected = false;
+            StatusText = "● SIM NOT FOUND";
+            AppLogger.Instance.Warn("No se detectó ningún simulador en ejecución.");
+            AppLogger.Instance.Info("Abre Assetto Corsa / ACC y pulsa Connect de nuevo.");
+        }
     }
+
+    /// <summary>
+    /// Crea un backup del archivo .ini seleccionado y aplica los parámetros de LastProposals
+    /// modificando directamente los valores en el archivo.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanApplyProposal))]
+    private void ApplyProposal()
+    {
+        var filePath = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile!);
+
+        if (!File.Exists(filePath))
+        {
+            AppLogger.Instance.Error($"Archivo de setup no encontrado: {filePath}");
+            return;
+        }
+
+        try
+        {
+            // Create backup before modifying
+            _backupPath = filePath + BackupExtension;
+            File.Copy(filePath, _backupPath, overwrite: true);
+            AppLogger.Instance.Info($"Backup creado: {Path.GetFileName(_backupPath)}");
+
+            // Read INI, apply each proposal, write back
+            var lines = File.ReadAllLines(filePath).ToList();
+            foreach (var proposal in LastProposals)
+            {
+                bool applied = false;
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    var eqIdx = lines[i].IndexOf('=');
+                    if (eqIdx > 0 &&
+                        lines[i][..eqIdx].Trim().Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        lines[i] = $"{proposal.Parameter}={proposal.To}";
+                        AppLogger.Instance.Data($"  {proposal.Parameter}: {proposal.From} → {proposal.To}  (Δ {proposal.Delta})");
+                        applied = true;
+                        break;
+                    }
+                }
+                if (!applied)
+                    AppLogger.Instance.Warn($"  Parámetro '{proposal.Parameter}' no encontrado en el archivo.");
+            }
+
+            File.WriteAllLines(filePath, lines);
+            StatusText = "● PROPOSAL APPLIED";
+            AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
+            RollbackCommand.NotifyCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            StatusText = "● PROPOSAL ERROR";
+            AppLogger.Instance.Error($"Error al aplicar propuesta: {ex.Message}");
+        }
+    }
+
+    private bool CanApplyProposal() => !string.IsNullOrEmpty(SelectedSetupFile) && LastProposals.Count > 0;
+
+    /// <summary>
+    /// Restaura el backup creado por ApplyProposal, revertiendo el archivo .ini al estado anterior.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRollback))]
+    private void Rollback()
+    {
+        if (string.IsNullOrEmpty(_backupPath) || !File.Exists(_backupPath))
+        {
+            AppLogger.Instance.Warn("No hay backup disponible para restaurar.");
+            return;
+        }
+
+        var originalPath = _backupPath[..^BackupExtension.Length]; // quitar ".bak"
+        try
+        {
+            File.Copy(_backupPath, originalPath, overwrite: true);
+            File.Delete(_backupPath);
+            _backupPath = null;
+
+            StatusText = "● ROLLED BACK";
+            AppLogger.Instance.Warn("Rollback ejecutado — setup restaurado al estado anterior.");
+            RollbackCommand.NotifyCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Error($"Error al restaurar backup: {ex.Message}");
+        }
+    }
+
+    private bool CanRollback() => !string.IsNullOrEmpty(_backupPath) && File.Exists(_backupPath);
 }

@@ -115,6 +115,7 @@
                     <controls:DataGrid
                         x:Name="SetupsGrid"
                         ItemsSource="{Binding Iterations}"
+                        SelectedItem="{Binding SelectedIteration, Mode=TwoWay}"
                         AutoGenerateColumns="False"
                         CanUserSortColumns="True"
                         SelectionMode="Single"

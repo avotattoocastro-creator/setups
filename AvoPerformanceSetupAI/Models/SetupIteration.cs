@@ -1,10 +1,12 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace AvoPerformanceSetupAI.Models;
 
-public class SetupIteration
+public partial class SetupIteration : ObservableObject
 {
-    public string Setup { get; set; } = string.Empty;
-    public string BestLap { get; set; } = string.Empty;
-    public int Iter { get; set; }
-    public bool Exported { get; set; }
-    public bool IsSelected { get; set; }
+    [ObservableProperty] private string _setup = string.Empty;
+    [ObservableProperty] private string _bestLap = string.Empty;
+    [ObservableProperty] private int _iter;
+    [ObservableProperty] private bool _exported;
+    [ObservableProperty] private bool _isSelected;
 }
