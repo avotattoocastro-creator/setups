@@ -15,7 +15,7 @@ public partial class SessionsViewModel : ObservableObject
 
     // ── Status ───────────────────────────────────────────────────────────────
     [ObservableProperty] private string _statusText = "● READY";
-    [ObservableProperty] private string _brainInfo = "Python  |  latency: 12 ms";
+    [ObservableProperty] private string _brainInfo = "Python | latency: 12 ms";
     [ObservableProperty] private string _riskLevel = "LOW";
     [ObservableProperty] private bool _isRunning;
 
@@ -44,12 +44,27 @@ public partial class SessionsViewModel : ObservableObject
         LastProposals.Add(new Proposal { Parameter = "FrontTyrePressure",From = "27.5", To = "27.2", Delta = "-0.3" });
     }
 
-    [RelayCommand]
-    private void StartStop()
+    [RelayCommand(CanExecute = nameof(CanStart))]
+    private void Start()
     {
-        IsRunning = !IsRunning;
-        StatusText = IsRunning ? "● RUNNING" : "● READY";
+        IsRunning = true;
+        StatusText = "● RUNNING";
+        StartCommand.NotifyCanExecuteChanged();
+        StopCommand.NotifyCanExecuteChanged();
     }
+
+    private bool CanStart() => !IsRunning;
+
+    [RelayCommand(CanExecute = nameof(CanStop))]
+    private void Stop()
+    {
+        IsRunning = false;
+        StatusText = "● READY";
+        StartCommand.NotifyCanExecuteChanged();
+        StopCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanStop() => IsRunning;
 
     [RelayCommand]
     private void Apply()

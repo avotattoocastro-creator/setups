@@ -91,8 +91,7 @@
                             <controls:DataGridTextColumn Header="Setup"    Binding="{Binding Setup}"   Width="*"    IsReadOnly="True"/>
                             <controls:DataGridTextColumn Header="Best Lap" Binding="{Binding BestLap}" Width="110"  IsReadOnly="True"/>
                             <controls:DataGridTextColumn Header="Iter"     Binding="{Binding Iter}"    Width="60"   IsReadOnly="True"/>
-                            <controls:DataGridCheckBoxColumn Header="Exported" Binding="{Binding Exported}" Width="80" IsReadOnly="True"
-                                                            x:Name="ExportedColumn"/>
+                            <controls:DataGridCheckBoxColumn Header="Exported" Binding="{Binding Exported}" Width="80" IsReadOnly="True"/>
                         </controls:DataGrid.Columns>
                     </controls:DataGrid>
                 </StackPanel>
@@ -101,9 +100,9 @@
             <!-- Action Buttons Row -->
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Content="▶ Start" Style="{StaticResource AccentActionButton}"
-                        Command="{Binding StartStopCommand}"/>
+                        Command="{Binding StartCommand}"/>
                 <Button Content="⏹ Stop"  Style="{StaticResource SecondaryActionButton}"
-                        Command="{Binding StartStopCommand}"/>
+                        Command="{Binding StopCommand}"/>
                 <Button Content="✔ Apply" Style="{StaticResource AccentActionButton}"
                         Command="{Binding ApplyCommand}"/>
                 <Button Content="⚡ Connect" Style="{StaticResource SecondaryActionButton}"
@@ -131,7 +130,7 @@
             <!-- RUN Button -->
             <Button Content="⚡ RUN"
                     Style="{StaticResource RunButtonStyle}"
-                    Command="{Binding StartStopCommand}"/>
+                    Command="{Binding StartCommand}"/>
 
             <!-- Last Proposal Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"

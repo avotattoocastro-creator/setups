@@ -46,4 +46,4 @@ AvoPerformanceSetupAI/
 
 - The app uses a **dark theme** with teal accent colors.
 - Mock data is pre-loaded in ViewModels for UI demonstration.
-- No real telemetry or AI integration — UI shell only. 
+- No real telemetry or AI integration — UI shell only.
