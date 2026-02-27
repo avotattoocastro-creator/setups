@@ -47,14 +47,20 @@
                     <TextBlock Grid.Column="3" Grid.Row="0" Text="Mode" Foreground="#FF8AABAB" FontSize="11"/>
 
                     <!-- Row 1: Values -->
-                    <TextBox Grid.Column="0" Grid.Row="1"
-                             Text="{Binding CarId, Mode=TwoWay}"
-                             Background="#FF0F2020" Foreground="#FFE0F0F0"
-                             BorderBrush="#FF2E4040"/>
-                    <TextBox Grid.Column="1" Grid.Row="1"
-                             Text="{Binding TrackId, Mode=TwoWay}"
-                             Background="#FF0F2020" Foreground="#FFE0F0F0"
-                             BorderBrush="#FF2E4040"/>
+                    <ComboBox Grid.Column="0" Grid.Row="1"
+                              ItemsSource="{Binding Cars}"
+                              SelectedItem="{Binding CarId, Mode=TwoWay}"
+                              PlaceholderText="— Seleccionar coche —"
+                              Background="#FF0F2020" Foreground="#FFE0F0F0"
+                              BorderBrush="#FF2E4040"
+                              HorizontalAlignment="Stretch"/>
+                    <ComboBox Grid.Column="1" Grid.Row="1"
+                              ItemsSource="{Binding Tracks}"
+                              SelectedItem="{Binding TrackId, Mode=TwoWay}"
+                              PlaceholderText="— Seleccionar circuito —"
+                              Background="#FF0F2020" Foreground="#FFE0F0F0"
+                              BorderBrush="#FF2E4040"
+                              HorizontalAlignment="Stretch"/>
                     <ComboBox Grid.Column="2" Grid.Row="1"
                               ItemsSource="{Binding SetupSources}"
                               SelectedItem="{Binding SetupSource, Mode=TwoWay}"
@@ -64,6 +70,39 @@
                               SelectedItem="{Binding Mode, Mode=TwoWay}"
                               MinWidth="100"/>
                 </Grid>
+            </Border>
+
+            <!-- Setup Files from disk -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="4">
+                <StackPanel>
+                    <TextBlock Text="Archivos de Setup" Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                               Margin="10,8,10,4"/>
+                    <TextBlock x:Name="NoSetupFilesHint"
+                               Text="Configura la carpeta raíz en la pestaña Configuración y selecciona coche y circuito."
+                               Foreground="#FF607070"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="10,0,10,8"
+                               Visibility="{Binding SetupFilesHintVisibility}"/>
+                    <ListView
+                        ItemsSource="{Binding SetupFiles}"
+                        SelectedItem="{Binding SelectedSetupFile, Mode=TwoWay}"
+                        MaxHeight="160"
+                        Background="Transparent"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           Foreground="#FFB0D8D8"
+                                           Padding="4,2"/>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
             </Border>
 
             <!-- Setups DataGrid -->

@@ -9,7 +9,38 @@
     <ScrollViewer Padding="24">
         <StackPanel Spacing="16" MaxWidth="600">
             <TextBlock Text="Configuración" FontSize="24" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-            <TextBlock Text="App settings and preferences will appear here." Foreground="#FF8AABAB"/>
+            <TextBlock Text="Ajustes y preferencias de la aplicación." Foreground="#FF8AABAB"/>
+
+            <!-- Setup Folder -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Carpeta de Setups" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Selecciona la carpeta raíz que contiene las subcarpetas de coches y circuitos."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 x:Name="FolderPathBox"
+                                 IsReadOnly="True"
+                                 PlaceholderText="Ninguna carpeta seleccionada..."
+                                 Background="#FF0F2020"
+                                 Foreground="#FFE0F0F0"
+                                 BorderBrush="#FF2E4040"/>
+                        <Button Grid.Column="1"
+                                Content="📁 Seleccionar"
+                                Click="BrowseFolder_Click"
+                                Background="#FF00B4B4"
+                                Foreground="White"
+                                CornerRadius="6"
+                                Padding="12,8"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
 
             <!-- Language Selector -->
             <Border Background="{StaticResource CardBackgroundBrush}"
