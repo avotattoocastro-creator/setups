@@ -4,6 +4,94 @@ A WinUI 3 (Windows App SDK) desktop application for AI-assisted motorsport setup
 
 ---
 
+## 🔄 Sincronización automática PC ↔ GitHub / Automatic PC ↔ GitHub Sync
+
+Esta función mantiene tu carpeta local y el repositorio de GitHub **siempre sincronizados** sin que tengas que hacer nada manualmente.  
+This feature keeps your local folder and the GitHub repository **always in sync** without any manual steps.
+
+### Requisitos previos / Prerequisites
+
+- **Git** instalado y configurado con tus credenciales de GitHub (o SSH key).  
+  Git installed and configured with your GitHub credentials (or SSH key).  
+  → <https://git-scm.com/downloads>
+- El repositorio debe estar **clonado** en tu PC (Opción 1 abajo).  
+  The repo must be **cloned** to your PC (Option 1 below).
+
+### Cómo funciona / How it works
+
+| Dirección / Direction | Cómo / How |
+|---|---|
+| **PC → GitHub** | `scripts/sync.ps1` vigila la carpeta. Al detectar un cambio guarda un commit y hace `git push` automáticamente. |
+| **GitHub → PC** | El mismo script comprueba el repositorio remoto cada 60 s y hace `git pull` si hay nuevas versiones. |
+
+### Uso rápido / Quick start
+
+1. Clona el repositorio (ver Opción 1 abajo) y abre **PowerShell** en la carpeta raíz.
+2. Ejecuta el script de sincronización:
+
+```powershell
+.\scripts\sync.ps1
+```
+
+Deja la ventana de PowerShell abierta. Verás un log en tiempo real de cada push/pull.
+
+3. (Opcional) Para que arranque **automáticamente al iniciar Windows**, ejecuta PowerShell **como Administrador** y registra la tarea programada:
+
+```powershell
+.\scripts\install-sync-task.ps1
+```
+
+Para iniciarla de inmediato sin reiniciar:
+
+```powershell
+Start-ScheduledTask -TaskName "AvoSetups-GitSync"
+```
+
+Para desinstalarla:
+
+```powershell
+.\scripts\install-sync-task.ps1 -Uninstall
+```
+
+> **Nota:** la primera vez que ejecutes scripts de PowerShell puede que necesites ajustar la política de ejecución:  
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+---
+
+### Quick start (English)
+
+1. Clone the repository (see Option 1 below) and open **PowerShell** in the root folder.
+2. Run the sync script:
+
+```powershell
+.\scripts\sync.ps1
+```
+
+Keep the PowerShell window open. You will see a real-time log of every push/pull.
+
+3. (Optional) To start sync **automatically on Windows login**, open PowerShell **as Administrator** and register the scheduled task:
+
+```powershell
+.\scripts\install-sync-task.ps1
+```
+
+To start it immediately without restarting:
+
+```powershell
+Start-ScheduledTask -TaskName "AvoSetups-GitSync"
+```
+
+To remove it:
+
+```powershell
+.\scripts\install-sync-task.ps1 -Uninstall
+```
+
+> **Note:** the first time you run PowerShell scripts you may need to allow execution:  
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+---
+
 ## ⬇️ Cómo descargar el proyecto / How to Download
 
 ### Opción 1 — Git clone (recomendado / recommended)
