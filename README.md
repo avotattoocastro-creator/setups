@@ -76,6 +76,16 @@ cd setups
   - Workload: **Windows Application Development** (includes Windows App SDK)
 - **Windows App SDK 1.5** (installed automatically via NuGet)
 
+> **Nota / Note — Visual Studio 18 Insiders:**  
+> Si tienes instalado Visual Studio 18 Preview / Insiders **sin** el componente de
+> C++ (`VC\Tools\MSVC`), el build fallará con el error `GetLatestMSVCVersion /
+> DirectoryNotFoundException`. El archivo `Directory.Build.props` incluido en este
+> repositorio ya contiene un workaround automático que omite esas instalaciones.  
+> If you have Visual Studio 18 Preview / Insiders installed **without** the C++ workload,
+> the build fails with `GetLatestMSVCVersion / DirectoryNotFoundException`.
+> The `Directory.Build.props` file included in this repo automatically works around
+> the issue by skipping VS installations that do not have `VC\Tools\MSVC`.
+
 ## Opening the Solution
 
 1. Download the repository using one of the methods in [⬇️ Cómo descargar el proyecto](#️-cómo-descargar-el-proyecto--how-to-download) above

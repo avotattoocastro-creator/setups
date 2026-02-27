@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, "copilot/**" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages
+        run: dotnet restore AvoPerformanceSetupAI/AvoPerformanceSetupAI.csproj
+
+      - name: Build (no MSIX packaging in CI)
+        run: >
+          dotnet build AvoPerformanceSetupAI/AvoPerformanceSetupAI.csproj
+          --configuration Release
+          --no-restore
+          -p:Platform=x64
+          -p:WindowsPackageType=None

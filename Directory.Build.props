@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    Workaround for GetLatestMSVCVersion task crashing when Visual Studio 18 Preview /
+    Insiders is installed without the C++ workload (VC\Tools\MSVC directory absent).
+
+    Directory.Build.props is imported before any NuGet-package targets, so this
+    UsingTask declaration takes precedence (MSBuild uses the first definition found).
+    The safe version below checks that VC\Tools\MSVC exists before enumerating it.
+  -->
+  <UsingTask TaskName="GetLatestMSVCVersion"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <VCToolsVersion ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          // Check both standard Program Files locations so the task works regardless
+          // of whether Visual Studio is installed as 64-bit or 32-bit.
+          string[] programFilesRoots = new[]
+          {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+          };
+
+          string latest = string.Empty;
+          foreach (string pfRoot in programFilesRoots)
+          {
+            string vsBase = Path.Combine(pfRoot, "Microsoft Visual Studio");
+            if (!Directory.Exists(vsBase))
+              continue;
+            foreach (string majorDir in Directory.GetDirectories(vsBase))
+            {
+              foreach (string editionDir in Directory.GetDirectories(majorDir))
+              {
+                string msvcPath = Path.Combine(editionDir, "VC", "Tools", "MSVC");
+                if (!Directory.Exists(msvcPath))
+                  continue;
+                foreach (string versionDir in Directory.GetDirectories(msvcPath))
+                {
+                  string v = Path.GetFileName(versionDir);
+                  if (string.Compare(v, latest, StringComparison.OrdinalIgnoreCase) > 0)
+                    latest = v;
+                }
+              }
+            }
+          }
+          VCToolsVersion = latest;
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>
