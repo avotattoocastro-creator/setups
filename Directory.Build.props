@@ -12,9 +12,10 @@
              TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
-      <!-- Both outputs are required by the Windows App SDK .targets that invoke this task. -->
+      <!-- All three outputs are required by the Windows App SDK .targets that invoke this task. -->
       <VCToolsVersion ParameterType="System.String" Output="true" />
       <MSVCDirectoryPath ParameterType="System.String" Output="true" />
+      <LatestMSVCVersion ParameterType="System.String" Output="true" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System.IO" />
@@ -56,6 +57,7 @@
           }
           VCToolsVersion    = latestVersion;
           MSVCDirectoryPath = latestPath;
+          LatestMSVCVersion = latestVersion;
         ]]>
       </Code>
     </Task>
