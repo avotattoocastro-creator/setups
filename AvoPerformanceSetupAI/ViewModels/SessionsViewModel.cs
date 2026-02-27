@@ -77,6 +77,7 @@ public partial class SessionsViewModel : ObservableObject
         Cars.Clear();
         Tracks.Clear();
         SetupFiles.Clear();
+        Iterations.Clear();
 
         if (string.IsNullOrEmpty(rootFolder) || !Directory.Exists(rootFolder))
         {
@@ -109,6 +110,7 @@ public partial class SessionsViewModel : ObservableObject
     {
         Tracks.Clear();
         SetupFiles.Clear();
+        Iterations.Clear();
 
         var rootFolder = SetupSettings.Instance.RootFolder;
         if (string.IsNullOrEmpty(rootFolder) || string.IsNullOrEmpty(carId))
@@ -172,6 +174,11 @@ public partial class SessionsViewModel : ObservableObject
             return;
         }
 
+        // Populate the Setups DataGrid with the real files found on disk
+        Iterations.Clear();
+        for (int i = 0; i < SetupFiles.Count; i++)
+            Iterations.Add(new SetupIteration { Setup = SetupFiles[i], BestLap = "—", Iter = i, Exported = false });
+
         SetupFilesHintVisibility = SetupFiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         AppLogger.Instance.Data($"Circuito seleccionado: {trackId}  |  Archivos de setup: {SetupFiles.Count}");
@@ -182,12 +189,6 @@ public partial class SessionsViewModel : ObservableObject
 
     private void LoadMockData()
     {
-        Iterations.Add(new SetupIteration { Setup = "baseline_monza_911.ini", BestLap = "1:45.321", Iter = 0, Exported = true });
-        Iterations.Add(new SetupIteration { Setup = "iter_001_hotlap.ini",     BestLap = "1:44.987", Iter = 1, Exported = true });
-        Iterations.Add(new SetupIteration { Setup = "iter_002_hotlap.ini",     BestLap = "1:44.512", Iter = 2, Exported = false });
-        Iterations.Add(new SetupIteration { Setup = "iter_003_hotlap.ini",     BestLap = "1:44.201", Iter = 3, Exported = false, IsSelected = true });
-        Iterations.Add(new SetupIteration { Setup = "iter_004_hotlap.ini",     BestLap = "1:44.890", Iter = 4, Exported = false });
-
         LastProposals.Add(new Proposal { Parameter = "FrontSuspension",  From = "4.2",  To = "3.8",  Delta = "-0.4" });
         LastProposals.Add(new Proposal { Parameter = "RearAntiRollBar",  From = "6",    To = "7",    Delta = "+1"   });
         LastProposals.Add(new Proposal { Parameter = "BrakeBias",        From = "56.0", To = "55.5", Delta = "-0.5" });
