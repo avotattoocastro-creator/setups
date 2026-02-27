@@ -12,7 +12,9 @@
              TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
+      <!-- Both outputs are required by the Windows App SDK .targets that invoke this task. -->
       <VCToolsVersion ParameterType="System.String" Output="true" />
+      <MSVCDirectoryPath ParameterType="System.String" Output="true" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System.IO" />
@@ -26,7 +28,8 @@
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
           };
 
-          string latest = string.Empty;
+          string latestVersion = string.Empty;
+          string latestPath    = string.Empty;
           foreach (string pfRoot in programFilesRoots)
           {
             string vsBase = Path.Combine(pfRoot, "Microsoft Visual Studio");
@@ -42,13 +45,17 @@
                 foreach (string versionDir in Directory.GetDirectories(msvcPath))
                 {
                   string v = Path.GetFileName(versionDir);
-                  if (string.Compare(v, latest, StringComparison.OrdinalIgnoreCase) > 0)
-                    latest = v;
+                  if (string.Compare(v, latestVersion, StringComparison.OrdinalIgnoreCase) > 0)
+                  {
+                    latestVersion = v;
+                    latestPath    = versionDir;
+                  }
                 }
               }
             }
           }
-          VCToolsVersion = latest;
+          VCToolsVersion    = latestVersion;
+          MSVCDirectoryPath = latestPath;
         ]]>
       </Code>
     </Task>
