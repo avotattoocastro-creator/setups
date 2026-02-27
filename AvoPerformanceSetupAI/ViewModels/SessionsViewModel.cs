@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -41,6 +42,19 @@ public partial class SessionsViewModel : ObservableObject
     private static readonly string[] SimProcessNames =
         ["acs", "AC2-Win64-Shipping", "AssettoCorsaCompetizione", "ACCS", "acc"];
 
+    // ── INI sections considered tunable (AC/ACC setup structure) ────────────
+    private static readonly HashSet<string> TunableSections = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ALIGNMENT", "TYRES", "SUSPENSION", "FRONT", "REAR", "BRAKE", "BRAKES",
+        "ELECTRONICS", "FUEL", "AERO", "DAMPERS", "GEOMETRY", "ARB", "SPRINGS"
+    };
+
+    // ── Keys that carry integer selectors, not tunable numeric values ────────
+    private static readonly HashSet<string> NonTunableKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "VERSION", "CARNAME", "TYPE_FRONT", "TYPE_REAR", "TYPE"
+    };
+
     // ── Dynamic collections from file system ─────────────────────────────────
     public ObservableCollection<string> Cars { get; } = new();
     public ObservableCollection<string> Tracks { get; } = new();
@@ -54,8 +68,6 @@ public partial class SessionsViewModel : ObservableObject
 
     public SessionsViewModel()
     {
-        LoadMockData();
-
         // Subscribe to root-folder changes from Configuración
         SetupSettings.Instance.PropertyChanged += OnSettingsChanged;
 
@@ -83,6 +95,7 @@ public partial class SessionsViewModel : ObservableObject
 
     partial void OnSelectedSetupFileChanged(string? value)
     {
+        LoadProposalsFromFile();
         ApplyCommand.NotifyCanExecuteChanged();
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
@@ -210,14 +223,89 @@ public partial class SessionsViewModel : ObservableObject
         AppLogger.Instance.Info($"Ruta de setup activa: {trackPath}");
     }
 
-    // ── Mock data ─────────────────────────────────────────────────────────────
+    // ── Proposal generation from real INI ────────────────────────────────────
 
-    private void LoadMockData()
+    /// <summary>
+    /// Parses the currently selected setup <c>.ini</c> file, extracts all numeric tunable
+    /// parameters and populates <see cref="LastProposals"/> with small suggested adjustments.
+    /// Must be called whenever <see cref="SelectedSetupFile"/> changes.
+    /// </summary>
+    private void LoadProposalsFromFile()
     {
-        LastProposals.Add(new Proposal { Parameter = "FrontSuspension",  From = "4.2",  To = "3.8",  Delta = "-0.4" });
-        LastProposals.Add(new Proposal { Parameter = "RearAntiRollBar",  From = "6",    To = "7",    Delta = "+1"   });
-        LastProposals.Add(new Proposal { Parameter = "BrakeBias",        From = "56.0", To = "55.5", Delta = "-0.5" });
-        LastProposals.Add(new Proposal { Parameter = "FrontTyrePressure",From = "27.5", To = "27.2", Delta = "-0.3" });
+        LastProposals.Clear();
+
+        if (string.IsNullOrEmpty(SelectedSetupFile) ||
+            string.IsNullOrEmpty(CarId) ||
+            string.IsNullOrEmpty(TrackId))
+            return;
+
+        var filePath = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile);
+        if (!File.Exists(filePath))
+            return;
+
+        try
+        {
+            var entries = SetupIniParser.Parse(filePath);
+
+            // Keep only entries from known tunable sections with numeric, non-zero values
+            var tunable = entries
+                .Where(e =>
+                    TunableSections.Contains(e.Section) &&
+                    !NonTunableKeys.Contains(e.Key) &&
+                    double.TryParse(e.Value,
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out var v) && v != 0.0)
+                .ToList();
+
+            // Sample: up to 2 entries per section, capped at 6 proposals total
+            var sample = tunable
+                .GroupBy(e => e.Section)
+                .SelectMany(g => g.Take(2))
+                .Take(6)
+                .ToList();
+
+            foreach (var entry in sample)
+            {
+                if (!double.TryParse(entry.Value,
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out var current))
+                    continue;
+
+                // Nudge: 2 % of absolute value, minimum 0.05 — always proposes a decrease
+                var abs     = Math.Abs(current);
+                var nudge   = abs >= 100.0 ? Math.Round(abs * 0.02, 0)
+                            : abs >= 1.0   ? Math.Round(abs * 0.02, 3)
+                                           : 0.05;
+                var proposed = Math.Round(current - nudge, 4);
+                var deltaStr = $"-{nudge.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+                LastProposals.Add(new Proposal
+                {
+                    Section   = entry.Section,
+                    Parameter = entry.Key,
+                    From      = entry.Value,
+                    To        = proposed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Delta     = deltaStr
+                });
+            }
+
+            AppLogger.Instance.Ai(
+                $"Propuestas generadas desde '{SelectedSetupFile}' — " +
+                $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados.");
+
+            if (tunable.Count == 0)
+                AppLogger.Instance.Warn(
+                    "El archivo de setup no contiene parámetros reconocibles en secciones tunables. " +
+                    "Comprueba que la carpeta raíz apunta a setups de Assetto Corsa / ACC.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Error($"Error al leer parámetros del setup: {ex.Message}");
+        }
+
+        ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -324,7 +412,7 @@ public partial class SessionsViewModel : ObservableObject
 
     /// <summary>
     /// Crea un backup del archivo .ini seleccionado y aplica los parámetros de LastProposals
-    /// modificando directamente los valores en el archivo.
+    /// modificando directamente los valores en el archivo, respetando la sección de cada clave.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanApplyProposal))]
     private void ApplyProposal()
@@ -344,25 +432,41 @@ public partial class SessionsViewModel : ObservableObject
             File.Copy(filePath, _backupPath, overwrite: true);
             AppLogger.Instance.Info($"Backup creado: {Path.GetFileName(_backupPath)}");
 
-            // Read INI, apply each proposal, write back
+            // Read INI lines; apply each proposal matching by section AND key
             var lines = File.ReadAllLines(filePath).ToList();
             foreach (var proposal in LastProposals)
             {
                 bool applied = false;
+                var currentSection = string.Empty;
+
                 for (int i = 0; i < lines.Count; i++)
                 {
+                    var trimmed = lines[i].Trim();
+
+                    // Track current section header
+                    if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+                    {
+                        currentSection = trimmed[1..^1].Trim();
+                        continue;
+                    }
+
+                    // Match key within the correct section
                     var eqIdx = lines[i].IndexOf('=');
                     if (eqIdx > 0 &&
+                        currentSection.Equals(proposal.Section, StringComparison.OrdinalIgnoreCase) &&
                         lines[i][..eqIdx].Trim().Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase))
                     {
                         lines[i] = $"{proposal.Parameter}={proposal.To}";
-                        AppLogger.Instance.Data($"  {proposal.Parameter}: {proposal.From} → {proposal.To}  (Δ {proposal.Delta})");
+                        AppLogger.Instance.Data(
+                            $"  [{proposal.Section}] {proposal.Parameter}: {proposal.From} → {proposal.To}  (Δ {proposal.Delta})");
                         applied = true;
                         break;
                     }
                 }
+
                 if (!applied)
-                    AppLogger.Instance.Warn($"  Parámetro '{proposal.Parameter}' no encontrado en el archivo.");
+                    AppLogger.Instance.Warn(
+                        $"  Parámetro '[{proposal.Section}] {proposal.Parameter}' no encontrado en el archivo.");
             }
 
             File.WriteAllLines(filePath, lines);

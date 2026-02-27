@@ -188,7 +188,12 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{x:Bind Parameter}" Foreground="#FFB0D0D0" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Grid.Column="0" Spacing="0">
+                                        <TextBlock Text="{x:Bind Section}" Foreground="#FF507070" FontSize="9"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{x:Bind Parameter}" Foreground="#FFB0D0D0" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                     <TextBlock Grid.Column="1" Text="{x:Bind From}" Foreground="#FF8AABAB" FontSize="12"/>
                                     <TextBlock Grid.Column="2" Text="→" Foreground="#FF8AABAB" FontSize="12"/>
                                     <TextBlock Grid.Column="3" Text="{x:Bind To}" Foreground="#FF00D4B4" FontSize="12" FontWeight="SemiBold"/>
