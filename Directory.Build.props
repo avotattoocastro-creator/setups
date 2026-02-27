@@ -8,6 +8,18 @@
     UsingTask declaration takes precedence (MSBuild uses the first definition found).
     The safe version below checks that VC\Tools\MSVC exists before enumerating it.
   -->
+  <!--
+    In .NET 8.0+ the RID compatibility graph is disabled by default, which means
+    version-specific RIDs such as win10-x64, win10-x86, and win10-arm64 that are
+    used by Microsoft.WindowsAppSDK native assets are no longer resolved
+    automatically.  Setting UseRidGraph=true re-enables the full graph so that
+    those assets are found at build and publish time.
+    See https://aka.ms/dotnet/rid-usage for details.
+  -->
+  <PropertyGroup>
+    <UseRidGraph>true</UseRidGraph>
+  </PropertyGroup>
+
   <UsingTask TaskName="GetLatestMSVCVersion"
              TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
