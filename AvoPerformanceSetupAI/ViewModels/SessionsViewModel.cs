@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AvoPerformanceSetupAI.Models;
+using AvoPerformanceSetupAI.Services;
 
 namespace AvoPerformanceSetupAI.ViewModels;
 
@@ -28,6 +29,11 @@ public partial class SessionsViewModel : ObservableObject
     public SessionsViewModel()
     {
         LoadMockData();
+        AppLogger.Instance.Data($"Sesión inicializada — Coche: {CarId}  Circuito: {TrackId}  Modo: {Mode}");
+        AppLogger.Instance.Data($"Fuente de setup: {SetupSource}");
+        AppLogger.Instance.Info($"Iteraciones cargadas: {Iterations.Count}");
+        AppLogger.Instance.Ai($"Motor IA listo — {BrainInfo}");
+        AppLogger.Instance.Info($"Nivel de riesgo actual: {RiskLevel}");
     }
 
     private void LoadMockData()
@@ -49,6 +55,9 @@ public partial class SessionsViewModel : ObservableObject
     {
         IsRunning = true;
         StatusText = "● RUNNING";
+        AppLogger.Instance.Info($"Sesión INICIADA — Coche: {CarId}  Circuito: {TrackId}  Modo: {Mode}");
+        AppLogger.Instance.Ai("Motor IA activado. Esperando datos de telemetría...");
+        AppLogger.Instance.Data("Canal de datos en tiempo real: ABIERTO");
         StartCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
     }
@@ -60,6 +69,9 @@ public partial class SessionsViewModel : ObservableObject
     {
         IsRunning = false;
         StatusText = "● READY";
+        AppLogger.Instance.Info("Sesión DETENIDA por el usuario.");
+        AppLogger.Instance.Ai("Motor IA pausado.");
+        AppLogger.Instance.Data("Canal de datos en tiempo real: CERRADO");
         StartCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
     }
@@ -70,23 +82,31 @@ public partial class SessionsViewModel : ObservableObject
     private void Apply()
     {
         StatusText = "● APPLYING...";
+        AppLogger.Instance.Ai("Calculando nueva iteración de setup...");
+        AppLogger.Instance.Data($"Aplicando iteración #{Iterations.Count} al simulador.");
     }
 
     [RelayCommand]
     private void ApplyProposal()
     {
         StatusText = "● PROPOSAL APPLIED";
+        AppLogger.Instance.Ai("Propuesta de IA aceptada y aplicada al setup activo.");
+        foreach (var p in LastProposals)
+            AppLogger.Instance.Data($"  Parámetro: {p.Parameter}  {p.From} → {p.To}  (Δ {p.Delta})");
     }
 
     [RelayCommand]
     private void Rollback()
     {
         StatusText = "● ROLLED BACK";
+        AppLogger.Instance.Warn("Rollback ejecutado — setup restaurado a la iteración anterior.");
     }
 
     [RelayCommand]
     private void Connect()
     {
         StatusText = "● CONNECTED";
+        AppLogger.Instance.Info("Conexión con el simulador establecida.");
+        AppLogger.Instance.Data($"Telemetría activa — Coche: {CarId}  Circuito: {TrackId}");
     }
 }

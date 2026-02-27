@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Windows.Graphics;
+using AvoPerformanceSetupAI.Services;
 
 namespace AvoPerformanceSetupAI;
 
@@ -11,6 +12,9 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         this.InitializeComponent();
+        AppLogger.Instance.Initialize(DispatcherQueue);
+        AppLogger.Instance.Info("AvoPerformanceSetupAI iniciado correctamente.");
+        AppLogger.Instance.Info("Motor de UI: WinUI 3 / Windows App SDK 1.5");
         SetupWindow();
     }
 

@@ -47,6 +47,10 @@
             <TabViewItem x:Name="TabControl" Header="Control" IsClosable="False">
                 <views:ControlPage />
             </TabViewItem>
+
+            <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
+                <views:TerminalPage />
+            </TabViewItem>
         </TabView>
     </Grid>
 </Window>
