@@ -325,12 +325,12 @@ public partial class TelemetryViewModel : ObservableObject
         var corners = CornerPhaseAnalyzer.Analyze(_acReader.Buffer, windowSeconds: 30.0);
         foreach (var cs in corners)
         {
-            if (cs.StartTimestamp <= _lastCornerTimestamp) continue;
+            if (cs.StartTime <= _lastCornerTimestamp) continue;
             foreach (var (tag, msg) in CornerPhaseAnalyzer.FormatLog(in cs))
                 Append(CornerLogs, tag, msg);
         }
         if (corners.Length > 0)
-            _lastCornerTimestamp = corners[^1].StartTimestamp;
+            _lastCornerTimestamp = corners[^1].StartTime;
     }
 
     private void UpdateChannels()
