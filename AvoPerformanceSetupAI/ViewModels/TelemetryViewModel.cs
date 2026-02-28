@@ -43,6 +43,32 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// <summary>Number of 800 ms ticks between corner-analysis runs (15 × 800 ms ≈ 12 s).</summary>
     private const int CornerAnalysisTickInterval  = 15;
 
+    // ── AC sanity-check state ────────────────────────────────────────────────
+
+    /// <summary>Wall-clock time when SpeedKmh first became 0 during a Live session; null when speed is non-zero.</summary>
+    private DateTime? _speedZeroSince;
+
+    /// <summary>
+    /// <see langword="true"/> after a "Telemetry stalled" warning has been logged for the
+    /// current stall episode, preventing duplicate entries until speed becomes non-zero again.
+    /// </summary>
+    private bool _stalledWarningFired;
+
+    /// <summary>Last RPM value seen during an AC live session; <see langword="null"/> before the first sample.</summary>
+    private int? _lastSanityRpm;
+
+    /// <summary>Last Gear value seen during an AC live session; <see langword="null"/> before the first sample.</summary>
+    private int? _lastSanityGear;
+
+    /// <summary>Wall-clock time when RPM/Gear first became static while speed was still changing.</summary>
+    private DateTime? _rpmGearFrozenSince;
+
+    /// <summary>
+    /// <see langword="true"/> after a "Partial data" warning has been logged for the
+    /// current frozen episode, preventing duplicate entries until RPM/Gear change again.
+    /// </summary>
+    private bool _partialDataWarningFired;
+
     // ── Observable state ─────────────────────────────────────────────────────
 
     [ObservableProperty] private bool   _isSimulating;
@@ -365,6 +391,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         IsSimulating = true;
         StatusText   = "● ACTIVO";
         _tick        = 0;
+        ResetAcSanityState();
 
         // Delegate source management to TelemetryService.
         // ConnectionChanged will update IsAcConnected + ConnectionStatusText asynchronously.
@@ -391,6 +418,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         IsAcConnected                = false;
         ConnectionStatusText         = "Simulation";
         ShowSwitchToSimulationPrompt = false;
+        ResetAcSanityState();
         CurrentPhase  = "—";
         AppLogger.Instance.Info("Telemetría pausada.");
         StartSimulationCommand.NotifyCanExecuteChanged();
@@ -639,10 +667,14 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         else
             CurrentPhase = "—";
 
-        // 2. Feed new samples into the corner detector (non-blocking)
+        // 2. AC sanity checks (stalled telemetry / partial data)
+        if (sample.AcStatus == (int)AcStatus.Live)
+            CheckAcSanity(in sample);
+
+        // 3. Feed new samples into the corner detector (non-blocking)
         _cornerDetector.Update(_telemetryService.Buffer);
 
-        // 3. Reflect the latest completed corner in the bindable properties
+        // 4. Reflect the latest completed corner in the bindable properties
         var latest = _cornerDetector.LatestCorner;
         if (latest.HasValue && latest.Value.CornerIndex != _lastReportedCornerIndex)
         {
@@ -657,7 +689,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
             LastCornerOversteerExit   = cs.ExitFrame.OversteerExit;
             LastCornerDurationText    = $"{cs.Duration.TotalSeconds:F1}s";
 
-            // 4. Phase-aware RuleEngine evaluation
+            // 5. Phase-aware RuleEngine evaluation
             UpdateProposalsFromCorner(in cs);
         }
     }
@@ -714,4 +746,83 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
 
     private static void Append(ObservableCollection<AnalysisEntry> col, (string Tag, string Msg) entry)
         => Append(col, entry.Tag, entry.Msg);
+
+    // ── AC sanity checks ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called every 50 ms when connected to AC in a Live session.
+    /// Detects two failure modes and logs a warning entry to
+    /// <see cref="BehaviorLogs"/> once per episode:
+    /// <list type="bullet">
+    ///   <item><b>Telemetry stalled</b> — SpeedKmh has been 0 for &gt;3 s.</item>
+    ///   <item><b>Partial data</b>  — RPM and Gear have not changed for &gt;5 s
+    ///   while SpeedKmh is varying.</item>
+    /// </list>
+    /// </summary>
+    private void CheckAcSanity(in TelemetrySample s)
+    {
+        var now = DateTime.UtcNow;
+
+        // ── Check 1: Stalled telemetry ────────────────────────────────────────
+        if (s.SpeedKmh < 0.5f)
+        {
+            // Speed is (effectively) zero
+            _speedZeroSince ??= now;
+            if (!_stalledWarningFired && (now - _speedZeroSince.Value).TotalSeconds > 3.0)
+            {
+                _stalledWarningFired = true;
+                Append(BehaviorLogs, "WARN", "Telemetry stalled — SpeedKmh = 0 for > 3 s while session is Live.");
+                AppLogger.Instance.Warn("AC sanity: telemetry stalled (SpeedKmh = 0 for > 3 s).");
+            }
+        }
+        else
+        {
+            // Speed is non-zero — reset stall tracking
+            _speedZeroSince      = null;
+            _stalledWarningFired = false;
+        }
+
+        // ── Check 2: Partial data (RPM/Gear frozen while speed changes) ───────
+        // On the very first sample we have no prior values — record and skip the timer.
+        if (_lastSanityRpm is null)
+        {
+            _lastSanityRpm  = s.Rpms;
+            _lastSanityGear = s.Gear;
+        }
+        else
+        {
+            bool rpmGearChanged = (s.Rpms != _lastSanityRpm.Value || s.Gear != _lastSanityGear!.Value);
+
+            if (rpmGearChanged)
+            {
+                // Data is updating — reset frozen tracking
+                _lastSanityRpm           = s.Rpms;
+                _lastSanityGear          = s.Gear;
+                _rpmGearFrozenSince      = null;
+                _partialDataWarningFired = false;
+            }
+            else if (s.SpeedKmh >= 0.5f)
+            {
+                // RPM/Gear are static but speed is changing → potential partial data
+                _rpmGearFrozenSince ??= now;
+                if (!_partialDataWarningFired && (now - _rpmGearFrozenSince.Value).TotalSeconds > 5.0)
+                {
+                    _partialDataWarningFired = true;
+                    Append(BehaviorLogs, "WARN", "Partial data — RPM/Gear have not changed for > 5 s while speed is varying.");
+                    AppLogger.Instance.Warn("AC sanity: partial data (RPM/Gear frozen for > 5 s while speed changes).");
+                }
+            }
+        }
+    }
+
+    /// <summary>Resets all AC sanity-check state (called on Stop or source switch).</summary>
+    private void ResetAcSanityState()
+    {
+        _speedZeroSince          = null;
+        _stalledWarningFired     = false;
+        _lastSanityRpm           = null;
+        _lastSanityGear          = null;
+        _rpmGearFrozenSince      = null;
+        _partialDataWarningFired = false;
+    }
 }
