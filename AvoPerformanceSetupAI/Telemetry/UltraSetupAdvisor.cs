@@ -200,6 +200,14 @@ public static class UltraSetupAdvisor
     /// When supplied, risk penalties, stability preference, brake-bias sensitivity,
     /// and rear-rotation weighting are adjusted to match the driver's style.
     /// </param>
+    /// <param name="rlEngine">
+    /// Optional <see cref="RLPolicyEngine"/> instance.
+    /// When non-<see langword="null"/> and <see cref="RLPolicyEngine.IsEnabled"/> is
+    /// <see langword="true"/>, the final score for each candidate is blended:
+    /// <c>FinalScore = <see cref="RLPolicyEngine.MlWeight"/> × mlScore
+    ///              + <see cref="RLPolicyEngine.RlWeight"/> × Q(state, action)</c>.
+    /// Use <see cref="NotifyAbTestResult"/> to keep the engine updated.
+    /// </param>
     public static AdvisedProposal[] Advise(
         in FeatureFrame             frame,
         ReadOnlySpan<CornerSummary> corners,
@@ -207,7 +215,8 @@ public static class UltraSetupAdvisor
         in RootCauseResult          rootCause,
         CarTrackProfile?            profile       = null,
         ImpactPredictor?            predictor     = null,
-        DriverProfile?              driverProfile = null)
+        DriverProfile?              driverProfile = null,
+        RLPolicyEngine?             rlEngine      = null)
     {
         // ── Step 1: generate candidates from RuleEngine ───────────────────────
         var rawProposals = profile != null
@@ -232,6 +241,11 @@ public static class UltraSetupAdvisor
         ImpactTrainingSample? sampleTemplate = useML
             ? BuildSampleTemplate(in frame, scores)
             : null;
+
+        // Precompute RL state once for all candidates (null when RL is disabled or not provided)
+        RLState? rlState = (rlEngine != null && RLPolicyEngine.IsEnabled)
+            ? RLPolicyEngine.BuildState(in frame, scores, driverProfile)
+            : (RLState?)null;
 
         // ── Step 4: score each candidate ──────────────────────────────────────
         var advised = new List<AdvisedProposal>(gated.Length);
@@ -266,6 +280,19 @@ public static class UltraSetupAdvisor
             else
             {
                 scoreDelta = ComputeHeuristicScoreDelta(balDelta, tracDelta, brkDelta, scores);
+            }
+
+            // ── RL blend (60 % ML/heuristic + 40 % Q-value) ─────────────────────
+            // Blending happens here — before the driver-profile adjustments and
+            // risk penalties below — so those subsequent multipliers are applied
+            // to the already-blended score rather than to the raw ML score alone.
+            if (rlState.HasValue)
+            {
+                var rlAction   = RLPolicyEngine.ActionFromProposal(p);
+                var stateValue = rlState.Value;   // local copy required for 'in' parameter
+                float qValue   = rlEngine!.GetQValue(in stateValue, in rlAction);
+                scoreDelta     = RLPolicyEngine.MlWeight * scoreDelta
+                               + RLPolicyEngine.RlWeight  * qValue;
             }
 
             // Penalize high-risk changes (applied regardless of scoring path)
@@ -432,6 +459,45 @@ public static class UltraSetupAdvisor
             if (brkDelta  > 0 && scores.BrakeScore     < 60f) scoreDelta *= 1.2f;
         }
         return scoreDelta;
+    }
+
+    /// <summary>
+    /// Updates the RL policy engine's Q-table after a completed A/B test.
+    /// Call this once per <see cref="AbTestResult"/> when
+    /// <see cref="RLPolicyEngine.IsEnabled"/> is <see langword="true"/>.
+    /// </summary>
+    /// <param name="frame">
+    /// The <see cref="FeatureFrame"/> that was current when <see cref="Advise"/> was called
+    /// for the proposal under test (i.e. the state at action-selection time).
+    /// </param>
+    /// <param name="scores">Driving scores at the time the proposal was selected.</param>
+    /// <param name="driverProfile">Driver profile at action-selection time (may be <see langword="null"/>).</param>
+    /// <param name="testedProposal">The proposal that was A/B tested.</param>
+    /// <param name="result">Completed A/B test result.</param>
+    /// <param name="risk">Risk level of the tested proposal.</param>
+    /// <param name="rlEngine">The engine to update.</param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="testedProposal"/>, <paramref name="result"/>, or
+    /// <paramref name="rlEngine"/> is <see langword="null"/>.
+    /// </exception>
+    public static void NotifyAbTestResult(
+        in FeatureFrame  frame,
+        DrivingScores?   scores,
+        DriverProfile?   driverProfile,
+        Proposal         testedProposal,
+        AbTestResult     result,
+        RiskLevel        risk,
+        RLPolicyEngine   rlEngine)
+    {
+        if (testedProposal is null) throw new ArgumentNullException(nameof(testedProposal));
+        if (result         is null) throw new ArgumentNullException(nameof(result));
+        if (rlEngine       is null) throw new ArgumentNullException(nameof(rlEngine));
+
+        var state  = RLPolicyEngine.BuildState(in frame, scores, driverProfile);
+        var action = RLPolicyEngine.ActionFromProposal(testedProposal);
+        float reward = rlEngine.ComputeReward(
+            result, risk, driverProfile?.ConsistencyIndex ?? 1f);
+        rlEngine.UpdateQ(in state, in action, reward);
     }
 
     /// <summary>
