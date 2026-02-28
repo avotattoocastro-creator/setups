@@ -31,9 +31,54 @@
             <converters:ScaleThicknessConverter  x:Key="ScaleTh"/>
             <converters:ScaleCornerRadiusConverter x:Key="ScaleCr"/>
 
+            <!-- Teal accent palette -->
+            <Color x:Key="TealColor">#FF00B4B4</Color>
+            <Color x:Key="TealDark">#FF007A7A</Color>
+
             <!-- Card background -->
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF1E2A2A" />
             <SolidColorBrush x:Key="CardBorderBrush" Color="#FF2E4040" />
+            <SolidColorBrush x:Key="TealBrush" Color="#FF00B4B4" />
+            <SolidColorBrush x:Key="TealDarkBrush" Color="#FF007A7A" />
+
+            <!-- Run button style -->
+            <Style x:Key="RunButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="#FF00B4B4" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Height" Value="56" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+            </Style>
+
+            <!-- Accent button style -->
+            <Style x:Key="AccentActionButton" TargetType="Button">
+                <Setter Property="Background" Value="#FF00B4B4" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Padding" Value="12,6" />
+            </Style>
+
+            <!-- Secondary button style -->
+            <Style x:Key="SecondaryActionButton" TargetType="Button">
+                <Setter Property="Background" Value="#FF2A3A3A" />
+                <Setter Property="Foreground" Value="#FFB0C8C8" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Padding" Value="12,6" />
+            </Style>
+
+            <!-- Filter pill button style -->
+            <Style x:Key="FilterPillStyle" TargetType="Button">
+                <Setter Property="Background" Value="#FF1E2A2A" />
+                <Setter Property="Foreground" Value="#FF8AABAB" />
+                <Setter Property="BorderBrush" Value="#FF2E4040" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="10,3" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontFamily" Value="Consolas" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
