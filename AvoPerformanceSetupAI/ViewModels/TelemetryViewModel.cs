@@ -88,18 +88,27 @@ public partial class TelemetryViewModel : ObservableObject
         ("SECTOR 3",  "S3: +0.08 s — salida de última chicane subóptima"),
     ];
 
-    private static readonly (string Tag, string Msg)[] SetupMsgs =
+    // ── Structured setup steps — each carries the log text and an optional proposal ────
+
+    private static readonly (string Tag, string Msg, Proposal? Proposal)[] SetupSteps =
     [
-        ("PASO 1",   "Reducir P_F 1.85 → 1.80 bar para mejorar grip frontal"),
-        ("PASO 2",   "Ajustar camber delantero -0.2° para equilibrar desgaste"),
-        ("PASO 3",   "Aumentar ARB trasero 1 click para reducir sobreviraje"),
-        ("PROPUESTA","Propuesta #3 lista — delta estimado: −0.18 s/vuelta"),
-        ("PASO 4",   "Reducir spoiler delantero 2 mm — mayor velocidad punta"),
-        ("VERIFICAR","Comprobar temperatura neumáticos tras aplicar setup"),
-        ("PASO 5",   "Incrementar bump trasero 1 click — mejora estabilidad"),
-        ("ÓPTIMO",   "Setup óptimo estimado para condición actual: pista seca"),
-        ("PASO 6",   "Ajustar diff aceleración +2 para mejor tracción en salidas"),
-        ("PROPUESTA","Propuesta #4 — reducir ride height trasero 2 mm"),
+        ("PASO 1",    "Reducir P_F 1.85 → 1.80 bar para mejorar grip frontal",
+            new Proposal { Section="TYRES",       Parameter="PRESSURE_LF",    From="1.85", To="1.80", Delta="-0.05" }),
+        ("PASO 2",    "Ajustar camber delantero −0.2° para equilibrar desgaste",
+            new Proposal { Section="ALIGNMENT",   Parameter="CAMBER_LF",      From="-2.8", To="-3.0", Delta="-0.2"  }),
+        ("PASO 3",    "Aumentar ARB trasero 1 click para reducir sobreviraje",
+            new Proposal { Section="ARB",         Parameter="REAR",           From="3",    To="4",    Delta="+1"    }),
+        ("PROPUESTA", "Propuesta #3 lista — delta estimado: −0.18 s/vuelta",          null),
+        ("PASO 4",    "Reducir spoiler delantero 2 mm — mayor velocidad punta",
+            new Proposal { Section="AERO",        Parameter="FRONT_WING",     From="8",    To="6",    Delta="-2"    }),
+        ("VERIFICAR", "Comprobar temperatura neumáticos tras aplicar setup",           null),
+        ("PASO 5",    "Incrementar bump trasero 1 click — mejora estabilidad",
+            new Proposal { Section="DAMPERS",     Parameter="BUMP_REAR",      From="4",    To="5",    Delta="+1"    }),
+        ("ÓPTIMO",    "Setup óptimo estimado para condición actual: pista seca",       null),
+        ("PASO 6",    "Ajustar diff aceleración +2 para mejor tracción en salidas",
+            new Proposal { Section="ELECTRONICS", Parameter="DIFF_ACC",       From="50",   To="52",   Delta="+2"    }),
+        ("PROPUESTA", "Propuesta #4 — reducir ride height trasero 2 mm",
+            new Proposal { Section="SUSPENSION",  Parameter="ROD_LENGTH_RR",  From="10",   To="8",    Delta="-2"    }),
     ];
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -185,7 +194,13 @@ public partial class TelemetryViewModel : ObservableObject
             if (t % 4  == 0) UpdateLapTime();
             if (t % 5  == 0) Append(BehaviorLogs, BehaviorMsgs[(t / 5)  % BehaviorMsgs.Length]);
             if (t % 7  == 0) Append(DrivingLogs,  DrivingMsgs [(t / 7)  % DrivingMsgs.Length]);
-            if (t % 11 == 0) Append(SetupLogs,    SetupMsgs   [(t / 11) % SetupMsgs.Length]);
+            if (t % 11 == 0)
+            {
+                var step = SetupSteps[(t / 11) % SetupSteps.Length];
+                Append(SetupLogs, step.Tag, step.Msg);
+                if (step.Proposal is not null)
+                    SessionsViewModel.Shared.PushTelemetryProposal(step.Proposal);
+            }
         });
     }
 
