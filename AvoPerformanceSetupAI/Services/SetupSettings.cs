@@ -14,6 +14,8 @@ public sealed partial class SetupSettings : ObservableObject
     private const string KeyRootFolder   = "RootFolder";
     private const string KeyOutputFolder = "OutputFolder";
 
+    private readonly bool _hasPackageIdentity;
+
     public static SetupSettings Instance { get; } = new SetupSettings();
 
     [ObservableProperty]
@@ -24,16 +26,38 @@ public sealed partial class SetupSettings : ObservableObject
 
     private SetupSettings()
     {
-        var local = ApplicationData.Current.LocalSettings;
-        // Assign backing fields directly to avoid writing the loaded values back to
-        // LocalSettings (which would happen if we used the property setters).
-        _rootFolder   = local.Values[KeyRootFolder]   as string ?? string.Empty;
-        _outputFolder = local.Values[KeyOutputFolder] as string ?? string.Empty;
+        try
+        {
+            var local = ApplicationData.Current.LocalSettings;
+            _hasPackageIdentity = true;
+
+            // Assign backing fields directly to avoid writing the loaded values back to
+            // LocalSettings (which would happen if we used the property setters).
+            _rootFolder   = local.Values[KeyRootFolder]   as string ?? string.Empty;
+            _outputFolder = local.Values[KeyOutputFolder] as string ?? string.Empty;
+        }
+        catch (InvalidOperationException)
+        {
+            // Happens when running unpackaged (no package identity). Keep defaults and disable persistence.
+            _hasPackageIdentity = false;
+            _rootFolder = string.Empty;
+            _outputFolder = string.Empty;
+        }
     }
 
-    partial void OnRootFolderChanged(string value) =>
-        ApplicationData.Current.LocalSettings.Values[KeyRootFolder] = value;
+    partial void OnRootFolderChanged(string value)
+    {
+        if (_hasPackageIdentity)
+        {
+            ApplicationData.Current.LocalSettings.Values[KeyRootFolder] = value;
+        }
+    }
 
-    partial void OnOutputFolderChanged(string value) =>
-        ApplicationData.Current.LocalSettings.Values[KeyOutputFolder] = value;
+    partial void OnOutputFolderChanged(string value)
+    {
+        if (_hasPackageIdentity)
+        {
+            ApplicationData.Current.LocalSettings.Values[KeyOutputFolder] = value;
+        }
+    }
 }
