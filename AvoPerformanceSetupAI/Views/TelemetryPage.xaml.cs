@@ -30,6 +30,21 @@ public sealed partial class TelemetryPage : Page
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low,
             () => sv.ChangeView(null, sv.ScrollableHeight, null));
 
+    // ── Test Combo click handler ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Called when the "Test Combo" button inside a <see cref="CombinedProposal"/>
+    /// row is clicked. The combo is stored in <c>Button.Tag</c> so we can pass it
+    /// to <see cref="TelemetryViewModel.TestComboCommand"/> without a complex
+    /// nested binding.
+    /// </summary>
+    private void OnTestComboClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Microsoft.UI.Xaml.Controls.Button btn &&
+            btn.Tag is AvoPerformanceSetupAI.Telemetry.CombinedProposal combo)
+            ViewModel.TestComboCommand.Execute(combo);
+    }
+
     // ── CSV import ────────────────────────────────────────────────────────────
 
     /// <summary>

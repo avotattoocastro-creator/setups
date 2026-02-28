@@ -125,7 +125,9 @@ file static class SimulationImpactEstimator
 ///   <item>Scores each candidate with <c>SimulationImpactEstimator</c>.</item>
 ///   <item>Applies discriminator gating via <see cref="DriverVsSetupDiscriminator.ApplyGate"/>.</item>
 ///   <item>Returns the top <see cref="MaxTopProposals"/> <see cref="AdvisedProposal"/>
-///     objects sorted by <see cref="AdvisedProposal.EstimatedLapDeltaSec"/> descending.</item>
+///     objects sorted by <see cref="AdvisedProposal.EstimatedLapDeltaSec"/> descending,
+///     or delegates to <see cref="MultiParameterOptimizer"/> when
+///     <see cref="EnableMultiParameterOptimization"/> is <see langword="true"/>.</item>
 /// </list>
 /// </summary>
 /// <remarks>
@@ -146,6 +148,31 @@ public static class UltraSetupAdvisor
 
     /// <summary>Maximum number of candidates generated before scoring.</summary>
     public const int MaxCandidates = 15;
+
+    /// <summary>
+    /// Minimum number of training samples required before multi-parameter
+    /// optimization is allowed. Below this threshold
+    /// <see cref="EnableMultiParameterOptimization"/> is automatically treated
+    /// as <see langword="false"/> to avoid combining unreliable predictions.
+    /// </summary>
+    public const int MinSamplesForMultiOptimize = 20;
+
+    // ── Mode flag ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When <see langword="true"/> and the ML model is loaded with at least
+    /// <see cref="MinSamplesForMultiOptimize"/> training samples, <see cref="Advise"/>
+    /// delegates ranking to <see cref="MultiParameterOptimizer"/> and returns
+    /// <see cref="CombinedProposal"/> instances wrapped as
+    /// <see cref="AdvisedProposal"/> objects (one per combination).
+    /// Falls back to single-change mode automatically when:
+    /// <list type="bullet">
+    ///   <item>The ML model is not loaded.</item>
+    ///   <item>The local training dataset has fewer than
+    ///     <see cref="MinSamplesForMultiOptimize"/> samples.</item>
+    /// </list>
+    /// </summary>
+    public static bool EnableMultiParameterOptimization { get; set; }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -253,7 +280,44 @@ public static class UltraSetupAdvisor
             });
         }
 
-        // ── Step 5: sort by estimated score delta descending, cap at MaxTopProposals ──
+        // ── Step 5: multi-parameter optimization (optional) ──────────────────
+        // Requirements: flag on, model loaded, sufficient training samples.
+        bool mlReady          = predictor?.IsModelLoaded == true;
+        bool datasetSufficient = ImpactModelTrainer.DatasetSampleCount >= MinSamplesForMultiOptimize;
+
+        if (EnableMultiParameterOptimization && mlReady && datasetSufficient)
+        {
+            var combos = MultiParameterOptimizer.Optimize(
+                [.. advised], in frame, scores, predictor);
+
+            if (combos.Length > 0)
+            {
+                // Wrap each CombinedProposal as an AdvisedProposal so the return
+                // type is unchanged and callers need no special handling.
+                // The Section/Parameter/Delta fields reflect the first change;
+                // the Reason encodes both changes for display.
+                var multiAdvised = new List<AdvisedProposal>(combos.Length);
+                foreach (var combo in combos)
+                {
+                    multiAdvised.Add(new AdvisedProposal
+                    {
+                        Section              = combo.Changes[0].Section,
+                        Parameter            = combo.Changes[0].Parameter,
+                        Delta                = combo.Changes[0].Delta,
+                        Reason               = combo.ChangesDisplay,
+                        Confidence           = combo.Changes[0].Confidence,
+                        EstimatedLapDeltaSec = combo.EstimatedLapDelta,
+                        EstimatedScoreDelta  = Math.Clamp(combo.CombinedScoreDelta, -30f, 30f),
+                        RiskLevel            = combo.RiskLevel,
+                        ScoredByMlModel      = combo.ScoredByMlModel,
+                    });
+                }
+                return [.. multiAdvised];
+            }
+            // Fall through to single-change results if combos is empty
+        }
+
+        // ── Step 6: sort by estimated score delta descending, cap at MaxTopProposals ──
         // When ML scores are in use we rank by ML-predicted score delta for accuracy;
         // otherwise fall back to lap delta (heuristic) as before.
         if (useML)
@@ -353,6 +417,15 @@ public static class UltraSetupAdvisor
         }
         return scoreDelta;
     }
+
+    /// <summary>
+    /// Internal façade over <c>SimulationImpactEstimator</c> so that other
+    /// types in the same assembly (e.g. <see cref="TelemetryViewModel"/>) can
+    /// obtain heuristic impact estimates without duplicating the impact table.
+    /// </summary>
+    internal static (float balance, float traction, float brake, float lapDelta, RiskLevel risk)
+        HeuristicEstimate(string section, string parameter, float featureIndex)
+        => SimulationImpactEstimator.Estimate(section, parameter, featureIndex);
 
     // ── Corner enrichment ─────────────────────────────────────────────────────
 

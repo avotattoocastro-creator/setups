@@ -95,6 +95,15 @@ public static class ImpactModelTrainer
     /// </summary>
     public static int SkippedMalformedLines { get; private set; }
 
+    /// <summary>
+    /// Current number of valid samples in the local dataset file.
+    /// Refreshed each time <see cref="AppendSample"/> or
+    /// <see cref="RetrainIfReady"/> is called.
+    /// Exposed so <see cref="UltraSetupAdvisor"/> can gate multi-parameter
+    /// optimization on dataset size without a separate file scan.
+    /// </summary>
+    public static int DatasetSampleCount { get; private set; }
+
     // ── Section / parameter encoding ─────────────────────────────────────────
 
     /// <summary>Maps section strings to integer codes (1-based).</summary>
@@ -192,6 +201,7 @@ public static class ImpactModelTrainer
         };
 
         Persist(sample);
+        DatasetSampleCount++;
         return sample;
     }
 
@@ -320,6 +330,7 @@ public static class ImpactModelTrainer
     /// <summary>
     /// Counts the number of non-empty lines in the dataset file without fully
     /// deserialising. O(n) file scan but avoids JSON parsing overhead.
+    /// Also updates <see cref="DatasetSampleCount"/>.
     /// </summary>
     private static int CountSamples()
     {
@@ -330,6 +341,7 @@ public static class ImpactModelTrainer
             foreach (var line in File.ReadLines(_datasetPath))
                 if (!string.IsNullOrWhiteSpace(line)) count++;
         }
+        DatasetSampleCount = count;
         return count;
     }
 

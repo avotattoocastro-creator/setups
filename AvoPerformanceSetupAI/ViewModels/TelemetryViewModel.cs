@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using AvoPerformanceSetupAI.ML;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Reference;
 using AvoPerformanceSetupAI.Reference.Import;
@@ -242,6 +243,94 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// </summary>
     public ObservableCollection<Proposal> Proposals { get; } = new();
 
+    // ── Multi-parameter optimization ──────────────────────────────────────────
+
+    /// <summary>
+    /// When <see langword="true"/> the proposals panel shows 2-change combinations
+    /// scored by <see cref="MultiParameterOptimizer"/> instead of single changes.
+    /// Toggled by the "Multi-Optimize" button in the UI.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isMultiOptimizeMode;
+
+    partial void OnIsMultiOptimizeModeChanged(bool value)
+    {
+        UltraSetupAdvisor.EnableMultiParameterOptimization = value;
+        OnPropertyChanged(nameof(IsSingleMode));
+        OnPropertyChanged(nameof(IsMultiMode));
+        OnPropertyChanged(nameof(IsMultiEmptyState));
+    }
+
+    /// <summary>Convenience inverse of <see cref="IsMultiOptimizeMode"/> for ToggleButton binding.</summary>
+    public bool IsSingleMode
+    {
+        get => !IsMultiOptimizeMode;
+        set { if (value) IsMultiOptimizeMode = false; }
+    }
+
+    /// <summary>Convenience alias of <see cref="IsMultiOptimizeMode"/> for ToggleButton binding.</summary>
+    public bool IsMultiMode
+    {
+        get => IsMultiOptimizeMode;
+        set { if (value) IsMultiOptimizeMode = true; }
+    }
+
+    /// <summary>
+    /// Combination proposals produced by <see cref="MultiParameterOptimizer"/> for
+    /// display when <see cref="IsMultiOptimizeMode"/> is <see langword="true"/>.
+    /// </summary>
+    public ObservableCollection<CombinedProposal> CombinedProposals { get; } = new();
+
+    /// <summary>
+    /// <see langword="true"/> when multi-optimize mode is active but no combinations
+    /// have been generated yet (used to show the empty-state hint in the UI).
+    /// </summary>
+    public bool IsMultiEmptyState => IsMultiOptimizeMode && CombinedProposals.Count == 0;
+
+    /// <summary>
+    /// The currently selected <see cref="CombinedProposal"/> in the multi-optimize
+    /// list (null when nothing is selected).
+    /// </summary>
+    [ObservableProperty]
+    private CombinedProposal? _selectedCombinedProposal;
+
+    /// <summary>
+    /// Executes a "Test Combo" action for the supplied
+    /// <see cref="CombinedProposal"/>: logs both changes to <see cref="SetupLogs"/>
+    /// and pushes the first change as a telemetry proposal for downstream tracking.
+    /// </summary>
+    [RelayCommand]
+    private void TestCombo(CombinedProposal? combo)
+    {
+        if (combo is null) return;
+
+        foreach (var change in combo.Changes)
+        {
+            Append(SetupLogs, "COMBO",
+                $"{change.Section}:{change.Parameter} {change.Delta}  " +
+                $"Δscore≈{change.EstimatedScoreDelta:+0.0;-0.0}  [{change.RiskLevel}]");
+        }
+
+        Append(SetupLogs, "COMBO",
+            $"Combined Δscore≈{combo.CombinedScoreDelta:+0.0;-0.0}  " +
+            $"Δlap≈{combo.EstimatedLapDelta:+0.00;-0.00}s  Risk:{combo.RiskLevel}" +
+            (combo.ScoredByMlModel ? "  [ML]" : "  [heuristic]"));
+
+        // Push first change as a trackable proposal
+        if (combo.Changes.Length > 0)
+        {
+            var first = combo.Changes[0];
+            SessionsViewModel.Shared.PushTelemetryProposal(new Proposal
+            {
+                Section    = first.Section,
+                Parameter  = first.Parameter,
+                Delta      = first.Delta,
+                Reason     = combo.ChangesDisplay,
+                Confidence = first.Confidence,
+            });
+        }
+    }
+
     /// <summary>Car-behaviour analysis log.</summary>
     public ObservableCollection<AnalysisEntry>    BehaviorLogs { get; } = new();
 
@@ -402,6 +491,9 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         Append(SetupLogs,    "INFO",    "Los pasos de mejora se generarán automáticamente.");
         Append(CornerLogs,   "INICIO",  "Analizador de fases de curva activo.");
         Append(CornerLogs,   "INFO",    "Los resúmenes de curva aparecerán al conectar Assetto Corsa.");
+
+        // Keep IsMultiEmptyState in sync whenever CombinedProposals changes
+        CombinedProposals.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsMultiEmptyState));
     }
 
     /// <summary>
@@ -1038,6 +1130,45 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
 
         if (Proposals.Count > 0)
             SessionsViewModel.Shared.PushTelemetryProposals([.. Proposals]);
+
+        // ── Refresh CombinedProposals when multi-optimize mode is active ──────
+        if (IsMultiOptimizeMode && Proposals.Count >= MultiParameterOptimizer.MinCandidatesForCombo)
+        {
+            // Build a minimal AdvisedProposal pool from the current Proposals list
+            // (no ML predictor available here — use heuristic scoring only).
+            var advisedPool = Proposals
+                .Take(MultiParameterOptimizer.MaxCandidatePool)
+                .Select(p =>
+                {
+                    var (bal, trac, brk, lap, risk) =
+                        UltraSetupAdvisor.HeuristicEstimate(p.Section, p.Parameter, p.Confidence);
+                    float score = bal * 0.35f + trac * 0.25f + brk * 0.20f;
+                    return new AdvisedProposal
+                    {
+                        Section              = p.Section,
+                        Parameter            = p.Parameter,
+                        Delta                = p.Delta,
+                        Reason               = p.Reason,
+                        Confidence           = p.Confidence,
+                        EstimatedLapDeltaSec = lap,
+                        EstimatedScoreDelta  = Math.Clamp(score, 0f, 30f),
+                        RiskLevel            = risk,
+                        ScoredByMlModel      = false,
+                    };
+                })
+                .ToArray();
+
+            var combos = MultiParameterOptimizer.Optimize(
+                advisedPool, default, null, null);
+
+            CombinedProposals.Clear();
+            foreach (var c in combos)
+                CombinedProposals.Add(c);
+        }
+        else if (!IsMultiOptimizeMode)
+        {
+            CombinedProposals.Clear();
+        }
     }
 
     private static void Append(ObservableCollection<AnalysisEntry> col, string tag, string msg)
