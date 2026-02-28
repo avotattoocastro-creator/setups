@@ -1,3 +1,4 @@
+using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -15,6 +16,10 @@ public sealed partial class ConfiguracionPage : Page
         FolderPathBox.Text = SetupSettings.Instance.RootFolder;
         OutputFolderPathBox.Text = SetupSettings.Instance.OutputFolder;
 
+        // Initialise AI level selector
+        AiLevelComboBox.SelectedIndex = Math.Clamp(SetupSettings.Instance.AiLevel,
+            SetupSettings.MinAiLevel, SetupSettings.MaxAiLevel) - 1;
+
         // Keep the textboxes in sync if the settings change from elsewhere
         SetupSettings.Instance.PropertyChanged += (_, e) =>
         {
@@ -22,6 +27,9 @@ public sealed partial class ConfiguracionPage : Page
                 FolderPathBox.Text = SetupSettings.Instance.RootFolder;
             else if (e.PropertyName == nameof(SetupSettings.OutputFolder))
                 OutputFolderPathBox.Text = SetupSettings.Instance.OutputFolder;
+            else if (e.PropertyName == nameof(SetupSettings.AiLevel))
+                AiLevelComboBox.SelectedIndex = Math.Clamp(SetupSettings.Instance.AiLevel,
+                    SetupSettings.MinAiLevel, SetupSettings.MaxAiLevel) - 1;
         };
     }
 
@@ -67,6 +75,16 @@ public sealed partial class ConfiguracionPage : Page
         else
         {
             AppLogger.Instance.Info("Selección de carpeta de destino cancelada por el usuario.");
+        }
+    }
+
+    private void AiLevelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var newLevel = AiLevelComboBox.SelectedIndex + 1;
+        if (newLevel != SetupSettings.Instance.AiLevel)
+        {
+            SetupSettings.Instance.AiLevel = newLevel;
+            AppLogger.Instance.Ai($"Nivel de IA de conducción cambiado a {newLevel}.");
         }
     }
 }

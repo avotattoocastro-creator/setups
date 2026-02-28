@@ -73,6 +73,26 @@
                 </StackPanel>
             </Border>
 
+            <!-- AI Driving Analysis Level -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Nivel de IA — Análisis de Conducción" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Determina la profundidad del análisis que realiza la IA sobre el estilo de conducción y el comportamiento del coche para sugerir cambios en el setup. Un nivel mayor examina más parámetros."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <ComboBox x:Name="AiLevelComboBox"
+                              Width="240"
+                              SelectionChanged="AiLevelComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Nivel 1: Básico"/>
+                        <ComboBoxItem Content="Nivel 2: Estándar"/>
+                        <ComboBoxItem Content="Nivel 3: Avanzado"/>
+                        <ComboBoxItem Content="Nivel 4: Experto"/>
+                        <ComboBoxItem Content="Nivel 5: Profesional"/>
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
             <!-- Language Selector -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
