@@ -597,6 +597,31 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- ── Driving mode toggle: [Sprint] [Endurance] ── -->
+                        <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,0,4">
+                            <TextBlock Text="MODE"
+                                       FontFamily="Consolas" FontSize="9"
+                                       Foreground="#FF607878"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,6,0"/>
+                            <ToggleButton Content="Sprint"
+                                          FontFamily="Consolas" FontSize="9"
+                                          Padding="10,2"
+                                          IsChecked="{x:Bind ViewModel.IsSprintMode, Mode=TwoWay}"
+                                          Background="#FF0F2828"
+                                          Foreground="#FFFFA040"
+                                          BorderBrush="#FF2E4040"
+                                          CornerRadius="3,0,0,3"/>
+                            <ToggleButton Content="Endurance"
+                                          FontFamily="Consolas" FontSize="9"
+                                          Padding="10,2"
+                                          IsChecked="{x:Bind ViewModel.IsEnduranceMode, Mode=TwoWay}"
+                                          Background="#FF0F2828"
+                                          Foreground="#FF80E040"
+                                          BorderBrush="#FF2E4040"
+                                          CornerRadius="0,3,3,0"/>
+                        </StackPanel>
+
                         <!-- ── Single-change proposals list ── -->
                         <ListView ItemsSource="{x:Bind ViewModel.Proposals}"
                                   SelectionMode="None" IsItemClickEnabled="False"

@@ -275,6 +275,44 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         set { if (value) IsMultiOptimizeMode = true; }
     }
 
+    // ── Driving mode (Sprint / Endurance) ────────────────────────────────────
+
+    /// <summary>
+    /// Active driving session mode.  Changes the score weights used by
+    /// <see cref="UltraSetupAdvisor"/> and the virtual-simulator lap weighting.
+    /// </summary>
+    [ObservableProperty]
+    private DrivingMode _currentDrivingMode = DrivingMode.Endurance;
+
+    partial void OnCurrentDrivingModeChanged(DrivingMode value)
+    {
+        UltraSetupAdvisor.CurrentMode = value;
+        OnPropertyChanged(nameof(IsSprintMode));
+        OnPropertyChanged(nameof(IsEnduranceMode));
+    }
+
+    /// <summary>
+    /// Convenience bool for the Sprint toggle button binding:
+    /// <see langword="true"/> when <see cref="CurrentDrivingMode"/> is
+    /// <see cref="DrivingMode.Sprint"/>.
+    /// </summary>
+    public bool IsSprintMode
+    {
+        get => CurrentDrivingMode == DrivingMode.Sprint;
+        set { if (value) CurrentDrivingMode = DrivingMode.Sprint; }
+    }
+
+    /// <summary>
+    /// Convenience bool for the Endurance toggle button binding:
+    /// <see langword="true"/> when <see cref="CurrentDrivingMode"/> is
+    /// <see cref="DrivingMode.Endurance"/>.
+    /// </summary>
+    public bool IsEnduranceMode
+    {
+        get => CurrentDrivingMode == DrivingMode.Endurance;
+        set { if (value) CurrentDrivingMode = DrivingMode.Endurance; }
+    }
+
     /// <summary>
     /// Combination proposals produced by <see cref="MultiParameterOptimizer"/> for
     /// display when <see cref="IsMultiOptimizeMode"/> is <see langword="true"/>.
