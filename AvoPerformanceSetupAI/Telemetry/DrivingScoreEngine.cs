@@ -179,4 +179,39 @@ public static class DrivingScoreEngine
     }
 
     private static float Clamp(float v) => Math.Clamp(v, 0f, 100f);
+
+    /// <summary>
+    /// Re-computes the <see cref="DrivingScores.OverallScore"/> from the
+    /// pre-computed sub-scores using the weight set defined by
+    /// <paramref name="mode"/>.
+    /// </summary>
+    /// <remarks>
+    /// Weights by mode:
+    /// <list type="table">
+    ///   <listheader><term>Mode</term><term>Balance</term><term>Traction</term><term>Brake</term><term>Stability</term></listheader>
+    ///   <item><term>Sprint</term>    <term>35 %</term><term>30 %</term><term>20 %</term><term>15 %</term></item>
+    ///   <item><term>Endurance</term> <term>25 %</term><term>25 %</term><term>15 %</term><term>35 %</term></item>
+    /// </list>
+    /// The default (no-mode) weights match those used by <see cref="Compute(in FeatureFrame)"/>.
+    /// </remarks>
+    public static float ComputeOverallScore(DrivingScores scores, DrivingMode mode)
+    {
+        if (scores is null) throw new ArgumentNullException(nameof(scores));
+
+        return mode switch
+        {
+            DrivingMode.Sprint    => Clamp(0.35f * scores.BalanceScore
+                                         + 0.30f * scores.TractionScore
+                                         + 0.20f * scores.BrakeScore
+                                         + 0.15f * scores.StabilityScore),
+
+            DrivingMode.Endurance => Clamp(0.25f * scores.BalanceScore
+                                         + 0.25f * scores.TractionScore
+                                         + 0.15f * scores.BrakeScore
+                                         + 0.35f * scores.StabilityScore),
+
+            // Default weights (same as Compute) — returned for any future mode values.
+            _                     => scores.OverallScore,
+        };
+    }
 }

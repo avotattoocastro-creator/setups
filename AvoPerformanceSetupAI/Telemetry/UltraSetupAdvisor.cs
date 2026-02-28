@@ -69,6 +69,15 @@ public sealed class AdvisedProposal
     /// it came from the heuristic <c>SimulationImpactEstimator</c>.
     /// </summary>
     public bool ScoredByMlModel { get; init; }
+
+    /// <summary>
+    /// 3-lap performance projection computed by <see cref="VirtualLapSimulator"/>,
+    /// or <see langword="null"/> when the simulator was not run for this proposal.
+    /// Populated by <see cref="UltraSetupAdvisor.Advise"/> for the top
+    /// <see cref="UltraSetupAdvisor.MaxTopProposals"/> candidates when a
+    /// <see cref="VirtualLapSimulator"/> instance is supplied.
+    /// </summary>
+    public VirtualSimulationResult? VirtualSimulation { get; set; }
 }
 
 // ── SimulationImpactEstimator (private heuristic) ────────────────────────────
@@ -174,6 +183,13 @@ public static class UltraSetupAdvisor
     /// </summary>
     public static bool EnableMultiParameterOptimization { get; set; }
 
+    /// <summary>
+    /// Active driving session mode that governs heuristic score weights and
+    /// virtual-simulator lap weighting.
+    /// Defaults to <see cref="DrivingMode.Endurance"/>.
+    /// </summary>
+    public static DrivingMode CurrentMode { get; set; } = DrivingMode.Endurance;
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -208,6 +224,17 @@ public static class UltraSetupAdvisor
     ///              + <see cref="RLPolicyEngine.RlWeight"/> × Q(state, action)</c>.
     /// Use <see cref="NotifyAbTestResult"/> to keep the engine updated.
     /// </param>
+    /// <param name="simulator">
+    /// Optional context object used to enable the 3-lap virtual simulation.
+    /// When non-<see langword="null"/>, <see cref="VirtualLapSimulator.Simulate"/> is
+    /// called for each of the top <see cref="MaxTopProposals"/> candidates, storing
+    /// the result in <see cref="AdvisedProposal.VirtualSimulation"/>.
+    /// Candidates are then re-sorted using <see cref="CurrentMode"/>-weighted composite
+    /// scores: <see cref="DrivingMode.Sprint"/> favours Lap 1 performance;
+    /// <see cref="DrivingMode.Endurance"/> favours Lap 2 + Lap 3 stability.
+    /// Pass any non-<see langword="null"/> object (e.g. the <see cref="ImpactPredictor"/>)
+    /// to activate; the simulator is stateless.
+    /// </param>
     public static AdvisedProposal[] Advise(
         in FeatureFrame             frame,
         ReadOnlySpan<CornerSummary> corners,
@@ -216,7 +243,8 @@ public static class UltraSetupAdvisor
         CarTrackProfile?            profile       = null,
         ImpactPredictor?            predictor     = null,
         DriverProfile?              driverProfile = null,
-        RLPolicyEngine?             rlEngine      = null)
+        RLPolicyEngine?             rlEngine      = null,
+        object?                     simulator     = null)
     {
         // ── Step 1: generate candidates from RuleEngine ───────────────────────
         var rawProposals = profile != null
@@ -371,7 +399,66 @@ public static class UltraSetupAdvisor
         if (advised.Count > MaxTopProposals)
             advised.RemoveRange(MaxTopProposals, advised.Count - MaxTopProposals);
 
+        // ── Step 7: virtual 3-lap simulation + mode-weighted re-sort ──────────
+        // Runs only when the caller supplies a non-null `simulator` sentinel object.
+        if (simulator != null && advised.Count > 0)
+        {
+            // Simulate each of the top candidates.
+            foreach (var ap in advised)
+            {
+                ap.VirtualSimulation = VirtualLapSimulator.Simulate(
+                    in frame, scores, driverProfile, profile,
+                    ap, predictor, rlEngine);
+            }
+
+            // Re-sort by composite score according to driving mode.
+            // Sprint  : 60 % Lap1 + 25 % Lap2 + 15 % Lap3
+            // Endurance: 20 % Lap1 + 45 % Lap2 + 35 % Lap3
+            // Penalise candidates where only Lap1 benefits (classic Lap1-spike pattern).
+            advised.Sort((a, b) =>
+            {
+                float sa = VirtualCompositeScore(a, CurrentMode);
+                float sb = VirtualCompositeScore(b, CurrentMode);
+                return sb.CompareTo(sa);   // descending
+            });
+        }
+
         return [.. advised];
+    }
+
+    // ── Virtual-simulation composite scorer ───────────────────────────────────
+
+    /// <summary>
+    /// Computes a single scalar ranking score from a candidate's
+    /// <see cref="AdvisedProposal.VirtualSimulation"/> result using
+    /// mode-specific lap weights.
+    /// Penalises candidates with a Lap-1-only spike pattern by 30 %.
+    /// Falls back to <see cref="AdvisedProposal.EstimatedScoreDelta"/> when
+    /// <see cref="AdvisedProposal.VirtualSimulation"/> is <see langword="null"/>.
+    /// </summary>
+    private static float VirtualCompositeScore(AdvisedProposal ap, DrivingMode mode)
+    {
+        if (ap.VirtualSimulation is not { } sim)
+            return ap.EstimatedScoreDelta;
+
+        float composite = mode switch
+        {
+            DrivingMode.Sprint    => 0.60f * sim.Lap1DeltaSec
+                                   + 0.25f * sim.Lap2DeltaSec
+                                   + 0.15f * sim.Lap3DeltaSec,
+
+            DrivingMode.Endurance => 0.20f * sim.Lap1DeltaSec
+                                   + 0.45f * sim.Lap2DeltaSec
+                                   + 0.35f * sim.Lap3DeltaSec,
+
+            _                     => sim.Lap1DeltaSec,
+        };
+
+        // Penalise Lap1-only spike: Lap1 positive but both Lap2 and Lap3 negative.
+        if (sim.Lap1DeltaSec > 0f && sim.Lap2DeltaSec < 0f && sim.Lap3DeltaSec < 0f)
+            composite *= Lap1SpikePenaltyFactor;
+
+        return composite;
     }
 
     // ── ML helpers ────────────────────────────────────────────────────────────
@@ -442,16 +529,31 @@ public static class UltraSetupAdvisor
     }
 
     /// <summary>
-    /// Heuristic score delta (identical to the original scoring logic before ML).
+    /// Heuristic score delta using <see cref="CurrentMode"/>-specific sub-score weights.
     /// Used as fallback when no model is loaded.
     /// </summary>
     private static float ComputeHeuristicScoreDelta(
         float balDelta, float tracDelta, float brkDelta,
         DrivingScores? scores)
     {
-        float scoreDelta = balDelta  * 0.35f +
-                           tracDelta * 0.25f +
-                           brkDelta  * 0.20f;
+        // Mode-specific weights for the three heuristic channels.
+        // Stability has no separate heuristic delta, so its weight is folded
+        // into the endurance balance/traction reduction.
+        float wBal, wTrac, wBrk;
+        switch (CurrentMode)
+        {
+            case DrivingMode.Sprint:
+                wBal = 0.35f; wTrac = 0.30f; wBrk = 0.20f;
+                break;
+            case DrivingMode.Endurance:
+                wBal = 0.25f; wTrac = 0.25f; wBrk = 0.15f;
+                break;
+            default:
+                wBal = 0.35f; wTrac = 0.25f; wBrk = 0.20f;
+                break;
+        }
+
+        float scoreDelta = balDelta * wBal + tracDelta * wTrac + brkDelta * wBrk;
         if (scores != null)
         {
             if (balDelta  > 0 && scores.BalanceScore   < 60f) scoreDelta *= 1.2f;
@@ -600,6 +702,13 @@ public static class UltraSetupAdvisor
         => SimulationImpactEstimator.Estimate(section, parameter, featureIndex);
 
     // ── Corner enrichment ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Score multiplier applied to a candidate whose virtual-simulation shows
+    /// a Lap-1-only spike pattern (Lap1 positive but both Lap2 and Lap3 negative).
+    /// Penalises changes that look good in the first lap but degrade over the stint.
+    /// </summary>
+    private const float Lap1SpikePenaltyFactor = 0.70f;
 
     /// <summary>AggressivenessIndex threshold above which risk penalties are relaxed.</summary>
     private const float AggressivenessThreshold = 0.60f;
