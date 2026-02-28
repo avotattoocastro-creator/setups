@@ -95,7 +95,8 @@
             <RowDefinition Height="Auto"/>  <!-- header -->
             <RowDefinition Height="Auto"/>  <!-- real telemetry -->
             <RowDefinition Height="Auto"/>  <!-- ideal telemetry -->
-            <RowDefinition Height="*"/>     <!-- analysis terminals -->
+            <RowDefinition Height="2*"/>    <!-- analysis terminals -->
+            <RowDefinition Height="*"/>     <!-- corner phase summaries -->
         </Grid.RowDefinitions>
 
         <!-- ── Header ─────────────────────────────────────────────────────── -->
@@ -317,5 +318,37 @@
             </Grid>
 
         </Grid>
+
+        <!-- ── Corner phase analysis terminal (full width) ────────────────── -->
+        <Grid Grid.Row="4" Margin="8,4,8,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0"
+                    Background="#FF0A1414" BorderBrush="#FF2E4040"
+                    BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="🏎" FontSize="12"/>
+                    <TextBlock Text="Resumen de Fases de Curva"
+                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#FF00B4B4"/>
+                    <TextBlock Text="segmentación por G lateral — análisis por curva detectada"
+                               FontFamily="Consolas" FontSize="10"
+                               Foreground="#FF607070" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="1"
+                    Background="#FF060E0E" BorderBrush="#FF2E4040"
+                    BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                <ScrollViewer x:Name="CornerScrollViewer"
+                              Padding="8" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.CornerLogs}"
+                                  ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
     </Grid>
 </Page>

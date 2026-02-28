@@ -23,6 +23,9 @@ public partial class TelemetryViewModel : ObservableObject
     /// <summary>Number of 800 ms ticks between feature-analysis runs (6 × 800 ms ≈ 4.8 s).</summary>
     private const int FeatureAnalysisTickInterval = 6;
 
+    /// <summary>Number of 800 ms ticks between corner-analysis runs (15 × 800 ms ≈ 12 s).</summary>
+    private const int CornerAnalysisTickInterval  = 15;
+
     // ── Observable state ─────────────────────────────────────────────────────
 
     [ObservableProperty] private bool   _isSimulating;
@@ -48,6 +51,12 @@ public partial class TelemetryViewModel : ObservableObject
 
     /// <summary>Setup-improvement steps log.</summary>
     public ObservableCollection<AnalysisEntry>    SetupLogs    { get; } = new();
+
+    /// <summary>Per-corner phase analysis log.</summary>
+    public ObservableCollection<AnalysisEntry>    CornerLogs   { get; } = new();
+
+    /// <summary>Tracks the newest corner timestamp already written to <see cref="CornerLogs"/> to avoid duplicates.</summary>
+    private DateTime _lastCornerTimestamp = DateTime.MinValue;
 
     // ── Channel definitions (name, unit, initial ideal) ──────────────────────
     // Order must match LapProfiles below (index 0..12).
@@ -192,6 +201,8 @@ public partial class TelemetryViewModel : ObservableObject
         Append(DrivingLogs,  "INFO",    "Los datos de vuelta aparecerán al iniciar la simulación.");
         Append(SetupLogs,    "INICIO",  "Motor de propuestas de setup inicializado.");
         Append(SetupLogs,    "INFO",    "Los pasos de mejora se generarán automáticamente.");
+        Append(CornerLogs,   "INICIO",  "Analizador de fases de curva activo.");
+        Append(CornerLogs,   "INFO",    "Los resúmenes de curva aparecerán al conectar Assetto Corsa.");
     }
 
     /// <summary>
@@ -247,6 +258,11 @@ public partial class TelemetryViewModel : ObservableObject
         BehaviorLogs.Clear();
         DrivingLogs.Clear();
         SetupLogs.Clear();
+        CornerLogs.Clear();
+        // AcTelemetryReader stamps every sample with DateTime.UtcNow, so using
+        // DateTime.UtcNow here guarantees only corners whose first sample arrives
+        // after the clear will be logged — no stale corners re-appear.
+        _lastCornerTimestamp = DateTime.UtcNow;
         AppLogger.Instance.Info("Paneles de análisis de telemetría limpiados.");
     }
 
@@ -274,6 +290,8 @@ public partial class TelemetryViewModel : ObservableObject
             // ── Feature analysis from AC ring buffer ──────────────────────────
             if (IsAcConnected && t % FeatureAnalysisTickInterval == 0)
                 RunFeatureAnalysis();
+            if (IsAcConnected && t % CornerAnalysisTickInterval == 0)
+                RunCornerAnalysis();
         });
     }
 
@@ -288,6 +306,25 @@ public partial class TelemetryViewModel : ObservableObject
 
         foreach (var (tag, msg) in FeatureExtractor.FormatLog(in frame))
             Append(BehaviorLogs, tag, msg);
+    }
+
+    /// <summary>
+    /// Analyzes the most recent 30 seconds of samples for corner events and
+    /// appends new per-corner summaries to <see cref="CornerLogs"/>.
+    /// Only corners whose <see cref="CornerSummary.StartTimestamp"/> is newer
+    /// than the last logged timestamp are added (prevents duplicates across calls).
+    /// </summary>
+    private void RunCornerAnalysis()
+    {
+        var corners = CornerPhaseAnalyzer.Analyze(_acReader.Buffer, windowSeconds: 30.0);
+        foreach (var cs in corners)
+        {
+            if (cs.StartTimestamp <= _lastCornerTimestamp) continue;
+            foreach (var (tag, msg) in CornerPhaseAnalyzer.FormatLog(in cs))
+                Append(CornerLogs, tag, msg);
+        }
+        if (corners.Length > 0)
+            _lastCornerTimestamp = corners[^1].StartTimestamp;
     }
 
     private void UpdateChannels()
