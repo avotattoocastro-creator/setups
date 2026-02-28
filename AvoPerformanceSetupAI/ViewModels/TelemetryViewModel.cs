@@ -18,10 +18,12 @@ public partial class TelemetryViewModel : ObservableObject
     // ── Observable state ─────────────────────────────────────────────────────
 
     [ObservableProperty] private bool   _isSimulating;
-    [ObservableProperty] private string _statusText    = "● DETENIDO";
-    [ObservableProperty] private string _lapTimeReal   = "--:--.---";
-    [ObservableProperty] private string _lapTimeIdeal  = "1:52.847";
-    [ObservableProperty] private string _lapDelta      = "---";
+    [ObservableProperty] private string _statusText       = "● DETENIDO";
+    [ObservableProperty] private string _lapTimeReal      = "--:--.---";
+    [ObservableProperty] private string _lapTimeIdeal     = "1:52.847";
+    [ObservableProperty] private string _lapDelta         = "---";
+    [ObservableProperty] private double _lapPosition;
+    [ObservableProperty] private string _lapPositionText  = "Pos:  0%";
 
     // ── Collections ──────────────────────────────────────────────────────────
 
