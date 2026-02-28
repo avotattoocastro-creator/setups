@@ -77,7 +77,7 @@ public sealed class AcStatusToForegroundConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        return value as string switch
+        return (value as string) switch
         {
             var status when status?.StartsWith("Connected",    StringComparison.OrdinalIgnoreCase) == true
                 => new SolidColorBrush(Windows.UI.Color.FromArgb(255,   0, 230, 118)),  // green
@@ -101,7 +101,7 @@ public sealed class AcStatusToBackgroundConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        return value as string switch
+        return (value as string) switch
         {
             var status when status?.StartsWith("Connected",    StringComparison.OrdinalIgnoreCase) == true
                 => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  10,  30,  10)),  // dark green
@@ -125,7 +125,7 @@ public sealed class AcStatusToBorderConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        return value as string switch
+        return (value as string) switch
         {
             var status when status?.StartsWith("Connected",    StringComparison.OrdinalIgnoreCase) == true
                 => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  30,  64,  48)),  // green-toned border
