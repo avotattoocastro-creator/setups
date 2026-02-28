@@ -7,18 +7,29 @@
     <Platforms>x86;x64;arm64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
-    <EnableMsixTooling>true</EnableMsixTooling>
-    <WindowsPackageType>MSIX</WindowsPackageType>
+    <WindowsPackageType>None</WindowsPackageType>
+<<<<<<< HEAD
+=======
+    <!--
+      Disables MSIX tooling (AppxPackage MSBuild tasks) completely.
+      Because this app runs unpackaged (WindowsPackageType=None) there is no need
+      for Microsoft.Build.AppxPackage.dll.  Without this flag the SDK targets still
+      try to load that assembly — which fails on machines where the UWP / MSIX
+      workload is not installed (e.g. VS 18 Insiders without AppxPackage toolkit).
+    -->
+>>>>>>> 0de489b76702a70fedbf677bab76a475078e8ed3
+    <EnableMsixTooling>false</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-    <PackageReference Include="CommunityToolkit.WinUI.Controls.DataGrid" Version="8.1.240916" />
+    <PackageReference Include="CommunityToolkit.WinUI.UI.Controls.DataGrid" Version="7.1.2" />
   </ItemGroup>
 
   <!-- Ensure strings are included as content -->

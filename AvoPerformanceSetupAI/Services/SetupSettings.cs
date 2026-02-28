@@ -16,5 +16,12 @@ public sealed partial class SetupSettings : ObservableObject
     [ObservableProperty]
     private string _outputFolder = string.Empty;
 
+    /// <summary>
+    /// Full path to the currently selected setup <c>.ini</c> file.
+    /// Set by <c>SessionsViewModel</c> and consumed by <c>AiAssistantViewModel</c>.
+    /// </summary>
+    [ObservableProperty]
+    private string _currentSetupPath = string.Empty;
+
     private SetupSettings() { }
 }

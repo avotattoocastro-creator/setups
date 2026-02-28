@@ -100,6 +100,38 @@ cd setups
 - **WinUI 3** with Windows App SDK 1.5 (packaged/MSIX)
 - **DataGrid** via CommunityToolkit.WinUI.Controls.DataGrid
 - **Localization**: Spanish (es-ES) and English (en-US) via `.resw` resource files
+- **NLP**: Bag-of-words TF-IDF cosine similarity for intent detection (Spanish + English)
+- **Machine Learning**: Feedforward neural network (MLP) with backpropagation for proposal scoring
+  and online training from user feedback
+
+## AI Features
+
+The **🤖 IA Asistente** tab provides a chat-style interface powered by:
+
+### Natural Language Processing (NLP)
+- Detects the user's intent from free-form text in **Spanish or English**
+- Supported intents: `oversteer_fix`, `understeer_fix`, `stability`, `downforce`,
+  `mechanical_grip`, `balance`, `wet_setup`, `qualify`, `race`, `analyze`
+- Uses bag-of-words tokenisation with TF-IDF cosine similarity against a curated
+  motorsport vocabulary
+
+### Neural Network (MLP)
+- **Architecture**: 4 inputs → 8 hidden neurons (ReLU) → 1 output (Sigmoid)
+- **Initialization**: Xavier / Glorot weights for stable gradient flow
+- **Training**: Online stochastic gradient descent (SGD) with binary cross-entropy loss
+- **Features**: normalised parameter value, section hash, key hash, delta direction
+- The network learns individual driver preferences when you press ✅ / ❌ after a suggestion
+
+### How to use
+1. Select a car, track, and setup file in the **Sesiones** tab (optional but recommended)
+2. Switch to **🤖 IA Asistente**
+3. Type a natural-language command, for example:
+   - *"El coche sobrevirá en las curvas lentas"*
+   - *"Necesito más agarre mecánico"*
+   - *"Optimiza el setup para lluvia"*
+   - *"Analiza el setup actual"*
+4. Review the generated proposals in the right panel
+5. Press **✅ Útiles** or **❌ No útiles** to train the neural network with your feedback
 
 ## Localization
 
@@ -111,9 +143,10 @@ Resource files are in `AvoPerformanceSetupAI/Strings/`:
 
 ```
 AvoPerformanceSetupAI/
-├── Models/           # Data models (SetupIteration, Proposal)
-├── ViewModels/       # MVVM ViewModels with CommunityToolkit.Mvvm
-├── Views/            # Tab pages (Configuracion, Sesiones, Control)
+├── Models/           # Data models (SetupIteration, Proposal, ChatMessage, LogEntry)
+├── ViewModels/       # MVVM ViewModels (MainViewModel, SessionsViewModel, TerminalViewModel, AiAssistantViewModel)
+├── Views/            # Tab pages (Configuracion, Sesiones, Control, Terminal, AiAssistantPage)
+├── Services/         # Backend services (AppLogger, SetupIniParser, SetupSettings, NlpService, MlSetupOptimizer)
 ├── Strings/          # Localization resources
 └── Assets/           # App icons and images
 ```
@@ -121,5 +154,5 @@ AvoPerformanceSetupAI/
 ## Notes
 
 - The app uses a **dark theme** with teal accent colors.
-- Mock data is pre-loaded in ViewModels for UI demonstration.
-- No real telemetry or AI integration — UI shell only.
+- The **AI Assistant** tab uses NLP + a feedforward neural network trained online from user feedback.
+- The neural network learns within the session; weights are not persisted between runs (by design for v1).

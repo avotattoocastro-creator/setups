@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.AiAssistantPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:AvoPerformanceSetupAI.Models"
+    Background="Transparent"
+    RequestedTheme="Dark">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ── Header bar ─────────────────────────────────────────────────────── -->
+        <Border Grid.Row="0"
+                Background="#FF0A1414"
+                BorderBrush="#FF2E4040"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="🤖" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock Text="IA Asistente — NLP + Red Neuronal"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="🗑 Limpiar chat"
+                        Command="{x:Bind ViewModel.ClearChatCommand}"
+                        Background="#FF1E2A2A"
+                        Foreground="#FF8AABAB"
+                        BorderBrush="#FF2E4040"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="10,4"
+                        FontSize="12"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Main content: chat (left) + proposals (right) ──────────────────── -->
+        <Grid Grid.Row="1" ColumnSpacing="12" Margin="12,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: conversation panel -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Chat history -->
+                <Border Grid.Row="0"
+                        Background="#FF060E0E"
+                        BorderBrush="#FF2E4040"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <ScrollViewer x:Name="ChatScrollViewer"
+                                  Padding="12,8"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="ChatItemsControl"
+                                      ItemsSource="{x:Bind ViewModel.Messages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:ChatMessage">
+                                    <Border Margin="0,4"
+                                            Padding="10,8"
+                                            CornerRadius="8"
+                                            Background="{x:Bind Role, Converter={StaticResource RoleToBackgroundConverter}}">
+                                        <Grid RowSpacing="4">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Sender label + timestamp -->
+                                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{x:Bind Role, Converter={StaticResource RoleToLabelConverter}}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{x:Bind Role, Converter={StaticResource RoleToForegroundConverter}}"/>
+                                                <TextBlock Text="{x:Bind TimestampText}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="10"
+                                                           Foreground="#FF607070"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <!-- Message text -->
+                                            <TextBlock Grid.Row="1"
+                                                       Text="{x:Bind Text}"
+                                                       Foreground="#FFD0E8E8"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       FontFamily="Segoe UI"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Input row -->
+                <Grid Grid.Row="1" Margin="0,8,0,0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             x:Name="InputBox"
+                             Text="{x:Bind ViewModel.UserInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="Describe el problema del coche... (ej: sobreviraje en las lentas)"
+                             Background="#FF0F2020"
+                             Foreground="#FFE0F0F0"
+                             BorderBrush="#FF2E4040"
+                             CornerRadius="8"
+                             Padding="12,8"
+                             FontSize="13"
+                             KeyDown="InputBox_KeyDown"
+                             AcceptsReturn="False"/>
+                    <Button Grid.Column="1"
+                            Content="➤ Enviar"
+                            Command="{x:Bind ViewModel.SendCommand}"
+                            Style="{StaticResource AccentActionButton}"
+                            MinWidth="90"/>
+                </Grid>
+            </Grid>
+
+            <!-- Right: proposals panel -->
+            <StackPanel Grid.Column="1" Spacing="10">
+
+                <!-- Proposal list card -->
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        BorderBrush="{StaticResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Propuestas IA"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFE0F0F0"
+                                   FontSize="14"/>
+                        <TextBlock Text="Generadas por NLP + red neuronal"
+                                   Foreground="#FF607070"
+                                   FontSize="11"/>
+
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.AiProposals}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:Proposal">
+                                    <Border Margin="0,4"
+                                            Padding="8,6"
+                                            CornerRadius="6"
+                                            Background="#FF0F2020"
+                                            BorderBrush="#FF2E4040"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="2">
+                                            <!-- Section + Parameter -->
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="{x:Bind Section}"
+                                                           Foreground="#FF507070"
+                                                           FontSize="10"
+                                                           FontFamily="Consolas"/>
+                                                <TextBlock Text="›"
+                                                           Foreground="#FF507070"
+                                                           FontSize="10"/>
+                                                <TextBlock Text="{x:Bind Parameter}"
+                                                           Foreground="#FFB0D0D0"
+                                                           FontSize="12"
+                                                           FontFamily="Consolas"
+                                                           FontWeight="SemiBold"/>
+                                            </StackPanel>
+
+                                            <!-- From → To with delta -->
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{x:Bind From}"
+                                                           Foreground="#FF8AABAB"
+                                                           FontSize="12"/>
+                                                <TextBlock Text="→"
+                                                           Foreground="#FF607070"
+                                                           FontSize="12"/>
+                                                <TextBlock Text="{x:Bind To}"
+                                                           Foreground="#FF00D4B4"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="{x:Bind Delta}"
+                                                           Foreground="#FF507070"
+                                                           FontSize="10"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <!-- Reason -->
+                                            <TextBlock Text="{x:Bind Reason}"
+                                                       Foreground="#FF607070"
+                                                       FontSize="10"
+                                                       TextWrapping="Wrap"
+                                                       FontStyle="Italic"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Feedback card -->
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        BorderBrush="{StaticResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Entrenamiento de la Red Neuronal"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFE0F0F0"
+                                   FontSize="13"/>
+                        <TextBlock Text="¿Fueron útiles las propuestas? Tu feedback actualiza los pesos de la red."
+                                   Foreground="#FF607070"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="✅ Útiles"
+                                    Command="{x:Bind ViewModel.AcceptProposalsCommand}"
+                                    Style="{StaticResource AccentActionButton}"
+                                    HorizontalAlignment="Stretch"/>
+                            <Button Content="❌ No útiles"
+                                    Command="{x:Bind ViewModel.RejectProposalsCommand}"
+                                    Style="{StaticResource SecondaryActionButton}"
+                                    HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Hint card -->
+                <Border Background="#FF0A1A14"
+                        BorderBrush="#FF1E3828"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="💡 Ejemplos de comandos"
+                                   Foreground="#FF4A8A6A"
+                                   FontWeight="SemiBold"
+                                   FontSize="12"/>
+                        <TextBlock Text="• &quot;El coche sobrevira&quot;"
+                                   Foreground="#FF607060" FontSize="11"/>
+                        <TextBlock Text="• &quot;Mejorar estabilidad&quot;"
+                                   Foreground="#FF607060" FontSize="11"/>
+                        <TextBlock Text="• &quot;Setup para lluvia&quot;"
+                                   Foreground="#FF607060" FontSize="11"/>
+                        <TextBlock Text="• &quot;Optimizar para clasificación&quot;"
+                                   Foreground="#FF607060" FontSize="11"/>
+                        <TextBlock Text="• &quot;Analiza el setup actual&quot;"
+                                   Foreground="#FF607060" FontSize="11"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+
+        <!-- ── Status bar ─────────────────────────────────────────────────────── -->
+        <Border Grid.Row="2"
+                Background="#FF0A1414"
+                BorderBrush="#FF2E4040"
+                BorderThickness="0,1,0,0"
+                Padding="16,6">
+            <TextBlock x:Name="StatusBarText"
+                       Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                       FontFamily="Consolas"
+                       FontSize="11"
+                       Foreground="#FF00B4B4"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</Page>
