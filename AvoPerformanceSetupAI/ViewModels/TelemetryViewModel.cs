@@ -296,8 +296,9 @@ public partial class TelemetryViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Extracts features from the most recent 2 seconds of samples in the ring buffer
-    /// and appends human-readable results to the behaviour log.
+    /// Extracts features from the most recent 2 seconds of samples in the ring buffer,
+    /// appends human-readable results to the behaviour log, and pushes any rule-based
+    /// setup proposals to <see cref="SessionsViewModel.Shared"/>.
     /// </summary>
     private void RunFeatureAnalysis()
     {
@@ -306,6 +307,11 @@ public partial class TelemetryViewModel : ObservableObject
 
         foreach (var (tag, msg) in FeatureExtractor.FormatLog(in frame))
             Append(BehaviorLogs, tag, msg);
+
+        // Push rule-based proposals so they appear in the Sessions panel
+        var proposals = RuleEngine.Evaluate(in frame);
+        if (proposals.Length > 0)
+            SessionsViewModel.Shared.PushTelemetryProposals(proposals);
     }
 
     /// <summary>

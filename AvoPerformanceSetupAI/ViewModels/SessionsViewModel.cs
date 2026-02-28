@@ -546,4 +546,35 @@ public partial class SessionsViewModel : ObservableObject
 
         SelectedIteration.Iter++;
     }
+
+    /// <summary>
+    /// Batch variant of <see cref="PushTelemetryProposal"/>: applies all proposals
+    /// from <paramref name="proposals"/> in a single pass, updating the iteration
+    /// counter only once. Does nothing when no iteration is selected or the array
+    /// is empty.
+    /// </summary>
+    public void PushTelemetryProposals(Proposal[] proposals)
+    {
+        if (SelectedIteration is null || proposals.Length == 0) return;
+
+        foreach (var p in proposals)
+        {
+            bool replaced = false;
+            for (int i = 0; i < LastProposals.Count; i++)
+            {
+                if (LastProposals[i].Section.Equals(p.Section, StringComparison.OrdinalIgnoreCase) &&
+                    LastProposals[i].Parameter.Equals(p.Parameter, StringComparison.OrdinalIgnoreCase))
+                {
+                    LastProposals[i] = p;
+                    replaced = true;
+                    break;
+                }
+            }
+
+            if (!replaced)
+                LastProposals.Add(p);
+        }
+
+        SelectedIteration.Iter++;
+    }
 }
