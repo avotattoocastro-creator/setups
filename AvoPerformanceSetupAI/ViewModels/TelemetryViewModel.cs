@@ -12,16 +12,19 @@ using AvoPerformanceSetupAI.Telemetry;
 
 namespace AvoPerformanceSetupAI.ViewModels;
 
-public partial class TelemetryViewModel : ObservableObject
+public partial class TelemetryViewModel : ObservableObject, IDisposable
 {
     private DispatcherQueue? _dispatcher;
     private System.Threading.Timer? _updateTimer;
     private int  _tick;
     private readonly Random _rng = new(Environment.TickCount);
 
-    // ── Assetto Corsa real-time reader ────────────────────────────────────────
+    // Stored so Initialize can subscribe and Dispose can unsubscribe (prevents memory leaks).
+    private Action<bool, string>? _connectionChangedHandler;
 
-    private readonly AcTelemetryReader _acReader = new();
+    // ── Telemetry service (AC shared memory + simulation routing) ─────────────
+
+    private readonly TelemetryService _telemetryService = new();
 
     // ── Corner detector (stateful, thread-safe) ───────────────────────────────
 
@@ -42,14 +45,33 @@ public partial class TelemetryViewModel : ObservableObject
     // ── Observable state ─────────────────────────────────────────────────────
 
     [ObservableProperty] private bool   _isSimulating;
-    [ObservableProperty] private string _statusText       = "● DETENIDO";
-    [ObservableProperty] private string _lapTimeReal      = "--:--.---";
-    [ObservableProperty] private string _lapTimeIdeal     = "1:52.847";
-    [ObservableProperty] private string _lapDelta         = "---";
+    [ObservableProperty] private string _statusText            = "● DETENIDO";
+    [ObservableProperty] private string _lapTimeReal           = "--:--.---";
+    [ObservableProperty] private string _lapTimeIdeal          = "1:52.847";
+    [ObservableProperty] private string _lapDelta              = "---";
     [ObservableProperty] private double _lapPosition;
-    [ObservableProperty] private string _lapPositionText  = "Pos:  0%";
+    [ObservableProperty] private string _lapPositionText       = "Pos:  0%";
     [ObservableProperty] private bool   _isAcConnected;
-    [ObservableProperty] private string _acStatusText     = "AC: SIMULACIÓN";
+    [ObservableProperty] private string _connectionStatusText  = "Simulation";
+    [ObservableProperty] private TelemetrySource _selectedSource = TelemetrySource.Simulation;
+
+    /// <summary>
+    /// Convenience bool for binding a XAML ToggleSwitch:
+    /// <see langword="true"/> when <see cref="SelectedSource"/> is
+    /// <see cref="TelemetrySource.AssettoCorsa"/>.
+    /// </summary>
+    public bool IsAcSourceSelected
+    {
+        get => SelectedSource == TelemetrySource.AssettoCorsa;
+        set
+        {
+            SelectedSource = value ? TelemetrySource.AssettoCorsa : TelemetrySource.Simulation;
+            OnPropertyChanged();
+        }
+    }
+
+    partial void OnSelectedSourceChanged(TelemetrySource value)
+        => OnPropertyChanged(nameof(IsAcSourceSelected));
 
     // ── Corner / phase observables ────────────────────────────────────────────
 
@@ -259,11 +281,34 @@ public partial class TelemetryViewModel : ObservableObject
     {
         _dispatcher = dispatcher;
 
+        // Wire TelemetryService.ConnectionChanged so background retries update
+        // the UI-bound properties on the UI thread.
+        _connectionChangedHandler = (isConnected, statusText) =>
+            _dispatcher.TryEnqueue(() =>
+            {
+                IsAcConnected        = isConnected;
+                ConnectionStatusText = statusText;
+                AppLogger.Instance.Info(statusText);
+            });
+        _telemetryService.ConnectionChanged += _connectionChangedHandler;
+
         // Create a 50 ms DispatcherTimer for real-time phase/corner updates.
         // Must be created on the UI thread (DispatcherTimer fires on the thread it was created on).
         _fastTimer          = new DispatcherTimer();
         _fastTimer.Interval = TimeSpan.FromMilliseconds(50);
         _fastTimer.Tick    += OnFastTick;
+    }
+
+    /// <summary>Unsubscribes from <see cref="TelemetryService"/> events and releases resources.</summary>
+    public void Dispose()
+    {
+        if (_connectionChangedHandler is not null)
+        {
+            _telemetryService.ConnectionChanged -= _connectionChangedHandler;
+            _connectionChangedHandler = null;
+        }
+        _telemetryService.Dispose();
+        _updateTimer?.Dispose();
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -275,16 +320,13 @@ public partial class TelemetryViewModel : ObservableObject
         StatusText   = "● ACTIVO";
         _tick        = 0;
 
-        // Try to connect to Assetto Corsa shared memory; fall back to simulation if unavailable
-        IsAcConnected = _acReader.TryConnect();
-        AcStatusText  = IsAcConnected ? "AC: CONECTADO" : "AC: SIMULACIÓN";
-        AppLogger.Instance.Info(IsAcConnected
-            ? "Telemetría AC conectada — datos en tiempo real desde shared memory."
-            : "Assetto Corsa no detectado — modo simulación activo.");
+        // Delegate source management to TelemetryService.
+        // ConnectionChanged will update IsAcConnected + ConnectionStatusText asynchronously.
+        _telemetryService.Start(SelectedSource);
+        AppLogger.Instance.Ai("Telemetría en tiempo real ACTIVADA — tick cada 800 ms.");
 
         _updateTimer = new System.Threading.Timer(OnTick, null, 0, 800);
         _fastTimer?.Start();
-        AppLogger.Instance.Ai("Telemetría en tiempo real ACTIVADA — tick cada 800 ms.");
         StartSimulationCommand.NotifyCanExecuteChanged();
         StopSimulationCommand.NotifyCanExecuteChanged();
     }
@@ -299,9 +341,9 @@ public partial class TelemetryViewModel : ObservableObject
         _updateTimer?.Dispose();
         _updateTimer = null;
         _fastTimer?.Stop();
-        _acReader.Disconnect();
-        IsAcConnected = false;
-        AcStatusText  = "AC: SIMULACIÓN";
+        _telemetryService.Stop();
+        IsAcConnected        = false;
+        ConnectionStatusText = "Simulation";
         CurrentPhase  = "—";
         AppLogger.Instance.Info("Telemetría pausada.");
         StartSimulationCommand.NotifyCanExecuteChanged();
@@ -370,7 +412,7 @@ public partial class TelemetryViewModel : ObservableObject
     /// </summary>
     private void RunFeatureAnalysis()
     {
-        var frame = FeatureExtractor.ExtractFrame(_acReader.Buffer, windowSeconds: 2.0);
+        var frame = FeatureExtractor.ExtractFrame(_telemetryService.Buffer, windowSeconds: 2.0);
         if (frame.SampleCount == 0) return;
 
         foreach (var (tag, msg) in FeatureExtractor.FormatLog(in frame))
@@ -390,7 +432,7 @@ public partial class TelemetryViewModel : ObservableObject
     /// </summary>
     private void RunCornerAnalysis()
     {
-        var corners = CornerPhaseAnalyzer.Analyze(_acReader.Buffer, windowSeconds: 30.0);
+        var corners = CornerPhaseAnalyzer.Analyze(_telemetryService.Buffer, windowSeconds: 30.0);
         foreach (var cs in corners)
         {
             if (cs.StartTime <= _lastCornerTimestamp) continue;
@@ -406,7 +448,7 @@ public partial class TelemetryViewModel : ObservableObject
         // ── When AC is connected and in a live session, use real sample data ──
         if (IsAcConnected)
         {
-            var sample = _acReader.Buffer.ReadLast();
+            var sample = _telemetryService.Buffer.ReadLast();
             if (sample.AcStatus == (int)AcStatus.Live && sample.SpeedKmh >= 0)
             {
                 UpdateChannelsFromSample(in sample);
@@ -518,14 +560,14 @@ public partial class TelemetryViewModel : ObservableObject
         if (!IsAcConnected) return;
 
         // 1. Derive current driving phase from the most recent sample
-        var sample = _acReader.Buffer.ReadLast();
+        var sample = _telemetryService.Buffer.ReadLast();
         if (sample.AcStatus == (int)AcStatus.Live)
             CurrentPhase = DerivePhaseLabel(in sample);
         else
             CurrentPhase = "—";
 
         // 2. Feed new samples into the corner detector (non-blocking)
-        _cornerDetector.Update(_acReader.Buffer);
+        _cornerDetector.Update(_telemetryService.Buffer);
 
         // 3. Reflect the latest completed corner in the bindable properties
         var latest = _cornerDetector.LatestCorner;

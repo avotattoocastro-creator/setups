@@ -60,6 +60,7 @@
 
         <!-- ═══ Converters ═══ -->
         <converters:FloatToPercentConverter x:Key="FloatToPercent"/>
+        <converters:NotBoolConverter x:Key="NotBoolConverter"/>
 
         <!-- ═══ Analysis terminal row ═══ -->
         <DataTemplate x:Key="AnalysisEntryRow" x:DataType="models:AnalysisEntry">
@@ -147,10 +148,16 @@
                     <!-- AC shared-memory connection badge -->
                     <Border Background="#FF0A1E0A" BorderBrush="#FF1E4030" BorderThickness="1"
                             CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.AcStatusText, Mode=OneWay}"
+                        <TextBlock Text="{x:Bind ViewModel.ConnectionStatusText, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
                                    Foreground="#FF00E676"/>
                     </Border>
+                    <!-- Source selector: Simulation ↔ Assetto Corsa -->
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsAcSourceSelected, Mode=TwoWay}"
+                                  OffContent="Sim" OnContent="AC"
+                                  IsEnabled="{x:Bind ViewModel.IsSimulating, Mode=OneWay, Converter={StaticResource NotBoolConverter}}"
+                                  VerticalAlignment="Center" Margin="4,0,0,0"
+                                  MinWidth="0" FontSize="11"/>
                 </StackPanel>
 
                 <!-- Action buttons -->

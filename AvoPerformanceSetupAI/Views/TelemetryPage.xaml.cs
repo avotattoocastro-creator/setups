@@ -20,6 +20,8 @@ public sealed partial class TelemetryPage : Page
         ViewModel.DrivingLogs.CollectionChanged  += (_, _) => AutoScroll(DrivingScrollViewer);
         ViewModel.SetupLogs.CollectionChanged    += (_, _) => AutoScroll(SetupScrollViewer);
         ViewModel.CornerLogs.CollectionChanged   += (_, _) => AutoScroll(CornerScrollViewer);
+
+        Unloaded += (_, _) => ViewModel.Dispose();
     }
 
     private void AutoScroll(ScrollViewer sv) =>

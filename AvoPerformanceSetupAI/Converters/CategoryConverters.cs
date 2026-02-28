@@ -52,3 +52,13 @@ public sealed class FloatToPercentConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) =>
         throw new NotImplementedException();
 }
+
+/// <summary>Inverts a <see cref="bool"/> value — used to enable controls only when not simulating.</summary>
+public sealed class NotBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value is bool b ? !b : true;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => value is bool b ? !b : false;
+}
