@@ -118,4 +118,53 @@ public sealed class MlSetupOptimizer
     }
 
     private static double Sigmoid(double x) => 1.0 / (1.0 + Math.Exp(-x));
+
+    // ── Weight persistence ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Saves all network weights and biases to a binary file so the trained
+    /// model can be reloaded in a future session.
+    /// </summary>
+    public void SaveWeights(string path)
+    {
+        using var fs = new System.IO.FileStream(path, System.IO.FileMode.Create, System.IO.FileAccess.Write);
+        using var bw = new System.IO.BinaryWriter(fs);
+        for (int j = 0; j < HiddenSize; j++)
+            for (int i = 0; i < InputSize; i++)
+                bw.Write(_w1[j, i]);
+        for (int j = 0; j < HiddenSize; j++)
+            bw.Write(_b1[j]);
+        for (int j = 0; j < HiddenSize; j++)
+            bw.Write(_w2[j]);
+        bw.Write(_b2);
+    }
+
+    /// <summary>
+    /// Loads network weights and biases from a binary file previously created
+    /// by <see cref="SaveWeights"/>.
+    /// Throws <see cref="InvalidDataException"/> when the file size does not match
+    /// the expected layout, which indicates a truncated or incompatible weight file.
+    /// </summary>
+    public void LoadWeights(string path)
+    {
+        // Each weight/bias is stored as a IEEE-754 double (8 bytes).
+        // Layout: W1 [HiddenSize × InputSize] | b1 [HiddenSize] | W2 [HiddenSize] | b2 [1]
+        const int ExpectedBytes = (HiddenSize * InputSize + HiddenSize + HiddenSize + 1) * sizeof(double);
+        var info = new System.IO.FileInfo(path);
+        if (info.Length != ExpectedBytes)
+            throw new InvalidDataException(
+                $"Archivo de pesos incompatible ({info.Length} bytes; esperado {ExpectedBytes}). " +
+                "El archivo puede estar corrupto o pertenecer a una versión anterior.");
+
+        using var fs = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read);
+        using var br = new System.IO.BinaryReader(fs);
+        for (int j = 0; j < HiddenSize; j++)
+            for (int i = 0; i < InputSize; i++)
+                _w1[j, i] = br.ReadDouble();
+        for (int j = 0; j < HiddenSize; j++)
+            _b1[j] = br.ReadDouble();
+        for (int j = 0; j < HiddenSize; j++)
+            _w2[j] = br.ReadDouble();
+        _b2 = br.ReadDouble();
+    }
 }

@@ -20,6 +20,12 @@ public partial class AiAssistantViewModel : ObservableObject
     // Shared neural-network optimizer (persists across queries within a session)
     private readonly MlSetupOptimizer _optimizer = new();
 
+    // Path where trained weights are stored between sessions
+    private static readonly string WeightsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "AvoPerformanceSetupAI",
+        "ml_weights.bin");
+
     // ── Bindable properties ───────────────────────────────────────────────────
 
     [ObservableProperty]
@@ -39,6 +45,20 @@ public partial class AiAssistantViewModel : ObservableObject
 
     public AiAssistantViewModel()
     {
+        // Restore previously trained weights (if available)
+        try
+        {
+            if (File.Exists(WeightsPath))
+            {
+                _optimizer.LoadWeights(WeightsPath);
+                AppLogger.Instance.Ai("Pesos de la red neuronal restaurados desde sesión anterior.");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Warn($"No se pudieron cargar los pesos guardados: {ex.Message}");
+        }
+
         // Welcome message
         AddAssistantMessage(
             "👋 Hola. Soy tu asistente de setup IA.\n" +
@@ -47,7 +67,9 @@ public partial class AiAssistantViewModel : ObservableObject
             "  • \"Necesito más agarre mecánico\"\n" +
             "  • \"Optimiza el setup para lluvia\"\n" +
             "  • \"Analiza el setup actual\"\n\n" +
-            "Usaré procesamiento del lenguaje natural y la red neuronal para generarte propuestas.");
+            "Usaré procesamiento del lenguaje natural y la red neuronal para generarte propuestas.\n" +
+            "Si tienes un archivo de setup cargado las propuestas incluirán valores concretos;\n" +
+            "si no, recibirás recomendaciones generales que puedes aplicar manualmente.");
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -98,6 +120,7 @@ public partial class AiAssistantViewModel : ObservableObject
     private void AcceptProposals()
     {
         TrainOnCurrentProposals(label: 1.0);
+        SaveOptimizer();
         AddAssistantMessage("✅ Gracias por el feedback positivo. La red neuronal ha actualizado sus pesos.");
         AppLogger.Instance.Ai("Retroalimentación positiva aplicada al optimizador ML.");
     }
@@ -109,6 +132,7 @@ public partial class AiAssistantViewModel : ObservableObject
     private void RejectProposals()
     {
         TrainOnCurrentProposals(label: 0.0);
+        SaveOptimizer();
         AddAssistantMessage("❌ Entendido. La red neuronal ha aprendido de este rechazo y ajustará futuras propuestas.");
         AppLogger.Instance.Ai("Retroalimentación negativa aplicada al optimizador ML.");
     }
@@ -156,10 +180,8 @@ public partial class AiAssistantViewModel : ObservableObject
 
         if (proposals.Count == 0)
         {
-            string reason = string.IsNullOrEmpty(setupPath)
-                ? "No hay ningún archivo de setup seleccionado. Selecciona un archivo en la pestaña Sesiones para obtener propuestas concretas."
-                : "No se encontraron parámetros coincidentes en el setup activo para esta intención.";
-            sb.AppendLine($"\nℹ️ {reason}");
+            sb.AppendLine("\nℹ️ No se encontraron parámetros numéricos en el setup activo para el análisis. " +
+                          "Selecciona un archivo de setup en la pestaña Sesiones.");
         }
         else
         {
@@ -222,4 +244,21 @@ public partial class AiAssistantViewModel : ObservableObject
 
     private void AddAssistantMessage(string text) =>
         Messages.Add(new ChatMessage { Role = MessageRole.Assistant, Text = text });
+
+    /// <summary>Persists the neural-network weights to disk so they survive across sessions.</summary>
+    private void SaveOptimizer()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(WeightsPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            _optimizer.SaveWeights(WeightsPath);
+            AppLogger.Instance.Ai("Pesos de la red neuronal guardados.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Error($"No se pudieron guardar los pesos: {ex.Message}");
+        }
+    }
 }

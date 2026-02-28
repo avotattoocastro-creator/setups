@@ -22,34 +22,51 @@ public static class NlpService
     {
         ["oversteer_fix"]   = ["oversteer", "sobreviraje", "snap", "spin", "loose",
                                "rotate", "gira", "demasiado", "cola", "rear", "trasera",
-                               "oversteers", "spins"],
+                               "oversteers", "spins", "coletazo", "suelta", "suelto",
+                               "giro excesivo", "girar", "rear snap", "sobrevirando",
+                               "sobrevira", "pierde trasero"],
         ["understeer_fix"]  = ["understeer", "subviraje", "push", "plow", "empuja",
                                "no gira", "no rota", "frontal", "nose", "morro", "wash",
-                               "front", "delantera", "pushes"],
+                               "front", "delantera", "pushes", "no responde", "recto",
+                               "dirección muerta", "subvira", "morro fuera",
+                               "delantera empuja", "subvirando"],
         ["stability"]       = ["stability", "estabilidad", "stable", "estable",
                                "consistent", "consistente", "predictable", "predecible",
-                               "nervous", "nervioso", "jittery"],
+                               "nervous", "nervioso", "jittery", "inestable", "unstable",
+                               "inquieto", "rebota", "bota", "nerviosismo"],
         ["downforce"]       = ["downforce", "aerodynamic", "aero", "carga",
                                "aerodinamica", "wing", "aleron", "drag", "resistencia",
-                               "high speed", "alta velocidad"],
+                               "high speed", "alta velocidad", "alerón", "aerodinámica",
+                               "carga aero", "presion aerodinamica"],
         ["mechanical_grip"] = ["mechanical", "grip", "traccion", "traction",
                                "agarre", "slow speed", "baja velocidad", "curva lenta",
-                               "low speed", "aceleracion", "acceleration"],
+                               "low speed", "aceleracion", "acceleration",
+                               "tracción", "agarre mecánico", "mecanico",
+                               "grip mecánico", "baches", "bache", "absorcion"],
         ["balance"]         = ["balance", "balanceo", "equilibrio", "neutral",
                                "front rear", "delantera trasera", "50 50", "balanced",
-                               "balanced setup", "equilibrado"],
+                               "balanced setup", "equilibrado", "equilibrar",
+                               "compensar", "neutro", "neutral setup"],
         ["wet_setup"]       = ["wet", "lluvia", "rain", "aquaplaning", "mojado",
                                "humid", "humedo", "slippery", "resbaladizo",
-                               "wet conditions", "condiciones lluvia"],
+                               "wet conditions", "condiciones lluvia",
+                               "pista mojada", "agua", "hidro", "hidroplaneo",
+                               "pluie", "lloviendo"],
         ["qualify"]         = ["qualify", "clasificacion", "qualifying",
                                "hotlap", "vuelta rapida", "lap time", "vuelta",
-                               "one lap", "single lap", "pole"],
+                               "one lap", "single lap", "pole", "clasificación",
+                               "vuelta rápida", "clasificar", "rapida", "rápida",
+                               "qualy", "pole position", "tiempo"],
         ["race"]            = ["race", "carrera", "degradation", "degradacion",
                                "tire wear", "desgaste", "consumption", "consumo",
-                               "long run", "stint", "race pace"],
+                               "long run", "stint", "race pace", "degradación",
+                               "desgaste neumatico", "neumático", "ritmo carrera",
+                               "estrategia", "combustible"],
         ["analyze"]         = ["analyze", "analyse", "analisis", "analiza",
                                "review", "revisar", "check", "comprobar",
-                               "show", "muestra", "ver", "que pasa", "what"],
+                               "show", "muestra", "ver", "que pasa", "what",
+                               "análisis", "analizar", "revisar", "diagnosticar",
+                               "diagnóstico", "setup actual", "optimizar"],
     };
 
     // ── Intent → parameter recommendation rules ───────────────────────────────
@@ -215,7 +232,22 @@ public static class NlpService
                 e.Section.Equals(rec.Section, StringComparison.OrdinalIgnoreCase) &&
                 e.Key.Equals(rec.Parameter, StringComparison.OrdinalIgnoreCase));
 
-            if (entry is null) continue;
+            if (entry is null)
+            {
+                // No setup file loaded or parameter not present — emit generic advice.
+                // "—" is the established sentinel used throughout the codebase to mark
+                // informational proposals that carry no numeric From/To/Delta values.
+                proposals.Add(new Proposal
+                {
+                    Section   = rec.Section,
+                    Parameter = rec.Parameter,
+                    From      = "—",
+                    To        = "—",
+                    Delta     = "—",
+                    Reason    = rec.Reason,
+                });
+                continue;
+            }
 
             if (!double.TryParse(entry.Value,
                     System.Globalization.NumberStyles.Float,
