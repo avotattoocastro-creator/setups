@@ -21,6 +21,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
 
     // Stored so Initialize can subscribe and Dispose can unsubscribe (prevents memory leaks).
     private Action<bool, string>? _connectionChangedHandler;
+    private Action?               _suggestSwitchHandler;
 
     // ── Telemetry service (AC shared memory + simulation routing) ─────────────
 
@@ -54,6 +55,13 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool   _isAcConnected;
     [ObservableProperty] private string _connectionStatusText  = "Simulation";
     [ObservableProperty] private TelemetrySource _selectedSource = TelemetrySource.Simulation;
+
+    /// <summary>
+    /// <see langword="true"/> when the service has exhausted
+    /// <c>MaxRetriesBeforeSuggest</c> reconnect attempts and asks the user
+    /// whether to switch to Simulation mode.
+    /// </summary>
+    [ObservableProperty] private bool _showSwitchToSimulationPrompt;
 
     /// <summary>
     /// Convenience bool for binding a XAML ToggleSwitch:
@@ -292,6 +300,17 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
             });
         _telemetryService.ConnectionChanged += _connectionChangedHandler;
 
+        // Wire SuggestSwitchToSimulation: after 10 failed reconnect attempts the
+        // service asks the user whether to fall back to simulation mode.
+        _suggestSwitchHandler = () =>
+            _dispatcher.TryEnqueue(() =>
+            {
+                ShowSwitchToSimulationPrompt = true;
+                AppLogger.Instance.Warn(
+                    "AC no responde tras 10 intentos — se sugiere cambiar a Simulación.");
+            });
+        _telemetryService.SuggestSwitchToSimulation += _suggestSwitchHandler;
+
         // Create a 50 ms DispatcherTimer for real-time phase/corner updates.
         // Must be created on the UI thread (DispatcherTimer fires on the thread it was created on).
         _fastTimer          = new DispatcherTimer();
@@ -306,6 +325,11 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         {
             _telemetryService.ConnectionChanged -= _connectionChangedHandler;
             _connectionChangedHandler = null;
+        }
+        if (_suggestSwitchHandler is not null)
+        {
+            _telemetryService.SuggestSwitchToSimulation -= _suggestSwitchHandler;
+            _suggestSwitchHandler = null;
         }
         _telemetryService.Dispose();
         _updateTimer?.Dispose();
@@ -342,8 +366,9 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         _updateTimer = null;
         _fastTimer?.Stop();
         _telemetryService.Stop();
-        IsAcConnected        = false;
-        ConnectionStatusText = "Simulation";
+        IsAcConnected                = false;
+        ConnectionStatusText         = "Simulation";
+        ShowSwitchToSimulationPrompt = false;
         CurrentPhase  = "—";
         AppLogger.Instance.Info("Telemetría pausada.");
         StartSimulationCommand.NotifyCanExecuteChanged();
@@ -374,6 +399,32 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         // after the clear will be logged — no stale corners re-appear.
         _lastCornerTimestamp = DateTime.UtcNow;
         AppLogger.Instance.Info("Paneles de análisis de telemetría limpiados.");
+    }
+
+    /// <summary>
+    /// Accepts the "switch to Simulation?" suggestion: changes the source, dismisses the
+    /// prompt, and re-starts telemetry in Simulation mode so the session continues
+    /// without interruption.
+    /// </summary>
+    [RelayCommand]
+    private void ConfirmSwitchToSimulation()
+    {
+        ShowSwitchToSimulationPrompt = false;
+        SelectedSource = TelemetrySource.Simulation;
+        if (IsSimulating)
+        {
+            _telemetryService.Start(TelemetrySource.Simulation);
+            // ConnectionChanged will update status text asynchronously.
+        }
+        AppLogger.Instance.Info("Fuente cambiada a Simulación por solicitud del usuario.");
+    }
+
+    /// <summary>Dismisses the "switch to Simulation?" prompt without changing the source.</summary>
+    [RelayCommand]
+    private void DismissSwitchToSimulation()
+    {
+        ShowSwitchToSimulationPrompt = false;
+        AppLogger.Instance.Info("Sugerencia de cambio a Simulación descartada — continuando reconexión.");
     }
 
     // ── Simulation tick ───────────────────────────────────────────────────────

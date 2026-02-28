@@ -8,12 +8,12 @@ namespace AvoPerformanceSetupAI.Services;
 /// <summary>
 /// Manages the active telemetry data source — either Assetto Corsa shared memory
 /// or the built-in simulation generator.  Auto-retries the AC connection every 2 s
-/// when the game is not yet running.
+/// when the game is not yet running or when it closes mid-session.
 /// </summary>
 /// <remarks>
-/// All public methods are thread-safe.  <see cref="ConnectionChanged"/> is raised on
-/// a background thread; consumers must marshal to the UI thread before touching UI
-/// elements (e.g. via <c>DispatcherQueue.TryEnqueue</c>).
+/// All public methods are thread-safe.  Events are raised on a background thread;
+/// consumers must marshal to the UI thread before touching UI elements
+/// (e.g. via <c>DispatcherQueue.TryEnqueue</c>).
 /// </remarks>
 public sealed class TelemetryService : IDisposable
 {
@@ -23,7 +23,11 @@ public sealed class TelemetryService : IDisposable
 
     private readonly object _lock = new();
     private Timer? _retryTimer;
-    private bool _active; // set false in Stop() so in-flight retries don't fire events
+    private bool _active;        // false in Stop() so in-flight callbacks don't fire events
+    private int  _retryCount;    // consecutive failed reconnect attempts
+    private bool _suggestFired;  // ensures SuggestSwitchToSimulation fires at most once per cycle
+
+    private const int MaxRetriesBeforeSuggest = 10;
 
     // ── Public surface ────────────────────────────────────────────────────────
 
@@ -41,6 +45,21 @@ public sealed class TelemetryService : IDisposable
     /// Parameters: (<c>isConnected</c>, <c>statusText</c>).
     /// </summary>
     public event Action<bool, string>? ConnectionChanged;
+
+    /// <summary>
+    /// Raised once after <see cref="MaxRetriesBeforeSuggest"/> consecutive failed
+    /// reconnect attempts.  The ViewModel should prompt the user to switch to
+    /// Simulation without switching automatically.
+    /// </summary>
+    public event Action? SuggestSwitchToSimulation;
+
+    // ── Constructor ───────────────────────────────────────────────────────────
+
+    public TelemetryService()
+    {
+        // Subscribe once for the lifetime of this service.
+        _acReader.Disconnected += OnAcDisconnected;
+    }
 
     // ── API ───────────────────────────────────────────────────────────────────
 
@@ -61,9 +80,11 @@ public sealed class TelemetryService : IDisposable
         Timer? old;
         lock (_lock)
         {
-            _active    = true;
-            old        = _retryTimer;
-            _retryTimer = null;
+            _active       = true;
+            _retryCount   = 0;
+            _suggestFired = false;
+            old           = _retryTimer;
+            _retryTimer   = null;
         }
         old?.Dispose();
         _acReader.Disconnect();
@@ -101,8 +122,8 @@ public sealed class TelemetryService : IDisposable
         Timer? old;
         lock (_lock)
         {
-            _active    = false;
-            old        = _retryTimer;
+            _active     = false;
+            old         = _retryTimer;
             _retryTimer = null;
         }
         old?.Dispose(); // dispose outside the lock so the callback can finish cleanly
@@ -121,17 +142,62 @@ public sealed class TelemetryService : IDisposable
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Called on the poll thread when AC closes unexpectedly.
+    /// Starts (or continues) the reconnect cycle and fires
+    /// <see cref="ConnectionChanged"/> with <c>"Disconnected - retrying…"</c>.
+    /// </summary>
+    private void OnAcDisconnected()
+    {
+        lock (_lock)
+        {
+            if (!_active) return;
+            // Reset the suggest flag so a new reconnect cycle gets a fresh 10-attempt window.
+            _retryCount   = 0;
+            _suggestFired = false;
+            // Start retry timer if one isn't already running.
+            if (_retryTimer is null)
+                _retryTimer = new Timer(
+                    _ => RetryConnect(),
+                    null,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(2));
+        }
+        ConnectionChanged?.Invoke(false, "Disconnected - retrying...");
+    }
+
     private void RetryConnect()
     {
-        if (!TryAutoConnectAc()) return;
+        // Always reset AC reader state before attempting to reconnect; this is
+        // necessary because IsConnected may still be true after an abnormal disconnect.
+        _acReader.Disconnect();
 
+        if (!_acReader.TryConnect())
+        {
+            int count;
+            bool fireSuggest;
+            lock (_lock)
+            {
+                if (!_active) return;
+                count       = ++_retryCount;
+                fireSuggest = count >= MaxRetriesBeforeSuggest && !_suggestFired;
+                if (fireSuggest) _suggestFired = true;
+            }
+            if (fireSuggest)
+                SuggestSwitchToSimulation?.Invoke();
+            return;
+        }
+
+        // Connected!
         Timer? old;
         lock (_lock)
         {
-            // If Stop() was called while we were connecting, don't surface the event.
-            if (!_active) return;
-            old        = _retryTimer;
-            _retryTimer = null;
+            // If Stop() was called while we were connecting, undo and bail out.
+            if (!_active) { _acReader.Disconnect(); return; }
+            _retryCount   = 0;
+            _suggestFired = false;
+            old           = _retryTimer;
+            _retryTimer   = null;
         }
         old?.Dispose();
         ConnectionChanged?.Invoke(true, "Connected to AC");

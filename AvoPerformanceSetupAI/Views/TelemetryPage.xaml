@@ -98,6 +98,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- header -->
+            <RowDefinition Height="Auto"/>  <!-- reconnect suggestion banner -->
             <RowDefinition Height="Auto"/>  <!-- real telemetry -->
             <RowDefinition Height="Auto"/>  <!-- ideal telemetry -->
             <RowDefinition Height="Auto"/>  <!-- live analysis panel -->
@@ -179,8 +180,30 @@
             </Grid>
         </Border>
 
+        <!-- ── Reconnect suggestion banner ─────────────────────────────── -->
+        <InfoBar Grid.Row="1"
+                 IsOpen="{x:Bind ViewModel.ShowSwitchToSimulationPrompt, Mode=OneWay}"
+                 Severity="Warning"
+                 Title="Assetto Corsa no responde"
+                 Message="10 intentos de reconexión fallaron. ¿Cambiar a modo Simulación?"
+                 IsClosable="False"
+                 Margin="8,4">
+            <InfoBar.ActionButton>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Cambiar a Simulación"
+                            Command="{x:Bind ViewModel.ConfirmSwitchToSimulationCommand}"
+                            Background="#FF00B4B4" Foreground="White"
+                            CornerRadius="4" Padding="10,3" FontSize="11"/>
+                    <Button Content="Seguir intentando"
+                            Command="{x:Bind ViewModel.DismissSwitchToSimulationCommand}"
+                            Background="#FF2A3A3A" Foreground="#FFB0C8C8"
+                            CornerRadius="4" Padding="10,3" FontSize="11"/>
+                </StackPanel>
+            </InfoBar.ActionButton>
+        </InfoBar>
+
         <!-- ── Real telemetry panel ────────────────────────────────────────── -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 Background="#FF0F1A1A"
                 BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
                 Padding="8,8,8,4">
@@ -209,7 +232,7 @@
         </Border>
 
         <!-- ── Ideal telemetry panel ───────────────────────────────────────── -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Background="#FF0A1414"
                 BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
                 Padding="8,8,8,4">
@@ -238,7 +261,7 @@
         </Border>
 
         <!-- ── Live Analysis Panel ────────────────────────────────────────── -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="4"
                 Background="#FF0F1A1A"
                 BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
                 Padding="8,6">
@@ -466,7 +489,7 @@
         </Border>
 
         <!-- ── Three analysis terminals ───────────────────────────────────── -->
-        <Grid Grid.Row="4" ColumnSpacing="0">
+        <Grid Grid.Row="5" ColumnSpacing="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -560,7 +583,7 @@
         </Grid>
 
         <!-- ── Corner phase analysis terminal (full width) ────────────────── -->
-        <Grid Grid.Row="5" Margin="8,4,8,8">
+        <Grid Grid.Row="6" Margin="8,4,8,8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>

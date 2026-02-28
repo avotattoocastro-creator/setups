@@ -57,6 +57,13 @@ public sealed class AcTelemetryReader : IDisposable
     public bool IsConnected { get; private set; }
 
     /// <summary>
+    /// Raised on the poll thread when AC closes unexpectedly (shared memory becomes
+    /// unavailable mid-session).  <em>Not</em> raised when <see cref="Disconnect"/>
+    /// is called intentionally.
+    /// </summary>
+    public event Action? Disconnected;
+
+    /// <summary>
     /// Maximum RPM read from the statics page on connect; 0 when not connected.
     /// </summary>
     public int MaxRpm { get; private set; }
@@ -188,6 +195,11 @@ public sealed class AcTelemetryReader : IDisposable
                 break;
             }
         }
+
+        // If the loop exited because AC closed (not because Disconnect() was called),
+        // notify observers so they can start a reconnect cycle.
+        if (!ct.IsCancellationRequested)
+            Disconnected?.Invoke();
     }
 
     private void ReadAndPush()
