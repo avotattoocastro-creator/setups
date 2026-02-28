@@ -219,9 +219,10 @@ public static class UltraSetupAdvisor
     /// <param name="rlEngine">
     /// Optional <see cref="RLPolicyEngine"/> instance.
     /// When non-<see langword="null"/> and <see cref="RLPolicyEngine.IsEnabled"/> is
-    /// <see langword="true"/>, the final score for each candidate is blended:
-    /// <c>FinalScore = <see cref="RLPolicyEngine.MlWeight"/> × mlScore
-    ///              + <see cref="RLPolicyEngine.RlWeight"/> × Q(state, action)</c>.
+    /// <see langword="true"/>, the Q-value for each candidate action is blended into
+    /// the final score.  The blend weights are taken from <paramref name="weightEngine"/>
+    /// when provided, otherwise the fixed <see cref="RLPolicyEngine.MlWeight"/> /
+    /// <see cref="RLPolicyEngine.RlWeight"/> constants are used as fallback.
     /// Use <see cref="NotifyAbTestResult"/> to keep the engine updated.
     /// </param>
     /// <param name="simulator">
@@ -235,6 +236,15 @@ public static class UltraSetupAdvisor
     /// Pass any non-<see langword="null"/> object (e.g. the <see cref="ImpactPredictor"/>)
     /// to activate; the simulator is stateless.
     /// </param>
+    /// <param name="weightEngine">
+    /// Optional <see cref="AdaptiveWeightEngine"/> instance.
+    /// When non-<see langword="null"/>, the three-way blend
+    /// <c>FinalScore = MlWeight × mlScore + RlWeight × Q(s,a) + HeuristicWeight × heuristicScore</c>
+    /// uses the adaptive weights instead of the fixed <see cref="RLPolicyEngine"/> constants.
+    /// The heuristic score is always computed and stored on the <see cref="AdvisedProposal"/>
+    /// even when ML or RL scoring is available, so that <see cref="NotifyAbTestResult"/>
+    /// can record the prediction error later.
+    /// </param>
     public static AdvisedProposal[] Advise(
         in FeatureFrame             frame,
         ReadOnlySpan<CornerSummary> corners,
@@ -244,7 +254,8 @@ public static class UltraSetupAdvisor
         ImpactPredictor?            predictor     = null,
         DriverProfile?              driverProfile = null,
         RLPolicyEngine?             rlEngine      = null,
-        object?                     simulator     = null)
+        object?                     simulator     = null,
+        AdaptiveWeightEngine?       weightEngine  = null)
     {
         // ── Step 1: generate candidates from RuleEngine ───────────────────────
         var rawProposals = profile != null
@@ -285,6 +296,9 @@ public static class UltraSetupAdvisor
             var (balDelta, tracDelta, brkDelta, lapDelta, risk) =
                 SimulationImpactEstimator.Estimate(p.Section, p.Parameter, p.Confidence);
 
+            // Heuristic score: computed once and reused for blending and prediction-error tracking.
+            float heuristicScore = ComputeHeuristicScoreDelta(balDelta, tracDelta, brkDelta, scores);
+
             float scoreDelta;
             bool  scoredByMl = false;
 
@@ -302,15 +316,15 @@ public static class UltraSetupAdvisor
                 else
                 {
                     // Model returned null unexpectedly — fall back to heuristic
-                    scoreDelta = ComputeHeuristicScoreDelta(balDelta, tracDelta, brkDelta, scores);
+                    scoreDelta = heuristicScore;
                 }
             }
             else
             {
-                scoreDelta = ComputeHeuristicScoreDelta(balDelta, tracDelta, brkDelta, scores);
+                scoreDelta = heuristicScore;
             }
 
-            // ── RL blend (60 % ML/heuristic + 40 % Q-value) ─────────────────────
+            // ── RL + adaptive three-way blend ────────────────────────────────
             // Blending happens here — before the driver-profile adjustments and
             // risk penalties below — so those subsequent multipliers are applied
             // to the already-blended score rather than to the raw ML score alone.
@@ -319,8 +333,31 @@ public static class UltraSetupAdvisor
                 var rlAction   = RLPolicyEngine.ActionFromProposal(p);
                 var stateValue = rlState.Value;   // local copy required for 'in' parameter
                 float qValue   = rlEngine!.GetQValue(in stateValue, in rlAction);
-                scoreDelta     = RLPolicyEngine.MlWeight * scoreDelta
+
+                if (weightEngine != null)
+                {
+                    // Three-way adaptive blend:
+                    // FinalScore = MlWeight × mlScore + RlWeight × Q(s,a) + HeuristicWeight × heuristicScore
+                    scoreDelta = weightEngine.MlWeight        * scoreDelta
+                               + weightEngine.RlWeight        * qValue
+                               + weightEngine.HeuristicWeight * heuristicScore;
+                }
+                else
+                {
+                    // Fallback: fixed two-way blend (original behaviour).
+                    scoreDelta = RLPolicyEngine.MlWeight * scoreDelta
                                + RLPolicyEngine.RlWeight  * qValue;
+                }
+            }
+            else if (weightEngine != null)
+            {
+                // RL not active — use adaptive weights for ML + heuristic only.
+                // Re-normalise the two active weights so they still sum to 1.
+                float mw    = weightEngine.MlWeight + weightEngine.RlWeight;
+                float hw    = weightEngine.HeuristicWeight;
+                float total = mw + hw;
+                scoreDelta  = (mw / total) * scoreDelta
+                            + (hw / total) * heuristicScore;
             }
 
             // Penalize high-risk changes (applied regardless of scoring path)
@@ -564,7 +601,9 @@ public static class UltraSetupAdvisor
     }
 
     /// <summary>
-    /// Updates the RL policy engine's Q-table after a completed A/B test.
+    /// Updates the RL policy engine's Q-table after a completed A/B test, and
+    /// optionally records the outcome in the <see cref="AdaptiveWeightEngine"/>
+    /// so that blend weights can be dynamically adjusted.
     /// Call this once per <see cref="AbTestResult"/> when
     /// <see cref="RLPolicyEngine.IsEnabled"/> is <see langword="true"/>.
     /// </summary>
@@ -578,18 +617,32 @@ public static class UltraSetupAdvisor
     /// <param name="result">Completed A/B test result.</param>
     /// <param name="risk">Risk level of the tested proposal.</param>
     /// <param name="rlEngine">The engine to update.</param>
+    /// <param name="weightEngine">
+    /// Optional <see cref="AdaptiveWeightEngine"/>.
+    /// When non-<see langword="null"/>, <see cref="AdaptiveWeightEngine.RecordAbTestResult"/>
+    /// is called with the ML-predicted delta and computed reward so the engine
+    /// can gradually adjust the three-way blend weights.
+    /// </param>
+    /// <param name="mlPredictedDelta">
+    /// The ML (or heuristic) score delta that was predicted for
+    /// <paramref name="testedProposal"/> at selection time.
+    /// Used to compute the ML prediction error in <paramref name="weightEngine"/>.
+    /// Defaults to <c>0f</c> when unknown.
+    /// </param>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="testedProposal"/>, <paramref name="result"/>, or
     /// <paramref name="rlEngine"/> is <see langword="null"/>.
     /// </exception>
     public static void NotifyAbTestResult(
-        in FeatureFrame  frame,
-        DrivingScores?   scores,
-        DriverProfile?   driverProfile,
-        Proposal         testedProposal,
-        AbTestResult     result,
-        RiskLevel        risk,
-        RLPolicyEngine   rlEngine)
+        in FeatureFrame       frame,
+        DrivingScores?        scores,
+        DriverProfile?        driverProfile,
+        Proposal              testedProposal,
+        AbTestResult          result,
+        RiskLevel             risk,
+        RLPolicyEngine        rlEngine,
+        AdaptiveWeightEngine? weightEngine     = null,
+        float                 mlPredictedDelta = 0f)
     {
         if (testedProposal is null) throw new ArgumentNullException(nameof(testedProposal));
         if (result         is null) throw new ArgumentNullException(nameof(result));
@@ -597,9 +650,34 @@ public static class UltraSetupAdvisor
 
         var state  = RLPolicyEngine.BuildState(in frame, scores, driverProfile);
         var action = RLPolicyEngine.ActionFromProposal(testedProposal);
+
+        // Retrieve the Q-value that was current before this update (for error tracking).
+        float rlQValueBefore = rlEngine.GetQValue(in state, in action);
+
         float reward = rlEngine.ComputeReward(
             result, risk, driverProfile?.ConsistencyIndex ?? 1f);
         rlEngine.UpdateQ(in state, in action, reward);
+
+        // Notify the adaptive weight engine when supplied.
+        if (weightEngine != null)
+        {
+            // Approximate actual score delta from A/B test outcome.
+            // A/B test results do not directly expose a "score delta" number, so
+            // we approximate using result confidence as a magnitude proxy:
+            //   +10 × confidence when the change improved the car (positive signal),
+            //   −5  × confidence when it did not (smaller penalty reflects that a
+            //         neutral/marginal outcome is less informative than a clear gain).
+            float actualScoreDelta = result.Confidence * (result.Improved ? 10f : -5f);
+
+            weightEngine.RecordAbTestResult(
+                mlPredictedDelta: mlPredictedDelta,
+                actualScoreDelta: actualScoreDelta,
+                rlQValueUsed:     rlQValueBefore,
+                actualReward:     reward,
+                improved:         result.Improved);
+
+            weightEngine.Save();
+        }
     }
 
     /// <summary>
