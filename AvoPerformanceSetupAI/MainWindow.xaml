@@ -55,6 +55,10 @@
             <TabViewItem x:Name="TabAiAssistant" Header="🤖 IA Asistente" IsClosable="False">
                 <views:AiAssistantPage />
             </TabViewItem>
+
+            <TabViewItem x:Name="TabTelemetry" Header="📡 Telemetría" IsClosable="False">
+                <views:TelemetryPage />
+            </TabViewItem>
         </TabView>
     </Grid>
 </Window>
