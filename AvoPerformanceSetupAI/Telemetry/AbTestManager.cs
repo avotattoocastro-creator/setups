@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using AvoPerformanceSetupAI.ML;
 using AvoPerformanceSetupAI.Models;
 
 namespace AvoPerformanceSetupAI.Telemetry;
@@ -91,6 +92,26 @@ public sealed class AbTestManager
     private readonly Dictionary<string, float> _ruleWeights =
         new(StringComparer.OrdinalIgnoreCase);
 
+    // ── ML training context ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Optional <see cref="ImpactPredictor"/> to hot-swap after retraining.
+    /// Set via <see cref="SetMlContext"/>.
+    /// </summary>
+    private ImpactPredictor? _predictor;
+
+    /// <summary>
+    /// Aggregate <see cref="FeatureFrame"/> captured when <see cref="StartTest"/>
+    /// is called. Used to build the training sample on test completion.
+    /// </summary>
+    private FeatureFrame _baselineFrame;
+
+    /// <summary>
+    /// <see cref="DrivingScores"/> captured when <see cref="StartTest"/> is
+    /// called. Used to populate score fields in the training sample.
+    /// </summary>
+    private DrivingScores? _baselineScores;
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>Current state of the A/B test session.</summary>
@@ -123,6 +144,18 @@ public sealed class AbTestManager
     /// </summary>
     public int ChangedCount => _changedCorners.Count;
 
+    /// <summary>
+    /// Registers the ML predictor to use for hot-swapping after a background
+    /// retrain. Call once during app startup.
+    /// </summary>
+    /// <param name="predictor">
+    /// The <see cref="ImpactPredictor"/> instance shared with
+    /// <see cref="UltraSetupAdvisor"/>. May be <see langword="null"/> to disable
+    /// ML training.
+    /// </param>
+    public void SetMlContext(ImpactPredictor? predictor)
+        => _predictor = predictor;
+
     // ── Test lifecycle ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -130,18 +163,32 @@ public sealed class AbTestManager
     /// The first corner passed to <see cref="NotifyCornerCompleted"/> will set the
     /// reference direction and speed; baseline collection then starts.
     /// </summary>
+    /// <param name="proposal">The setup change to test.</param>
+    /// <param name="baselineFrame">
+    /// Aggregate <see cref="FeatureFrame"/> at the time the test begins.
+    /// Used later to build a training sample when the test completes.
+    /// </param>
+    /// <param name="baselineScores">
+    /// Current <see cref="DrivingScores"/> when the test starts.
+    /// Used to populate score fields in the training sample.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="proposal"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">A test is already in progress.</exception>
-    public void StartTest(Proposal proposal)
+    public void StartTest(
+        Proposal       proposal,
+        in FeatureFrame baselineFrame  = default,
+        DrivingScores?  baselineScores = null)
     {
         if (proposal is null) throw new ArgumentNullException(nameof(proposal));
         if (_state != AbTestState.Idle)
             throw new InvalidOperationException(
                 $"Cannot start a test while state is {_state}. Call Reset() first.");
 
-        _targetProposal   = proposal;
+        _targetProposal  = proposal;
         _targetDirection  = CornerDirection.Unknown;
         _targetSpeedProxy = 0f;
+        _baselineFrame    = baselineFrame;
+        _baselineScores   = baselineScores;
         _baselineCorners.Clear();
         _changedCorners.Clear();
         _state = AbTestState.CollectingBaseline;
@@ -308,6 +355,17 @@ public sealed class AbTestManager
 
         _history.Add(result);
         _state = AbTestState.Complete;
+
+        // ── ML training pipeline ──────────────────────────────────────────────
+        // Capture locals so the lambda doesn't close over mutable fields.
+        var capturedFrame   = _baselineFrame;
+        var capturedScores  = _baselineScores;
+        var capturedPredictor = _predictor;
+
+        ImpactModelTrainer.AppendSample(result, capturedScores, in capturedFrame);
+        if (capturedPredictor != null)
+            ImpactModelTrainer.RetrainIfReady(capturedPredictor);
+
         return result;
     }
 

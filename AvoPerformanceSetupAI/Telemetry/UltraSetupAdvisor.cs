@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AvoPerformanceSetupAI.ML;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Profiles;
 using AvoPerformanceSetupAI.Reference;
@@ -61,6 +62,13 @@ public sealed class AdvisedProposal
 
     /// <summary>Risk level of this change.</summary>
     public RiskLevel RiskLevel { get; init; }
+
+    /// <summary>
+    /// <see langword="true"/> when <see cref="EstimatedScoreDelta"/> was produced
+    /// by the ML.NET <see cref="ImpactPredictor"/>; <see langword="false"/> when
+    /// it came from the heuristic <c>SimulationImpactEstimator</c>.
+    /// </summary>
+    public bool ScoredByMlModel { get; init; }
 }
 
 // ── SimulationImpactEstimator (private heuristic) ────────────────────────────
@@ -153,12 +161,20 @@ public static class UltraSetupAdvisor
     /// </param>
     /// <param name="rootCause">Discriminator result; gates proposals when DriverLikely.</param>
     /// <param name="profile">Optional car/track profile passed to <see cref="RuleEngine"/>.</param>
+    /// <param name="predictor">
+    /// Optional trained <see cref="ImpactPredictor"/>.
+    /// When non-<see langword="null"/> and <see cref="ImpactPredictor.IsModelLoaded"/>
+    /// is <see langword="true"/>, candidates are ranked by the ML-predicted score
+    /// delta instead of the heuristic table.
+    /// Falls back to heuristic automatically when the model is not available.
+    /// </param>
     public static AdvisedProposal[] Advise(
         in FeatureFrame             frame,
         ReadOnlySpan<CornerSummary> corners,
         DrivingScores?              scores,
         in RootCauseResult          rootCause,
-        CarTrackProfile?            profile = null)
+        CarTrackProfile?            profile   = null,
+        ImpactPredictor?            predictor = null)
     {
         // ── Step 1: generate candidates from RuleEngine ───────────────────────
         var rawProposals = profile != null
@@ -176,33 +192,52 @@ public static class UltraSetupAdvisor
         // ── Step 2: apply discriminator gating ────────────────────────────────
         var gated = DriverVsSetupDiscriminator.ApplyGate([.. candidates], in rootCause);
 
-        // ── Step 3: score each candidate ──────────────────────────────────────
+        // ── Step 3: decide scoring path ───────────────────────────────────────
+        bool useML = predictor?.IsModelLoaded == true;
+
+        // Build an ImpactTrainingSample template from current context (reused per candidate)
+        ImpactTrainingSample? sampleTemplate = useML
+            ? BuildSampleTemplate(in frame, scores)
+            : null;
+
+        // ── Step 4: score each candidate ──────────────────────────────────────
         var advised = new List<AdvisedProposal>(gated.Length);
         float baseOverall = scores?.OverallScore ?? 50f;
 
         foreach (var p in gated)
         {
-            // Use the proposal confidence as a proxy for the feature index severity
+            // Always run the heuristic to obtain risk + lap-delta (ML doesn't cover those)
             var (balDelta, tracDelta, brkDelta, lapDelta, risk) =
                 SimulationImpactEstimator.Estimate(p.Section, p.Parameter, p.Confidence);
 
-            // Overall score delta: weighted combination of sub-score gains
-            float scoreDelta = (balDelta  * 0.35f +
-                                tracDelta * 0.25f +
-                                brkDelta  * 0.20f);
+            float scoreDelta;
+            bool  scoredByMl = false;
 
-            // Scale score delta so it's relative to current weakness
-            if (scores != null)
+            if (useML && sampleTemplate != null)
             {
-                // Amplify proposals that address the most deficient area
-                if (balDelta > 0 && scores.BalanceScore < 60f)   scoreDelta *= 1.2f;
-                if (tracDelta > 0 && scores.TractionScore < 60f) scoreDelta *= 1.2f;
-                if (brkDelta > 0 && scores.BrakeScore < 60f)     scoreDelta *= 1.2f;
+                // Populate candidate-specific fields on a copy of the template
+                var sample = CloneSampleTemplate(sampleTemplate, p);
+                var prediction = predictor!.Predict(sample);
+
+                if (prediction != null)
+                {
+                    scoreDelta  = Math.Clamp(prediction.DeltaOverallScore, 0f, 30f);
+                    scoredByMl  = true;
+                }
+                else
+                {
+                    // Model returned null unexpectedly — fall back to heuristic
+                    scoreDelta = ComputeHeuristicScoreDelta(balDelta, tracDelta, brkDelta, scores);
+                }
+            }
+            else
+            {
+                scoreDelta = ComputeHeuristicScoreDelta(balDelta, tracDelta, brkDelta, scores);
             }
 
-            // Penalize high-risk changes
-            if (risk == RiskLevel.High)   { lapDelta   *= 0.70f; scoreDelta *= 0.70f; }
-            if (risk == RiskLevel.Medium) { lapDelta   *= 0.90f; scoreDelta *= 0.90f; }
+            // Penalize high-risk changes (applied regardless of scoring path)
+            if (risk == RiskLevel.High)   { lapDelta *= 0.70f; scoreDelta *= 0.70f; }
+            if (risk == RiskLevel.Medium) { lapDelta *= 0.90f; scoreDelta *= 0.90f; }
 
             advised.Add(new AdvisedProposal
             {
@@ -214,21 +249,114 @@ public static class UltraSetupAdvisor
                 EstimatedLapDeltaSec  = lapDelta,
                 EstimatedScoreDelta   = Math.Clamp(scoreDelta, 0f, 30f),
                 RiskLevel             = risk,
+                ScoredByMlModel       = scoredByMl,
             });
         }
 
-        // ── Step 4: sort by estimated lap delta descending, cap at MaxTopProposals ──
-        advised.Sort(static (a, b) => b.EstimatedLapDeltaSec.CompareTo(a.EstimatedLapDeltaSec));
+        // ── Step 5: sort by estimated score delta descending, cap at MaxTopProposals ──
+        // When ML scores are in use we rank by ML-predicted score delta for accuracy;
+        // otherwise fall back to lap delta (heuristic) as before.
+        if (useML)
+            advised.Sort(static (a, b) => b.EstimatedScoreDelta.CompareTo(a.EstimatedScoreDelta));
+        else
+            advised.Sort(static (a, b) => b.EstimatedLapDeltaSec.CompareTo(a.EstimatedLapDeltaSec));
+
         if (advised.Count > MaxTopProposals)
             advised.RemoveRange(MaxTopProposals, advised.Count - MaxTopProposals);
 
         return [.. advised];
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // ── ML helpers ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Adds extra proposals derived from per-phase corner frame data.
+    /// Builds a template <see cref="ImpactTrainingSample"/> from the current
+    /// telemetry context. Candidate-specific fields are populated separately via
+    /// <see cref="CloneSampleTemplate"/>.
+    /// </summary>
+    private static ImpactTrainingSample BuildSampleTemplate(
+        in FeatureFrame frame,
+        DrivingScores?  scores)
+        => new()
+        {
+            UndersteerEntry            = frame.UndersteerEntry,
+            UndersteerMid              = frame.UndersteerMid,
+            OversteerEntry             = frame.OversteerEntry,
+            OversteerExit              = frame.OversteerExit,
+            WheelspinRatioRear         = frame.WheelspinRatioRear,
+            LockupRatioFront           = frame.LockupRatioFront,
+            BrakeStabilityIndex        = frame.BrakeStabilityIndex,
+            SuspensionOscillationIndex = frame.SuspensionOscillationIndex,
+            BalanceScore               = scores?.BalanceScore   ?? 50f,
+            StabilityScore             = scores?.StabilityScore ?? 50f,
+            TractionScore              = scores?.TractionScore  ?? 50f,
+            BrakeScore                 = scores?.BrakeScore     ?? 50f,
+        };
+
+    /// <summary>
+    /// Returns a copy of <paramref name="template"/> with the
+    /// candidate-specific fields from <paramref name="proposal"/> set.
+    /// When the section or parameter is not in the encoding dictionary the
+    /// field is set to 0f, which is the "unknown category" sentinel used by
+    /// both the training pipeline (<see cref="ImpactModelTrainer"/>) and the
+    /// predictor, keeping training labels and inference inputs consistent.
+    /// </summary>
+    private static ImpactTrainingSample CloneSampleTemplate(
+        ImpactTrainingSample template,
+        Proposal             proposal)
+    {
+        // 0f = unknown category sentinel; 1-based codes are used for known entries.
+        ImpactModelTrainer.EncodedSections.TryGetValue(proposal.Section,     out var secCode);
+        ImpactModelTrainer.EncodedParameters.TryGetValue(proposal.Parameter, out var parCode);
+        float deltaValue = float.TryParse(
+            proposal.Delta,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var dv) ? dv : 0f;
+
+        return new ImpactTrainingSample
+        {
+            UndersteerEntry            = template.UndersteerEntry,
+            UndersteerMid              = template.UndersteerMid,
+            OversteerEntry             = template.OversteerEntry,
+            OversteerExit              = template.OversteerExit,
+            WheelspinRatioRear         = template.WheelspinRatioRear,
+            LockupRatioFront           = template.LockupRatioFront,
+            BrakeStabilityIndex        = template.BrakeStabilityIndex,
+            SuspensionOscillationIndex = template.SuspensionOscillationIndex,
+            BalanceScore               = template.BalanceScore,
+            StabilityScore             = template.StabilityScore,
+            TractionScore              = template.TractionScore,
+            BrakeScore                 = template.BrakeScore,
+            SectionEncoded             = secCode,
+            ParameterEncoded           = parCode,
+            DeltaValue                 = deltaValue,
+        };
+    }
+
+    /// <summary>
+    /// Heuristic score delta (identical to the original scoring logic before ML).
+    /// Used as fallback when no model is loaded.
+    /// </summary>
+    private static float ComputeHeuristicScoreDelta(
+        float balDelta, float tracDelta, float brkDelta,
+        DrivingScores? scores)
+    {
+        float scoreDelta = balDelta  * 0.35f +
+                           tracDelta * 0.25f +
+                           brkDelta  * 0.20f;
+        if (scores != null)
+        {
+            if (balDelta  > 0 && scores.BalanceScore   < 60f) scoreDelta *= 1.2f;
+            if (tracDelta > 0 && scores.TractionScore  < 60f) scoreDelta *= 1.2f;
+            if (brkDelta  > 0 && scores.BrakeScore     < 60f) scoreDelta *= 1.2f;
+        }
+        return scoreDelta;
+    }
+
+    // ── Corner enrichment ─────────────────────────────────────────────────────
+
+    /// <summary>
     /// These supplement the aggregate-frame rules when corner-phase signals
     /// are more pronounced than the aggregate.
     /// </summary>
