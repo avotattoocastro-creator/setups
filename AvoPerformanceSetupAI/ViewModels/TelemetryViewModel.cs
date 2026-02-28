@@ -191,16 +191,17 @@ public partial class TelemetryViewModel : ObservableObject
     {
         foreach (var ch in Channels)
         {
-            // Oscillate real value ±4 % around ideal
+            // Oscillate real value ±4 % around ideal (factor in range [0.96, 1.04])
             var noise = (_rng.NextDouble() - 0.5) * 0.08;
-            ch.RealValue = Math.Round(ch.IdealValue * (0.96 + noise), 2);
+            ch.RealValue = Math.Round(ch.IdealValue * (1.0 + noise), 2);
         }
     }
 
     private void UpdateLapTime()
     {
         const int baseMs = 112847; // 1:52.847
-        var deltaMs      = (int)((_rng.NextDouble() - 0.4) * 600); // slight positive bias
+        // Range: -0.4 × 600 = -240 ms to +0.6 × 600 = +360 ms; avg bias ≈ +60 ms
+        var deltaMs      = (int)((_rng.NextDouble() - 0.4) * 600);
         var realMs       = baseMs + deltaMs;
         var m            = realMs / 60000;
         var s            = (realMs % 60000) / 1000;

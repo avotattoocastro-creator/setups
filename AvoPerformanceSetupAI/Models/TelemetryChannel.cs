@@ -39,12 +39,14 @@ public partial class TelemetryChannel : ObservableObject
 
     partial void OnRealValueChanged(double value)
     {
+        _ = value; // new value already stored in _realValue; notify computed dependents
         OnPropertyChanged(nameof(RealDisplay));
         OnPropertyChanged(nameof(DeltaDisplay));
     }
 
     partial void OnIdealValueChanged(double value)
     {
+        _ = value;
         OnPropertyChanged(nameof(IdealDisplay));
         OnPropertyChanged(nameof(DeltaDisplay));
     }

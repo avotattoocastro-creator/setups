@@ -19,14 +19,14 @@
                                FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
                                Foreground="#FF607878"/>
                     <StackPanel Orientation="Horizontal" Spacing="3">
-                        <TextBlock Text="{x:Bind RealDisplay}"
+                        <TextBlock Text="{x:Bind RealDisplay, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="17" FontWeight="Bold"
                                    Foreground="#FFE0F8F8"/>
                         <TextBlock Text="{x:Bind Unit}"
                                    FontFamily="Consolas" FontSize="10"
                                    Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                     </StackPanel>
-                    <TextBlock Text="{x:Bind DeltaDisplay}"
+                    <TextBlock Text="{x:Bind DeltaDisplay, Mode=OneWay}"
                                FontFamily="Consolas" FontSize="10"
                                Foreground="#FFFFA040"/>
                 </StackPanel>
@@ -43,7 +43,7 @@
                                FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
                                Foreground="#FF607878"/>
                     <StackPanel Orientation="Horizontal" Spacing="3">
-                        <TextBlock Text="{x:Bind IdealDisplay}"
+                        <TextBlock Text="{x:Bind IdealDisplay, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="17" FontWeight="Bold"
                                    Foreground="#FF00E676"/>
                         <TextBlock Text="{x:Bind Unit}"
@@ -117,18 +117,18 @@
                         <TextBlock Text="Telemetría" FontSize="14" FontWeight="SemiBold"
                                    Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="{x:Bind ViewModel.StatusText}"
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                                FontFamily="Consolas" FontSize="12" Foreground="#FF00B4B4"
                                VerticalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <TextBlock Text="Vuelta:" Foreground="#FF8AABAB" FontSize="12"/>
-                        <TextBlock Text="{x:Bind ViewModel.LapTimeReal}"
+                        <TextBlock Text="{x:Bind ViewModel.LapTimeReal, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="12" FontWeight="Bold"
                                    Foreground="#FFE0F8F8"/>
-                        <TextBlock Text="{x:Bind ViewModel.LapDelta}"
+                        <TextBlock Text="{x:Bind ViewModel.LapDelta, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="12" Foreground="#FFFFA040"/>
                         <TextBlock Text="/ Ideal:" Foreground="#FF8AABAB" FontSize="12"/>
-                        <TextBlock Text="{x:Bind ViewModel.LapTimeIdeal}"
+                        <TextBlock Text="{x:Bind ViewModel.LapTimeIdeal, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="12" FontWeight="Bold"
                                    Foreground="#FF00E676"/>
                     </StackPanel>
