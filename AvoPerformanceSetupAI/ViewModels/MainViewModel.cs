@@ -10,5 +10,5 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedLanguage = "ES";
 
-    public SessionsViewModel Sessions { get; } = new SessionsViewModel();
+    public SessionsViewModel Sessions => SessionsViewModel.Shared;
 }

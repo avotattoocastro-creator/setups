@@ -9,10 +9,6 @@
     Background="Transparent"
     RequestedTheme="Dark">
 
-    <Page.DataContext>
-        <vm:SessionsViewModel />
-    </Page.DataContext>
-
     <Grid Margin="16" ColumnSpacing="16">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />

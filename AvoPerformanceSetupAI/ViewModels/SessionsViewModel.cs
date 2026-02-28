@@ -14,6 +14,9 @@ namespace AvoPerformanceSetupAI.ViewModels;
 
 public partial class SessionsViewModel : ObservableObject
 {
+    /// <summary>Application-wide shared instance used by all pages.</summary>
+    public static SessionsViewModel Shared { get; } = new SessionsViewModel();
+
     // ── Config fields ────────────────────────────────────────────────────────
     [ObservableProperty] private string _carId = string.Empty;
     [ObservableProperty] private string _trackId = string.Empty;
