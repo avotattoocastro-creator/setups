@@ -888,7 +888,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// the <c>LastCorner*</c> observables, and <see cref="Proposals"/> up-to-date
     /// without blocking the 250 Hz AC poll loop.
     /// </summary>
-    private void OnFastTick(object sender, object e)
+    private void OnFastTick(object? sender, object e)
     {
         if (!IsAcConnected) return;
 
