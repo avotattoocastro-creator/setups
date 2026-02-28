@@ -53,6 +53,18 @@
                            VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
+
+        <!-- Filter pill style (used by filter buttons) -->
+        <Style x:Key="FilterPillStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF1E2A2A" />
+            <Setter Property="Foreground" Value="#FF8AABAB" />
+            <Setter Property="BorderBrush" Value="#FF2E4040" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="10,3,10,3" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontFamily" Value="Consolas" />
+        </Style>
     </Page.Resources>
 
     <Grid>
