@@ -22,31 +22,11 @@ public sealed partial class TerminalPage : Page
         Resources["CategoryToBadgeBrushConverter"] = new CategoryToBadgeBrushConverter();
         Resources["CategoryToTextBrushConverter"]  = new CategoryToTextBrushConverter();
 
-        // Register filter-pill style
-        Resources["FilterPillStyle"] = BuildFilterPillStyle();
+        // FilterPillStyle now declared in App.xaml resources.
 
         // React to collection changes for auto-scroll and counter
         ViewModel.FilteredEntries.CollectionChanged += OnFilteredEntriesChanged;
         UpdateEntryCount();
-    }
-
-    // ── Filter pill style ────────────────────────────────────────────────────
-
-    private static Style BuildFilterPillStyle()
-    {
-        var style = new Style(typeof(Button));
-        style.Setters.Add(new Setter(Button.BackgroundProperty,
-            new SolidColorBrush(Windows.UI.Color.FromArgb(255, 30, 42, 42))));
-        style.Setters.Add(new Setter(Button.ForegroundProperty,
-            new SolidColorBrush(Windows.UI.Color.FromArgb(255, 138, 171, 171))));
-        style.Setters.Add(new Setter(Button.BorderBrushProperty,
-            new SolidColorBrush(Windows.UI.Color.FromArgb(255, 46, 64, 64))));
-        style.Setters.Add(new Setter(Button.BorderThicknessProperty, new Thickness(1)));
-        style.Setters.Add(new Setter(Button.CornerRadiusProperty, new CornerRadius(12)));
-        style.Setters.Add(new Setter(Button.PaddingProperty, new Thickness(10, 3, 10, 3)));
-        style.Setters.Add(new Setter(Button.FontSizeProperty, 11.0));
-        style.Setters.Add(new Setter(Button.FontFamilyProperty, new FontFamily("Consolas")));
-        return style;
     }
 
     // ── Filter button clicks ─────────────────────────────────────────────────
