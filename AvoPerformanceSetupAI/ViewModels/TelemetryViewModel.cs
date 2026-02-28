@@ -20,9 +20,6 @@ public partial class TelemetryViewModel : ObservableObject
 
     private readonly AcTelemetryReader _acReader = new();
 
-    /// <summary>Scratch array for copying ring-buffer tail; reused each tick. 125 samples ≈ 0.5 s of data at 250 Hz.</summary>
-    private readonly TelemetrySample[] _featureBuf = new TelemetrySample[125];
-
     /// <summary>Number of 800 ms ticks between feature-analysis runs (6 × 800 ms ≈ 4.8 s).</summary>
     private const int FeatureAnalysisTickInterval = 6;
 
@@ -281,16 +278,15 @@ public partial class TelemetryViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Extracts features from the most recent 125 samples (~0.5 s at 250 Hz)
+    /// Extracts features from the most recent 2 seconds of samples in the ring buffer
     /// and appends human-readable results to the behaviour log.
     /// </summary>
     private void RunFeatureAnalysis()
     {
-        var n = _acReader.Buffer.CopyTail(_featureBuf, _featureBuf.Length);
-        if (n == 0) return;
+        var frame = FeatureExtractor.ExtractFrame(_acReader.Buffer, windowSeconds: 2.0);
+        if (frame.SampleCount == 0) return;
 
-        var features = FeatureExtractor.Extract(_featureBuf, n);
-        foreach (var (tag, msg) in FeatureExtractor.FormatLog(in features))
+        foreach (var (tag, msg) in FeatureExtractor.FormatLog(in frame))
             Append(BehaviorLogs, tag, msg);
     }
 
