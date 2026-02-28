@@ -33,6 +33,7 @@
 
             <!-- Card background -->
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF1E2A2A" />
+            <SolidColorBrush x:Key="CardBorderBrush" Color="#FF2E4040" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
