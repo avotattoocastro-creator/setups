@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using AvoPerformanceSetupAI.Models;
+using AvoPerformanceSetupAI.Profiles;
 
 namespace AvoPerformanceSetupAI.Telemetry;
 
@@ -141,6 +143,57 @@ public static class RuleEngine
             results.RemoveRange(MaxProposals, results.Count - MaxProposals);
 
         return [.. results];
+    }
+
+    /// <summary>
+    /// Evaluates all rules against <paramref name="frame"/>, applies the bias and
+    /// weight overrides from <paramref name="profile"/>, and returns up to
+    /// <see cref="MaxProposals"/> proposals sorted by effective confidence descending.
+    /// </summary>
+    /// <param name="frame">Normalized feature snapshot to evaluate.</param>
+    /// <param name="profile">
+    /// Optional car/track profile. When <see langword="null"/> the method behaves
+    /// identically to <see cref="Evaluate(in FeatureFrame)"/>.
+    /// </param>
+    public static Proposal[] Evaluate(in FeatureFrame frame, CarTrackProfile? profile)
+    {
+        if (profile is null) return Evaluate(in frame);
+
+        // Apply additive bias to understeer / oversteer indices before evaluation
+        var usBias = Math.Clamp(profile.BaselineUndersteerBias, -1f, 1f);
+        var osBias = Math.Clamp(profile.BaselineOversteerBias,  -1f, 1f);
+
+        var biased = frame with
+        {
+            UndersteerEntry = Math.Clamp(frame.UndersteerEntry + usBias, 0f, 1f),
+            UndersteerMid   = Math.Clamp(frame.UndersteerMid   + usBias, 0f, 1f),
+            UndersteerExit  = Math.Clamp(frame.UndersteerExit  + usBias, 0f, 1f),
+            OversteerEntry  = Math.Clamp(frame.OversteerEntry  + osBias, 0f, 1f),
+            OversteerExit   = Math.Clamp(frame.OversteerExit   + osBias, 0f, 1f),
+        };
+
+        // Evaluate using the bias-adjusted frame
+        var proposals = Evaluate(in biased);
+
+        // Re-weight by PreferredProposalWeights
+        for (int i = 0; i < proposals.Length; i++)
+        {
+            var key    = $"{proposals[i].Section}:{proposals[i].Parameter}";
+            var weight = profile.GetWeight(key);
+            if (Math.Abs(weight - 1f) > 1e-6f)
+                proposals[i].Confidence = Math.Clamp(proposals[i].Confidence * weight, 0f, 1f);
+        }
+
+        // Re-sort after re-weighting and cap at MaxProposals
+        Array.Sort(proposals, static (a, b) => b.Confidence.CompareTo(a.Confidence));
+        if (proposals.Length > MaxProposals)
+        {
+            var trimmed = new Proposal[MaxProposals];
+            Array.Copy(proposals, trimmed, MaxProposals);
+            return trimmed;
+        }
+
+        return proposals;
     }
 
     // ── Factory helper ────────────────────────────────────────────────────────
