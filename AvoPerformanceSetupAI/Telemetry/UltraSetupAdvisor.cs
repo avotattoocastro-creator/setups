@@ -195,13 +195,19 @@ public static class UltraSetupAdvisor
     /// delta instead of the heuristic table.
     /// Falls back to heuristic automatically when the model is not available.
     /// </param>
+    /// <param name="driverProfile">
+    /// Optional <see cref="DriverProfile"/> computed by <c>DriverStyleAnalyzer</c>.
+    /// When supplied, risk penalties, stability preference, brake-bias sensitivity,
+    /// and rear-rotation weighting are adjusted to match the driver's style.
+    /// </param>
     public static AdvisedProposal[] Advise(
         in FeatureFrame             frame,
         ReadOnlySpan<CornerSummary> corners,
         DrivingScores?              scores,
         in RootCauseResult          rootCause,
-        CarTrackProfile?            profile   = null,
-        ImpactPredictor?            predictor = null)
+        CarTrackProfile?            profile       = null,
+        ImpactPredictor?            predictor     = null,
+        DriverProfile?              driverProfile = null)
     {
         // ── Step 1: generate candidates from RuleEngine ───────────────────────
         var rawProposals = profile != null
@@ -263,8 +269,18 @@ public static class UltraSetupAdvisor
             }
 
             // Penalize high-risk changes (applied regardless of scoring path)
-            if (risk == RiskLevel.High)   { lapDelta *= 0.70f; scoreDelta *= 0.70f; }
-            if (risk == RiskLevel.Medium) { lapDelta *= 0.90f; scoreDelta *= 0.90f; }
+            // ── Driver-profile adjustments ────────────────────────────────────
+            // Adjust penalties and weights based on the driver's measured style.
+            float riskHighMult   = 0.70f;
+            float riskMediumMult = 0.90f;
+            ApplyDriverProfileAdjustments(
+                driverProfile,
+                p.Section, p.Parameter,
+                ref lapDelta, ref scoreDelta,
+                ref riskHighMult, ref riskMediumMult);
+
+            if (risk == RiskLevel.High)   { lapDelta *= riskHighMult;   scoreDelta *= riskHighMult;   }
+            if (risk == RiskLevel.Medium) { lapDelta *= riskMediumMult; scoreDelta *= riskMediumMult; }
 
             advised.Add(new AdvisedProposal
             {
@@ -419,6 +435,96 @@ public static class UltraSetupAdvisor
     }
 
     /// <summary>
+    /// Adjusts lap-delta, score-delta, and risk-penalty multipliers based on
+    /// the driver's measured style from <paramref name="driverProfile"/>.
+    /// All modifications are applied in-place via <see langword="ref"/> parameters.
+    /// </summary>
+    /// <remarks>
+    /// Rules applied:
+    /// <list type="bullet">
+    ///   <item><b>Aggressive driver</b> (AggressivenessIndex &gt; 0.6) — risk penalties
+    ///     are relaxed by up to 20 % (High → 0.74, Medium → 0.92) because an
+    ///     aggressive driver can extract more benefit from edge-of-envelope changes.</item>
+    ///   <item><b>Inconsistent driver</b> (ConsistencyIndex &lt; 0.5) — stability-related
+    ///     proposals (ARB, SPRINGS, DAMPERS) receive a 20 % score boost; aggressive
+    ///     balance changes (AERO, ALIGNMENT) are penalised by 15 %.</item>
+    ///   <item><b>High brake aggression</b> (BrakeAggressionIndex &gt; 0.65) — brake-bias
+    ///     suggestions (BRAKES:BRAKE_BIAS, BRAKES:BRAKE_POWER) are penalised by 15 %
+    ///     because the driver's own behaviour already dominates the brake signal.</item>
+    ///   <item><b>Positive balance bias</b> (PreferredBalanceBias &gt; 0.15) — rear-rotation
+    ///     proposals (ARB:REAR, ELECTRONICS:DIFF_ACC, DAMPERS:BUMP_REAR) receive a
+    ///     25 % score boost to match the driver's preferred handling feel.</item>
+    /// </list>
+    /// </remarks>
+    private static void ApplyDriverProfileAdjustments(
+        DriverProfile? driverProfile,
+        string         section,
+        string         parameter,
+        ref float      lapDelta,
+        ref float      scoreDelta,
+        ref float      riskHighMult,
+        ref float      riskMediumMult)
+    {
+        if (driverProfile is null) return;
+
+        var key = $"{section}:{parameter}";
+
+        // ── 1. Aggressive driver: relax risk penalty ──────────────────────────
+        if (driverProfile.AggressivenessIndex > AggressivenessThreshold)
+        {
+            // Lerp: at aggr = AggressivenessThreshold → no change;
+            //       at aggr = 1.0 → relax by MaxRiskRelaxAmount.
+            float relaxFactor = (driverProfile.AggressivenessIndex - AggressivenessThreshold)
+                                / AggressivenessRange;   // 0..1
+            float relaxAmount = relaxFactor * MaxRiskRelaxAmount;
+            riskHighMult   = Math.Min(riskHighMult   + relaxAmount, 1.0f);
+            riskMediumMult = Math.Min(riskMediumMult + relaxAmount, 1.0f);
+        }
+
+        // ── 2. Inconsistent driver: boost stability, penalise aggressive balance ──
+        if (driverProfile.ConsistencyIndex < ConsistencyThreshold)
+        {
+            // Stability sections
+            if (string.Equals(section, "ARB",     StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(section, "SPRINGS",  StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(section, "DAMPERS",  StringComparison.OrdinalIgnoreCase))
+            {
+                lapDelta   *= StabilityBoostMult;
+                scoreDelta *= StabilityBoostMult;
+            }
+            // Aggressive balance sections
+            if (string.Equals(section, "AERO",      StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(section, "ALIGNMENT",  StringComparison.OrdinalIgnoreCase))
+            {
+                lapDelta   *= AggressiveBalancePenaltyMult;
+                scoreDelta *= AggressiveBalancePenaltyMult;
+            }
+        }
+
+        // ── 3. High brake aggression: reduce brake-bias suggestion sensitivity ──
+        if (driverProfile.BrakeAggressionIndex > BrakeAggressionThreshold &&
+            (string.Equals(key, "BRAKES:BRAKE_BIAS",  StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(key, "BRAKES:BRAKE_POWER", StringComparison.OrdinalIgnoreCase)))
+        {
+            lapDelta   *= BrakeSensitivityPenaltyMult;
+            scoreDelta *= BrakeSensitivityPenaltyMult;
+        }
+
+        // ── 4. Positive balance bias: boost rear-rotation suggestions ─────────
+        if (driverProfile.PreferredBalanceBias > RotationBiasThreshold &&
+            (string.Equals(key, "ARB:REAR",                 StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(key, "ELECTRONICS:DIFF_ACC",     StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(key, "DAMPERS:BUMP_REAR",        StringComparison.OrdinalIgnoreCase)))
+        {
+            // Scale boost with bias magnitude: at PreferredBalanceBias = +1.0 → MaxRotationBoost.
+            float boostFactor = 1f + MaxRotationBoost
+                                   * Math.Clamp(driverProfile.PreferredBalanceBias, 0f, 1f);
+            lapDelta   *= boostFactor;
+            scoreDelta *= boostFactor;
+        }
+    }
+
+    /// <summary>
     /// Internal façade over <c>SimulationImpactEstimator</c> so that other
     /// types in the same assembly (e.g. <see cref="TelemetryViewModel"/>) can
     /// obtain heuristic impact estimates without duplicating the impact table.
@@ -428,6 +534,39 @@ public static class UltraSetupAdvisor
         => SimulationImpactEstimator.Estimate(section, parameter, featureIndex);
 
     // ── Corner enrichment ─────────────────────────────────────────────────────
+
+    /// <summary>AggressivenessIndex threshold above which risk penalties are relaxed.</summary>
+    private const float AggressivenessThreshold = 0.60f;
+
+    /// <summary>
+    /// Width of the aggressiveness range used to lerp the risk-relaxation amount
+    /// (from threshold to threshold + range = 1.0).
+    /// </summary>
+    private const float AggressivenessRange = 0.40f;
+
+    /// <summary>Maximum risk-penalty relaxation applied to an extremely aggressive driver.</summary>
+    private const float MaxRiskRelaxAmount = 0.20f;
+
+    /// <summary>ConsistencyIndex below which stability is preferred over balance changes.</summary>
+    private const float ConsistencyThreshold = 0.50f;
+
+    /// <summary>Score/lap multiplier applied to stability proposals for inconsistent drivers.</summary>
+    private const float StabilityBoostMult = 1.20f;
+
+    /// <summary>Score/lap multiplier applied to aggressive-balance proposals for inconsistent drivers.</summary>
+    private const float AggressiveBalancePenaltyMult = 0.85f;
+
+    /// <summary>BrakeAggressionIndex above which brake-bias suggestion sensitivity is reduced.</summary>
+    private const float BrakeAggressionThreshold = 0.65f;
+
+    /// <summary>Score/lap multiplier applied to brake-bias/power proposals for highly aggressive brakers.</summary>
+    private const float BrakeSensitivityPenaltyMult = 0.85f;
+
+    /// <summary>PreferredBalanceBias above which rear-rotation proposals are boosted.</summary>
+    private const float RotationBiasThreshold = 0.15f;
+
+    /// <summary>Maximum score/lap boost applied to rear-rotation proposals (at PreferredBalanceBias = 1.0).</summary>
+    private const float MaxRotationBoost = 0.25f;
 
     /// <summary>
     /// These supplement the aggregate-frame rules when corner-phase signals
