@@ -14,7 +14,7 @@
             <!-- Setup Folder -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Carpeta de Setups" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <TextBlock Text="Selecciona la carpeta raíz que contiene las subcarpetas de coches y circuitos."
@@ -45,7 +45,7 @@
             <!-- Output (Destination) Folder -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Carpeta de Destino (Apply)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <TextBlock Text="Carpeta donde se copian los archivos cuando pulsas Apply (p. ej. la carpeta de setups del simulador)."
@@ -76,7 +76,7 @@
             <!-- Language Selector -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Language / Idioma" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <ComboBox Width="200" SelectedIndex="0">
@@ -89,7 +89,7 @@
             <!-- Theme -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Theme / Tema" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <ToggleSwitch Header="Dark Mode" IsOn="True" />

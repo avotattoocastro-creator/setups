@@ -15,10 +15,10 @@
             <!-- Session Info Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Sesión Activa" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-                    <Grid ColumnSpacing="24" RowSpacing="10">
+                    <Grid ColumnSpacing="24" RowSpacing="14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -57,7 +57,7 @@
             <!-- Telemetry Status Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Estado de Telemetría" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <Grid ColumnSpacing="16">
@@ -95,7 +95,7 @@
             <!-- Actions Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Acciones" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -115,7 +115,7 @@
             <!-- Setup Files Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Archivo de Setup Activo" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <TextBlock Text="{Binding SelectedSetupFile}"

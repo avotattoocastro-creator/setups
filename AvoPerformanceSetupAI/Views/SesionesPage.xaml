@@ -16,13 +16,13 @@
         <!-- ══════════════════════════════════════════════
              LEFT COLUMN: Config + Setups Table
              ══════════════════════════════════════════════ -->
-        <StackPanel Grid.Column="0" Spacing="12">
+        <StackPanel Grid.Column="0" Spacing="16">
 
             <!-- Config Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="14">
-                <Grid ColumnSpacing="12" RowSpacing="10">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <Grid ColumnSpacing="12" RowSpacing="14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
@@ -69,16 +69,16 @@
             <!-- Setup Files from disk -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="4">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel>
                     <TextBlock Text="Archivos de Setup" Foreground="#FFE0F0F0" FontWeight="SemiBold"
-                               Margin="10,8,10,4"/>
+                               Margin="0,0,0,4"/>
                     <TextBlock x:Name="NoSetupFilesHint"
                                Text="Configura la carpeta raíz en la pestaña Configuración y selecciona coche y circuito."
                                Foreground="#FF607070"
                                FontSize="12"
                                TextWrapping="Wrap"
-                               Margin="10,0,10,8"
+                               Margin="0,0,0,8"
                                Visibility="{Binding SetupFilesHintVisibility}"/>
                     <ListView
                         ItemsSource="{Binding SetupFiles}"
@@ -102,12 +102,12 @@
             <!-- Setups List -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="4">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel>
                     <TextBlock Text="Setups" Foreground="#FFE0F0F0" FontWeight="SemiBold"
-                               Margin="10,8,10,4"/>
+                               Margin="0,0,0,4"/>
                     <!-- Column headers -->
-                    <Grid Margin="8,0,8,2">
+                    <Grid Margin="0,0,0,2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="110"/>
@@ -169,12 +169,12 @@
         <!-- ══════════════════════════════════════════════
              RIGHT COLUMN: Status + Brain + Proposals
              ══════════════════════════════════════════════ -->
-        <StackPanel Grid.Column="1" Spacing="12">
+        <StackPanel Grid.Column="1" Spacing="16">
 
             <!-- Status Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="14">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Status" Foreground="#FF8AABAB" FontSize="11" FontWeight="SemiBold"/>
                     <TextBlock Text="{Binding StatusText}"
@@ -191,7 +191,7 @@
             <!-- Last Proposal Card -->
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="14">
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Last Proposal" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
                     <ItemsControl ItemsSource="{Binding LastProposals}">
