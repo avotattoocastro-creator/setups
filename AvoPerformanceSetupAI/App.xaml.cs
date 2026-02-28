@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using AvoPerformanceSetupAI.Services;
 
 namespace AvoPerformanceSetupAI;
 
@@ -16,6 +17,10 @@ public partial class App : Application
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        // Apply the persisted UI scale before the window is created so all
+        // StaticResource/Binding lookups pick up the correct value.
+        this.Resources["UiScale"] = SetupSettings.Instance.UiScale;
+
         _window = new MainWindow();
         _window.Activate();
     }

@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Storage.Pickers;
 using AvoPerformanceSetupAI.Services;
 
@@ -7,6 +8,10 @@ namespace AvoPerformanceSetupAI.Views;
 
 public sealed partial class ConfiguracionPage : Page
 {
+    /// <summary>
+    /// Must match <c>StepFrequency</c> on <see cref="UiScaleSlider"/> in the XAML.
+    /// </summary>
+    private const double UiScaleStep = 0.05;
     public ConfiguracionPage()
     {
         this.InitializeComponent();
@@ -23,6 +28,10 @@ public sealed partial class ConfiguracionPage : Page
             else if (e.PropertyName == nameof(SetupSettings.OutputFolder))
                 OutputFolderPathBox.Text = SetupSettings.Instance.OutputFolder;
         };
+
+        // Initialise the UI scale slider from persisted setting
+        UiScaleSlider.Value = SetupSettings.Instance.UiScale;
+        UiScaleValueText.Text = $"{SetupSettings.Instance.UiScale:F2}×";
     }
 
     private async void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -68,5 +77,14 @@ public sealed partial class ConfiguracionPage : Page
         {
             AppLogger.Instance.Info("Selección de carpeta de destino cancelada por el usuario.");
         }
+    }
+
+    private void UiScaleSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        // Round to the nearest step to avoid floating-point noise
+        double v = Math.Round(e.NewValue / UiScaleStep) * UiScaleStep;
+        SetupSettings.Instance.UiScale = v;
+        if (UiScaleValueText is not null)
+            UiScaleValueText.Text = $"{v:F2}×";
     }
 }

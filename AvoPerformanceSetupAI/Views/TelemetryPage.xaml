@@ -13,84 +13,108 @@
 
     <Page.Resources>
 
-        <!-- ═══ Telemetry channel card — real values ═══ -->
+        <!-- ═══ Channel card helpers:
+             All font sizes via MultiplyConverter (min = FontBaseSmall = 14).
+             Values in white #FFFFFF.  Deltas in green #00FF88.
+        ═══ -->
+
+        <!-- Real telemetry channel card -->
         <DataTemplate x:Key="RealChannelCard" x:DataType="models:TelemetryChannel">
-            <Border Background="#FF182828"
-                    BorderBrush="#FF2E4040" BorderThickness="1"
-                    CornerRadius="6" Padding="10,8" Margin="3">
-                <StackPanel MinWidth="88" Spacing="2">
+            <Border Background="#FF1E3030"
+                    BorderBrush="#FF2E4848" BorderThickness="1"
+                    CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                    MinHeight="{Binding Source={StaticResource CardMinHeightBase}, Converter={StaticResource Mul}}"
+                    Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}"
+                    Margin="{Binding Source={StaticResource CardMarginBase}, Converter={StaticResource ScaleTh}}">
+                <StackPanel Spacing="4">
                     <TextBlock Text="{x:Bind Name}"
-                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                               Foreground="#FF607878"/>
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Opacity="0.75"
+                               Foreground="#FF8AABAB"/>
                     <StackPanel Orientation="Horizontal" Spacing="3">
                         <TextBlock Text="{x:Bind RealDisplay, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="17" FontWeight="Bold"
-                                   Foreground="#FFE0F8F8"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseBigMetric}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
                         <TextBlock Text="{x:Bind Unit}"
-                                   FontFamily="Consolas" FontSize="10"
-                                   Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
                     </StackPanel>
                     <TextBlock Text="{x:Bind DeltaDisplay, Mode=OneWay}"
-                               FontFamily="Consolas" FontSize="10"
-                               Foreground="#FFFFA040"/>
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                               Foreground="#FF00FF88"/>
                 </StackPanel>
             </Border>
         </DataTemplate>
 
-        <!-- ═══ Telemetry channel card — ideal values ═══ -->
+        <!-- Ideal telemetry channel card -->
         <DataTemplate x:Key="IdealChannelCard" x:DataType="models:TelemetryChannel">
-            <Border Background="#FF0F2418"
+            <Border Background="#FF142818"
                     BorderBrush="#FF1E4030" BorderThickness="1"
-                    CornerRadius="6" Padding="10,8" Margin="3">
-                <StackPanel MinWidth="88" Spacing="2">
+                    CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                    MinHeight="{Binding Source={StaticResource CardMinHeightBase}, Converter={StaticResource Mul}}"
+                    Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}"
+                    Margin="{Binding Source={StaticResource CardMarginBase}, Converter={StaticResource ScaleTh}}">
+                <StackPanel Spacing="4">
                     <TextBlock Text="{x:Bind Name}"
-                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                               Foreground="#FF607878"/>
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Opacity="0.75"
+                               Foreground="#FF8AABAB"/>
                     <StackPanel Orientation="Horizontal" Spacing="3">
                         <TextBlock Text="{x:Bind IdealDisplay, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="17" FontWeight="Bold"
-                                   Foreground="#FF00E676"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseBigMetric}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
                         <TextBlock Text="{x:Bind Unit}"
-                                   FontFamily="Consolas" FontSize="10"
-                                   Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
                     </StackPanel>
                     <TextBlock Text="objetivo"
-                               FontFamily="Consolas" FontSize="10"
-                               Foreground="#FF3A6050"/>
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                               Opacity="0.5" Foreground="#FF8AABAB"/>
                 </StackPanel>
             </Border>
         </DataTemplate>
 
-        <!-- ═══ Converters ═══ -->
+        <!-- Converters -->
         <converters:FloatToPercentConverter x:Key="FloatToPercent"/>
         <converters:NotBoolConverter x:Key="NotBoolConverter"/>
         <converters:AcStatusToForegroundConverter x:Key="AcStatusToForeground"/>
         <converters:AcStatusToBackgroundConverter x:Key="AcStatusToBackground"/>
         <converters:AcStatusToBorderConverter x:Key="AcStatusToBorder"/>
 
-        <!-- ═══ Analysis terminal row ═══ -->
+        <!-- Analysis log row — min font size = FontBaseSmall (14) -->
         <DataTemplate x:Key="AnalysisEntryRow" x:DataType="models:AnalysisEntry">
-            <Grid Padding="0,2">
+            <Grid Padding="0,3">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="66"/>
-                    <ColumnDefinition Width="86"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="96"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="{x:Bind Time}"
-                           FontFamily="Consolas" FontSize="11"
+                           FontFamily="Consolas"
+                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
                            Foreground="#FF607070" VerticalAlignment="Top"/>
                 <Border Grid.Column="1"
                         Background="#FF1A3030" CornerRadius="3"
-                        Padding="4,1" Margin="4,1,4,0"
-                        VerticalAlignment="Top">
+                        Padding="4,2" Margin="4,1,4,0" VerticalAlignment="Top">
                     <TextBlock Text="{x:Bind Tag}"
-                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold"
                                Foreground="#FF00D4B4" HorizontalAlignment="Center"/>
                 </Border>
                 <TextBlock Grid.Column="2"
                            Text="{x:Bind Message}"
-                           FontFamily="Consolas" FontSize="11"
+                           FontFamily="Consolas"
+                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
                            Foreground="#FFB0D0D0"
                            TextWrapping="Wrap" VerticalAlignment="Top"/>
             </Grid>
@@ -98,19 +122,16 @@
 
     </Page.Resources>
 
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         Main layout: header / real panel / ideal panel / analysis row
-         ═══════════════════════════════════════════════════════════════════════ -->
     <Grid x:Name="TelemetryRoot">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- header -->
-            <RowDefinition Height="Auto"/>  <!-- reconnect suggestion banner -->
-            <RowDefinition Height="*"/>     <!-- inner tab view -->
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- ── Header ─────────────────────────────────────────────────────── -->
         <Border Grid.Row="0"
-                Background="#FF0A1414"
+                Background="#FF0C1818"
                 BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
                 Padding="16,10">
             <Grid>
@@ -124,132 +145,149 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Title + live status + lap times + lap position -->
                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="📡" FontSize="15" VerticalAlignment="Center"/>
-                        <TextBlock Text="Telemetría" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
+                        <TextBlock Text="&#128225;"
+                                   FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="Telemetr&#237;a"
+                                   FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                   FontWeight="SemiBold" Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                               FontFamily="Consolas" FontSize="12" Foreground="#FF00B4B4"
-                               VerticalAlignment="Center"/>
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="Vuelta:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Text="Vuelta:" Foreground="#FF8AABAB"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                         <TextBlock Text="{x:Bind ViewModel.LapTimeReal, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                   Foreground="#FFE0F8F8"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
                         <TextBlock Text="{x:Bind ViewModel.LapDelta, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="12" Foreground="#FFFFA040"/>
-                        <TextBlock Text="/ Ideal:" Foreground="#FF8AABAB" FontSize="12"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF00FF88"/>
+                        <TextBlock Text="/ Ideal:" Foreground="#FF8AABAB"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                         <TextBlock Text="{x:Bind ViewModel.LapTimeIdeal, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                   Foreground="#FF00E676"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                        <TextBlock Text="🔄" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="&#128260;"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   VerticalAlignment="Center"/>
                         <TextBlock Text="{x:Bind ViewModel.LapPositionText, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                   Foreground="#FF00E676" VerticalAlignment="Center"/>
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FF00FF88" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <!-- AC shared-memory connection badge (color changes with status) -->
                     <Border Background="{x:Bind ViewModel.ConnectionStatusText, Mode=OneWay, Converter={StaticResource AcStatusToBackground}}"
                             BorderBrush="{x:Bind ViewModel.ConnectionStatusText, Mode=OneWay, Converter={StaticResource AcStatusToBorder}}"
                             BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
                         <TextBlock Text="{x:Bind ViewModel.ConnectionStatusText, Mode=OneWay}"
-                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   FontWeight="SemiBold"
                                    Foreground="{x:Bind ViewModel.ConnectionStatusText, Mode=OneWay, Converter={StaticResource AcStatusToForeground}}"/>
                     </Border>
-                    <!-- Source selector: segmented [SIMULACIÓN] / [ASSETTO CORSA REAL] -->
                     <Border Background="#FF0A1414" BorderBrush="#FF2E4040" BorderThickness="1"
                             CornerRadius="5" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <ToggleButton Content="SIMULACIÓN"
+                            <ToggleButton Content="SIMULACI&#211;N"
                                           IsChecked="{x:Bind ViewModel.IsSimulationSelected, Mode=TwoWay}"
                                           IsEnabled="{x:Bind ViewModel.IsSimulating, Mode=OneWay, Converter={StaticResource NotBoolConverter}}"
-                                          FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                                          Padding="10,3" CornerRadius="4,0,0,4" MinWidth="0"
-                                          BorderThickness="0"/>
+                                          FontFamily="Consolas"
+                                          FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                          FontWeight="SemiBold"
+                                          Padding="10,3" CornerRadius="4,0,0,4" MinWidth="0" BorderThickness="0"/>
                             <ToggleButton Content="ASSETTO CORSA REAL"
                                           IsChecked="{x:Bind ViewModel.IsAcSourceSelected, Mode=TwoWay}"
                                           IsEnabled="{x:Bind ViewModel.IsSimulating, Mode=OneWay, Converter={StaticResource NotBoolConverter}}"
-                                          FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                                          Padding="10,3" CornerRadius="0,4,4,0" MinWidth="0"
-                                          BorderThickness="0"/>
+                                          FontFamily="Consolas"
+                                          FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                          FontWeight="SemiBold"
+                                          Padding="10,3" CornerRadius="0,4,4,0" MinWidth="0" BorderThickness="0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
 
-                <!-- Action buttons -->
                 <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button Content="▶ Iniciar"
+                    <Button Content="&#9654; Iniciar"
                             Command="{x:Bind ViewModel.StartSimulationCommand}"
                             Background="#FF00B4B4" Foreground="White"
-                            CornerRadius="6" Padding="12,4" FontSize="12"/>
-                    <Button Content="⏹ Pausar"
+                            CornerRadius="6" Padding="14,6"
+                            FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
+                    <Button Content="&#9209; Pausar"
                             Command="{x:Bind ViewModel.StopSimulationCommand}"
                             Background="#FF2A3A3A" Foreground="#FFB0C8C8"
-                            CornerRadius="6" Padding="12,4" FontSize="12"/>
-                    <Button Content="🗑 Limpiar"
+                            CornerRadius="6" Padding="14,6"
+                            FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
+                    <Button Content="&#128465; Limpiar"
                             Command="{x:Bind ViewModel.ClearAnalysisCommand}"
                             Background="#FF1E2A2A" Foreground="#FF8AABAB"
                             BorderBrush="#FF2E4040" BorderThickness="1"
-                            CornerRadius="6" Padding="10,4" FontSize="12"/>
+                            CornerRadius="6" Padding="12,6"
+                            FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                 </StackPanel>
 
-                <!-- ── Reference lap toolbar (Row 1, all columns) ──────────── -->
+                <!-- Reference lap toolbar Row 1 -->
                 <Border Grid.Row="1" Grid.ColumnSpan="3"
                         BorderBrush="#FF1A3030" BorderThickness="0,1,0,0"
                         Margin="0,8,0,0" Padding="0,6,0,0">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <!-- Recording controls -->
-                        <Button Content="⏺ Grabar vuelta ideal"
+                        <Button Content="&#9210; Grabar vuelta ideal"
                                 Command="{x:Bind ViewModel.StartRecordingCommand}"
                                 Background="#FF1A3030" Foreground="#FF00D4B4"
                                 BorderBrush="#FF2E5050" BorderThickness="1"
-                                CornerRadius="5" Padding="10,3" FontSize="11"/>
-                        <Button Content="✖ Cancelar grabación"
+                                CornerRadius="5" Padding="10,4"
+                                FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
+                        <Button Content="&#10006; Cancelar grabaci&#243;n"
                                 Command="{x:Bind ViewModel.CancelRecordingCommand}"
                                 Background="#FF2A1A1A" Foreground="#FFFF6060"
                                 BorderBrush="#FF4A2020" BorderThickness="1"
-                                CornerRadius="5" Padding="10,3" FontSize="11"/>
-                        <!-- Recording progress bar -->
+                                CornerRadius="5" Padding="10,4"
+                                FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                     Visibility="{x:Bind ViewModel.IsRecording, Mode=OneWay}">
-                            <TextBlock Text="REC" FontFamily="Consolas" FontSize="10"
-                                       FontWeight="SemiBold" Foreground="#FFFF4040"
-                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="REC" FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                       FontWeight="SemiBold" Foreground="#FFFF4040" VerticalAlignment="Center"/>
                             <ProgressBar Value="{x:Bind ViewModel.RecordingProgress, Mode=OneWay}"
-                                         Maximum="1" Width="120" Height="7"
+                                         Maximum="1" Width="120" Height="8"
                                          Background="#FF1A3030" Foreground="#FFFF4040"/>
                         </StackPanel>
-                        <!-- Import CSV -->
-                        <Button Content="📂 Importar CSV ideal"
+                        <Button Content="&#128194; Importar CSV ideal"
                                 Click="OnImportCsvClicked"
                                 Background="#FF1A2030" Foreground="#FF80B4E0"
                                 BorderBrush="#FF2A3850" BorderThickness="1"
-                                CornerRadius="5" Padding="10,3" FontSize="11"/>
-                        <!-- Reference selector -->
+                                CornerRadius="5" Padding="10,4"
+                                FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                         <ComboBox PlaceholderText="Seleccionar Ideal"
                                   ItemsSource="{x:Bind ViewModel.SavedReferences}"
                                   SelectedItem="{x:Bind ViewModel.SelectedReference, Mode=TwoWay}"
-                                  MinWidth="220" FontFamily="Consolas" FontSize="10"
+                                  MinWidth="220" FontFamily="Consolas"
+                                  FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
                                   Background="#FF0A1414" BorderBrush="#FF2E4040">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="local:ReferenceLapMeta">
-                                    <TextBlock Text="{x:Bind DisplayName}"
-                                               FontFamily="Consolas" FontSize="10"/>
+                                    <TextBlock Text="{x:Bind DisplayName}" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <!-- Active reference label -->
-                        <StackPanel Spacing="0" VerticalAlignment="Center">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind ViewModel.ActiveReferenceName, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                                       Foreground="#FF00E676"/>
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                       FontWeight="SemiBold" Foreground="#FF00FF88"/>
                             <TextBlock Text="{x:Bind ViewModel.ReferenceSource, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878"/>
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                       Opacity="0.6" Foreground="#FF8AABAB"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -262,7 +300,7 @@
                  IsOpen="{x:Bind ViewModel.ShowSwitchToSimulationPrompt, Mode=OneWay}"
                  Severity="Warning"
                  Title="Assetto Corsa no responde"
-                 Message="10 intentos de reconexión fallaron. ¿Cambiar a modo Simulación?"
+                 Message="10 intentos de reconexi&#243;n fallaron. &#191;Cambiar a modo Simulaci&#243;n?"
                  IsClosable="False"
                  Margin="8,4">
             <InfoBar.Content>
@@ -270,100 +308,109 @@
                     <Button Content="Seguir intentando"
                             Command="{x:Bind ViewModel.DismissSwitchToSimulationCommand}"
                             Background="#FF2A3A3A" Foreground="#FFB0C8C8"
-                            CornerRadius="4" Padding="10,3" FontSize="11"/>
-                    <Button Content="Cambiar a Simulación"
+                            CornerRadius="4" Padding="10,4"
+                            FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
+                    <Button Content="Cambiar a Simulaci&#243;n"
                             Command="{x:Bind ViewModel.ConfirmSwitchToSimulationCommand}"
                             Background="#FF00B4B4" Foreground="White"
-                            CornerRadius="4" Padding="10,3" FontSize="11"/>
+                            CornerRadius="4" Padding="10,4"
+                            FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>
                 </StackPanel>
             </InfoBar.Content>
         </InfoBar>
 
-
-        <!-- ── Inner Telemetría TabView ─────────────────────────────────── -->
+        <!-- ── Inner Telemetr&#237;a TabView ─────────────────────────────────── -->
         <TabView Grid.Row="2"
-                 Background="#FF0F1A1A"
+                 Background="#FF0C1818"
                  TabWidthMode="SizeToContent"
                  IsAddTabButtonVisible="False">
             <TabView.Resources>
-                <SolidColorBrush x:Key="TabViewBackground" Color="#FF0F1A1A" />
+                <SolidColorBrush x:Key="TabViewBackground" Color="#FF0C1818" />
             </TabView.Resources>
+            <TabView.ItemContainerStyle>
+                <Style TargetType="TabViewItem">
+                    <Setter Property="FontSize" Value="{StaticResource FontBaseNormal}"/>
+                    <Setter Property="Padding" Value="16,8"/>
+                </Style>
+            </TabView.ItemContainerStyle>
 
-            <!-- ── Dashboard: real + ideal telemetry feeds ──────────────── -->
+            <!-- ── Dashboard: Real + Ideal (collapsible Expanders) ── -->
             <TabViewItem Header="Dashboard" IsClosable="False">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <!-- Real telemetry panel -->
-                <Border
-                        Background="#FF0F1A1A"
-                        BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                        Padding="8,8,8,4">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
-                            <TextBlock Text="📊" FontSize="12" VerticalAlignment="Center"/>
-                            <TextBlock Text="TELEMETRÍA REAL"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="#FF00B4B4" VerticalAlignment="Center"/>
-                            <TextBlock Text="tiempo real — delta naranja = Real − Ideal"
-                                       FontFamily="Consolas" FontSize="10"
-                                       Foreground="#FF607070" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Padding="8,8" Spacing="8">
+
+                        <!-- Real panel — expanded by default -->
+                        <Expander IsExpanded="True"
+                                  HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="&#128202;"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="TELEMETR&#205;A REAL"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="tiempo real  &#183;  delta verde = Real &#8722; Ideal"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Opacity="0.6" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Expander.Header>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
                                           ItemTemplate="{StaticResource RealChannelCard}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal"/>
+                                        <!-- 4 per row is intentional per spec: "Limit metric tiles to max 4 per row" -->
+                                        <!-- 4 per row is intentional per spec: "Limit metric tiles to max 4 per row" -->
+                                        <ItemsWrapGrid MaximumRowsOrColumns="4" Orientation="Horizontal"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
+                        </Expander>
 
-                        <!-- Ideal telemetry panel -->
-                <Border
-                        Background="#FF0A1414"
-                        BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                        Padding="8,8,8,4">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
-                            <TextBlock Text="🎯" FontSize="12" VerticalAlignment="Center"/>
-                            <TextBlock Text="TELEMETRÍA IDEAL"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="#FF00E676" VerticalAlignment="Center"/>
-                            <TextBlock Text="valores objetivo ajustados por posición en pista"
-                                       FontFamily="Consolas" FontSize="10"
-                                       Foreground="#FF607070" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Disabled">
+                        <!-- Ideal panel — collapsed by default -->
+                        <Expander IsExpanded="False"
+                                  HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="&#127919;"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="TELEMETR&#205;A IDEAL"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="valores objetivo ajustados por posici&#243;n en pista"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Opacity="0.6" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Expander.Header>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
                                           ItemTemplate="{StaticResource IdealChannelCard}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal"/>
+                                        <ItemsWrapGrid MaximumRowsOrColumns="4" Orientation="Horizontal"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
+                        </Expander>
 
                     </StackPanel>
                 </ScrollViewer>
             </TabViewItem>
 
-            <!-- ── Live Analysis: readouts, meters, proposals ────────────── -->
+            <!-- ── Live Analysis ────────────────── -->
             <TabViewItem Header="Live Analysis" IsClosable="False">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Auto">
-                <Border
-                        Background="#FF0F1A1A"
+                <Border Background="#FF0F1A1A"
                         BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                        Padding="8,6">
-                    <Grid ColumnSpacing="8">
+                        Padding="10,8">
+                    <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
@@ -371,279 +418,323 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- ── Status card: Speed / Gear / RPM / Phase / Corner ── -->
-                        <Border Grid.Column="0" Background="#FF182828"
-                                BorderBrush="#FF2E4040" BorderThickness="1"
-                                CornerRadius="6" Padding="10,6">
-                            <StackPanel Spacing="4">
+                        <!-- Status card: Speed / Gear / RPM / Phase / Corner -->
+                        <Border Grid.Column="0" Background="#FF1E3030"
+                                BorderBrush="#FF2E4848" BorderThickness="1"
+                                CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                                Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}"
+                                MinHeight="{Binding Source={StaticResource CardMinHeightBase}, Converter={StaticResource Mul}}">
+                            <StackPanel Spacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="🏎" FontSize="10" VerticalAlignment="Center"/>
-                                    <TextBlock Text="ANÁLISIS EN VIVO"
-                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                    <TextBlock Text="&#127950;"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="AN&#193;LISIS EN VIVO"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <!-- Speed / Gear / RPM -->
-                                <StackPanel Orientation="Horizontal" Spacing="14">
-                                    <StackPanel Spacing="1">
-                                        <TextBlock Text="VEL" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                <!-- Speed / Gear / RPM — Big metrics #FFFFFF Bold -->
+                                <StackPanel Orientation="Horizontal" Spacing="20">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="VEL" FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                         <StackPanel Orientation="Horizontal" Spacing="2">
                                             <TextBlock Text="{x:Bind ViewModel.Channels[0].RealDisplay, Mode=OneWay}"
-                                                       FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                                       Foreground="#FFE0F8F8"/>
-                                            <TextBlock Text="km/h" FontFamily="Consolas" FontSize="9"
-                                                       Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
+                                                       FontFamily="Consolas"
+                                                       FontSize="{Binding Source={StaticResource FontBaseBigMetric}, Converter={StaticResource Mul}}"
+                                                       FontWeight="Bold" Foreground="#FFFFFFFF"/>
+                                            <TextBlock Text="km/h" FontFamily="Consolas"
+                                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                       Foreground="#FF8AABAB" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                                         </StackPanel>
                                     </StackPanel>
-                                    <StackPanel Spacing="1">
-                                        <TextBlock Text="MARCHA" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="MARCHA" FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                         <TextBlock Text="{x:Bind ViewModel.Channels[2].RealDisplay, Mode=OneWay}"
-                                                   FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                                   Foreground="#FFE0F8F8"/>
+                                                   FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseBigMetric}, Converter={StaticResource Mul}}"
+                                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
                                     </StackPanel>
-                                    <StackPanel Spacing="1">
-                                        <TextBlock Text="RPM" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="RPM" FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                         <TextBlock Text="{x:Bind ViewModel.Channels[1].RealDisplay, Mode=OneWay}"
-                                                   FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                                   Foreground="#FFE0F8F8"/>
+                                                   FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseBigMetric}, Converter={StaticResource Mul}}"
+                                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <!-- Phase + Corner direction + Duration -->
-                                <StackPanel Orientation="Horizontal" Spacing="14">
-                                    <StackPanel Spacing="1">
-                                        <TextBlock Text="FASE" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                <!-- Phase + Corner — Metric #FFFFFF SemiBold -->
+                                <StackPanel Orientation="Horizontal" Spacing="20">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="FASE" FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                         <TextBlock Text="{x:Bind ViewModel.CurrentPhase, Mode=OneWay}"
-                                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#FF00D4B4"/>
+                                                   FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Foreground="#FFFFFFFF"/>
                                     </StackPanel>
-                                    <StackPanel Spacing="1">
-                                        <TextBlock Text="ÚLT. CURVA" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
-                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="&#218;LT. CURVA" FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="{x:Bind ViewModel.LastCornerDirection, Mode=OneWay}"
-                                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="#FF00D4B4"/>
+                                                       FontFamily="Consolas"
+                                                       FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                                       FontWeight="SemiBold" Foreground="#FFFFFFFF"/>
                                             <TextBlock Text="{x:Bind ViewModel.LastCornerDurationText, Mode=OneWay}"
-                                                       FontFamily="Consolas" FontSize="11"
-                                                       Foreground="#FF607878" VerticalAlignment="Center"/>
+                                                       FontFamily="Consolas"
+                                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                       Foreground="#FF8AABAB" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- ── Meters card: 5 progress bars with labels ── -->
-                        <Border Grid.Column="1" Background="#FF182828"
-                                BorderBrush="#FF2E4040" BorderThickness="1"
-                                CornerRadius="6" Padding="10,6" MinWidth="264">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="ÍNDICES ÚLT. CURVA"
-                                           FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                           Foreground="#FF00B4B4" Margin="0,0,0,2"/>
+                        <!-- Meters card: 5 progress bars -->
+                        <Border Grid.Column="1" Background="#FF1E3030"
+                                BorderBrush="#FF2E4848" BorderThickness="1"
+                                CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                                Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}"
+                                MinWidth="280">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="&#205;NDICES &#218;LT. CURVA"
+                                           FontFamily="Consolas"
+                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                           FontWeight="SemiBold" Foreground="#FF00B4B4" Margin="0,0,0,4"/>
                                 <!-- US Entry -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="36"/>
+                                        <ColumnDefinition Width="44"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="US Entrada" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" VerticalAlignment="Center"/>
-                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                    <TextBlock Text="US Entrada" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="8" Margin="6,0"
                                                  Value="{x:Bind ViewModel.LastCornerUndersteerEntry, Mode=OneWay}"
                                                  Background="#FF1A3030" Foreground="#FFFFA040"/>
-                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FFFFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                Text="{x:Bind ViewModel.LastCornerUndersteerEntry, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
                                 </Grid>
                                 <!-- US Mid -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="36"/>
+                                        <ColumnDefinition Width="44"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="US Medio" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" VerticalAlignment="Center"/>
-                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                    <TextBlock Text="US Medio" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="8" Margin="6,0"
                                                  Value="{x:Bind ViewModel.LastCornerUndersteerMid, Mode=OneWay}"
                                                  Background="#FF1A3030" Foreground="#FFFFA040"/>
-                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FFFFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                Text="{x:Bind ViewModel.LastCornerUndersteerMid, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
                                 </Grid>
                                 <!-- US Exit -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="36"/>
+                                        <ColumnDefinition Width="44"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="US Salida" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" VerticalAlignment="Center"/>
-                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                    <TextBlock Text="US Salida" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="8" Margin="6,0"
                                                  Value="{x:Bind ViewModel.LastCornerUndersteerExit, Mode=OneWay}"
                                                  Background="#FF1A3030" Foreground="#FFFFA040"/>
-                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FFFFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                Text="{x:Bind ViewModel.LastCornerUndersteerExit, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
                                 </Grid>
                                 <!-- OS Entry -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="36"/>
+                                        <ColumnDefinition Width="44"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="OS Entrada" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" VerticalAlignment="Center"/>
-                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                    <TextBlock Text="OS Entrada" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="8" Margin="6,0"
                                                  Value="{x:Bind ViewModel.LastCornerOversteerEntry, Mode=OneWay}"
                                                  Background="#FF1A3030" Foreground="#FFE04040"/>
-                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FFE04040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FFFFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                Text="{x:Bind ViewModel.LastCornerOversteerEntry, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
                                 </Grid>
                                 <!-- OS Exit -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="36"/>
+                                        <ColumnDefinition Width="44"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="OS Salida" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" VerticalAlignment="Center"/>
-                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                    <TextBlock Text="OS Salida" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="8" Margin="6,0"
                                                  Value="{x:Bind ViewModel.LastCornerOversteerExit, Mode=OneWay}"
                                                  Background="#FF1A3030" Foreground="#FFE04040"/>
-                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FFE04040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FFFFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                Text="{x:Bind ViewModel.LastCornerOversteerExit, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
 
-                        <!-- ── Live vs Ideal delta card ── -->
-                        <Border Grid.Column="1" Background="#FF0F1A10"
+                        <!-- VS Ideal delta card — ALL deltas in #00FF88 -->
+                        <Border Grid.Column="2" Background="#FF112018"
                                 BorderBrush="#FF1E4030" BorderThickness="1"
-                                CornerRadius="6" Padding="10,6" MinWidth="220"
-                                Margin="8,0,0,0">
-                            <StackPanel Spacing="4">
-                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
-                                    <TextBlock Text="⚖" FontSize="9" VerticalAlignment="Center"/>
+                                CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                                Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}"
+                                MinWidth="220" Margin="8,0,0,0">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,4">
+                                    <TextBlock Text="&#9878;"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Text="VS IDEAL"
-                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                               Foreground="#FF00E676" VerticalAlignment="Center"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
                                     <TextBlock Text="{x:Bind ViewModel.ReferenceSummaryText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FFFFA040" VerticalAlignment="Center"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
-                                <!-- ΔSpeed -->
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="ΔVel" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                <!-- &#916;Speed -->
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="&#916;Vel" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Opacity="0.75"
+                                               Foreground="#FF8AABAB" Width="44" VerticalAlignment="Center"/>
                                     <TextBlock Text="{x:Bind ViewModel.LiveDeltaSpeedText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                               Foreground="#FF00E676"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00FF88"/>
                                 </StackPanel>
-                                <!-- ΔBrake -->
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="ΔFren" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                <!-- &#916;Brake -->
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="&#916;Fren" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Opacity="0.75"
+                                               Foreground="#FF8AABAB" Width="44" VerticalAlignment="Center"/>
                                     <TextBlock Text="{x:Bind ViewModel.LiveDeltaBrakeText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                               Foreground="#FFFFA040"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00FF88"/>
                                 </StackPanel>
-                                <!-- ΔThrottle -->
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="ΔAcel" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                <!-- &#916;Throttle -->
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="&#916;Acel" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Opacity="0.75"
+                                               Foreground="#FF8AABAB" Width="44" VerticalAlignment="Center"/>
                                     <TextBlock Text="{x:Bind ViewModel.LiveDeltaThrottleText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                               Foreground="#FF80E040"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00FF88"/>
                                 </StackPanel>
-                                <!-- ΔYawGain -->
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="ΔYaw" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                <!-- &#916;YawGain -->
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="&#916;Yaw" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Opacity="0.75"
+                                               Foreground="#FF8AABAB" Width="44" VerticalAlignment="Center"/>
                                     <TextBlock Text="{x:Bind ViewModel.LiveDeltaYawGainText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                               Foreground="#FFE0B040"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00FF88"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- ── Proposals panel (Single / Multi-Optimize toggle) ── -->
-                        <Border Grid.Column="3" Background="#FF0A1414"
+                        <!-- Proposals panel -->
+                        <Border Grid.Column="3" Background="#FF0C1414"
                                 BorderBrush="#FF2E4040" BorderThickness="1"
-                                CornerRadius="6" Padding="8,6">
+                                CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                                Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}">
                             <StackPanel>
 
-                                <!-- ── Panel header + mode toggle ── -->
-                                <Grid Margin="0,0,0,4">
+                                <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Text="💡" FontSize="10" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="&#128161;"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   VerticalAlignment="Center"/>
                                         <TextBlock Text="PROPUESTAS EN VIVO"
-                                                   FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                                   Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                                   FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
                                     </StackPanel>
-
-                                    <!-- Segmented mode toggle: [Single] [Multi-Optimize] -->
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
                                         <ToggleButton Content="Single"
-                                                      FontFamily="Consolas" FontSize="9"
-                                                      Padding="8,2"
+                                                      FontFamily="Consolas"
+                                                      FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                      Padding="10,4"
                                                       IsChecked="{x:Bind ViewModel.IsSingleMode, Mode=TwoWay}"
-                                                      Background="#FF0F2828"
-                                                      Foreground="#FFB0D0D0"
-                                                      BorderBrush="#FF2E4040"
-                                                      CornerRadius="3,0,0,3"/>
+                                                      Background="#FF0F2828" Foreground="#FFB0D0D0"
+                                                      BorderBrush="#FF2E4040" CornerRadius="3,0,0,3"/>
                                         <ToggleButton Content="Multi-Optimize"
-                                                      FontFamily="Consolas" FontSize="9"
-                                                      Padding="8,2"
+                                                      FontFamily="Consolas"
+                                                      FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                      Padding="10,4"
                                                       IsChecked="{x:Bind ViewModel.IsMultiMode, Mode=TwoWay}"
-                                                      Background="#FF0F2828"
-                                                      Foreground="#FFB0D0D0"
-                                                      BorderBrush="#FF2E4040"
-                                                      CornerRadius="0,3,3,0"/>
+                                                      Background="#FF0F2828" Foreground="#FFB0D0D0"
+                                                      BorderBrush="#FF2E4040" CornerRadius="0,3,3,0"/>
                                     </StackPanel>
                                 </Grid>
 
-                                <!-- ── Driving mode toggle: [Sprint] [Endurance] ── -->
-                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,0,4">
-                                    <TextBlock Text="MODE"
-                                               FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,6,0"/>
+                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,0,6">
+                                    <TextBlock Text="MODE" FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Foreground="#FF8AABAB" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <ToggleButton Content="Sprint"
-                                                  FontFamily="Consolas" FontSize="9"
-                                                  Padding="10,2"
+                                                  FontFamily="Consolas"
+                                                  FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                  Padding="12,4"
                                                   IsChecked="{x:Bind ViewModel.IsSprintMode, Mode=TwoWay}"
-                                                  Background="#FF0F2828"
-                                                  Foreground="#FFFFA040"
-                                                  BorderBrush="#FF2E4040"
-                                                  CornerRadius="3,0,0,3"/>
+                                                  Background="#FF0F2828" Foreground="#FFFFA040"
+                                                  BorderBrush="#FF2E4040" CornerRadius="3,0,0,3"/>
                                     <ToggleButton Content="Endurance"
-                                                  FontFamily="Consolas" FontSize="9"
-                                                  Padding="10,2"
+                                                  FontFamily="Consolas"
+                                                  FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                  Padding="12,4"
                                                   IsChecked="{x:Bind ViewModel.IsEnduranceMode, Mode=TwoWay}"
-                                                  Background="#FF0F2828"
-                                                  Foreground="#FF80E040"
-                                                  BorderBrush="#FF2E4040"
-                                                  CornerRadius="0,3,3,0"/>
+                                                  Background="#FF0F2828" Foreground="#FF80E040"
+                                                  BorderBrush="#FF2E4040" CornerRadius="0,3,3,0"/>
                                 </StackPanel>
 
-                                <!-- ── Single-change proposals list ── -->
+                                <!-- Single proposals -->
                                 <ListView ItemsSource="{x:Bind ViewModel.Proposals}"
                                           SelectionMode="None" IsItemClickEnabled="False"
-                                          MaxHeight="114"
+                                          MaxHeight="160"
                                           ScrollViewer.VerticalScrollBarVisibility="Auto"
                                           Visibility="{x:Bind ViewModel.IsSingleMode, Mode=OneWay}">
                                     <ListView.ItemContainerStyle>
@@ -655,45 +746,50 @@
                                     </ListView.ItemContainerStyle>
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="models:Proposal">
-                                            <Grid Padding="0,2">
+                                            <Grid Padding="0,3">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="72"/>
-                                                    <ColumnDefinition Width="96"/>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="110"/>
+                                                    <ColumnDefinition Width="50"/>
                                                     <ColumnDefinition Width="44"/>
-                                                    <ColumnDefinition Width="38"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <Border Grid.Column="0" Background="#FF1A3030" CornerRadius="3"
-                                                        Padding="4,1" Margin="0,1,4,1" VerticalAlignment="Center">
-                                                    <TextBlock Text="{x:Bind Section}" FontFamily="Consolas" FontSize="10"
+                                                        Padding="4,2" Margin="0,1,4,1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Section}" FontFamily="Consolas"
+                                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
                                                                Foreground="#FF00D4B4" HorizontalAlignment="Center"/>
                                                 </Border>
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Parameter}"
-                                                           FontFamily="Consolas" FontSize="10" Foreground="#FFB0D0D0"
-                                                           VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                           FontFamily="Consolas"
+                                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                           Foreground="#FFFFFFFF" VerticalAlignment="Center" Margin="0,0,4,0"/>
                                                 <Border Grid.Column="2" Background="#FF0F2010" CornerRadius="3"
-                                                        Padding="4,1" Margin="0,1,4,1" VerticalAlignment="Center">
-                                                    <TextBlock Text="{x:Bind Delta}" FontFamily="Consolas" FontSize="10"
-                                                               Foreground="#FF80E040" HorizontalAlignment="Center"/>
+                                                        Padding="4,2" Margin="0,1,4,1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Delta}" FontFamily="Consolas"
+                                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                               Foreground="#FF00FF88" HorizontalAlignment="Center"/>
                                                 </Border>
                                                 <TextBlock Grid.Column="3" Text="{x:Bind ConfidenceDisplay}"
-                                                           FontFamily="Consolas" FontSize="10" Foreground="#FFFFA040"
-                                                           HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                           Margin="0,0,4,0"/>
+                                                           FontFamily="Consolas"
+                                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                           Foreground="#FFFFA040"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
                                                 <TextBlock Grid.Column="4" Text="{x:Bind Reason}"
-                                                           FontFamily="Consolas" FontSize="10" Foreground="#FF607878"
-                                                           VerticalAlignment="Center"
+                                                           FontFamily="Consolas"
+                                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                           Foreground="#FF8AABAB" VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
 
-                                <!-- ── Multi-optimize combination list ── -->
+                                <!-- Multi-optimize combinations -->
                                 <ListView ItemsSource="{x:Bind ViewModel.CombinedProposals}"
                                           SelectionMode="Single"
                                           SelectedItem="{x:Bind ViewModel.SelectedCombinedProposal, Mode=TwoWay}"
-                                          MaxHeight="160"
+                                          MaxHeight="200"
                                           ScrollViewer.VerticalScrollBarVisibility="Auto"
                                           Visibility="{x:Bind ViewModel.IsMultiMode, Mode=OneWay}">
                                     <ListView.ItemContainerStyle>
@@ -705,51 +801,43 @@
                                     </ListView.ItemContainerStyle>
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="telemetry:CombinedProposal">
-                                            <Border Background="#FF0D1E1E" CornerRadius="4"
-                                                    Padding="6,4" Margin="0,2">
+                                            <Border Background="#FF0D1E1E" CornerRadius="5"
+                                                    Padding="8,6" Margin="0,3">
                                                 <Grid>
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto"/>
                                                         <RowDefinition Height="Auto"/>
                                                         <RowDefinition Height="Auto"/>
                                                     </Grid.RowDefinitions>
-
-                                                    <!-- Row 0: grouped change labels -->
                                                     <TextBlock Grid.Row="0"
                                                                Text="{x:Bind ChangesDisplay}"
-                                                               FontFamily="Consolas" FontSize="10"
-                                                               Foreground="#FF00D4B4"
-                                                               TextWrapping="Wrap"/>
-
-                                                    <!-- Row 1: score delta + risk badge -->
+                                                               FontFamily="Consolas"
+                                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                               Foreground="#FF00D4B4" TextWrapping="Wrap"/>
                                                     <StackPanel Grid.Row="1" Orientation="Horizontal"
-                                                                Spacing="8" Margin="0,2,0,0">
-                                                        <StackPanel Orientation="Horizontal" Spacing="3">
-                                                            <TextBlock Text="Δscore"
-                                                                       FontFamily="Consolas" FontSize="9"
-                                                                       Foreground="#FF607878"
-                                                                       VerticalAlignment="Center"/>
+                                                                Spacing="10" Margin="0,3,0,0">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                                            <TextBlock Text="&#916;score"
+                                                                       FontFamily="Consolas"
+                                                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                       Opacity="0.75" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
                                                             <TextBlock Text="{x:Bind ScoreDeltaDisplay}"
-                                                                       FontFamily="Consolas" FontSize="11"
-                                                                       FontWeight="Bold"
-                                                                       Foreground="#FF80E040"
-                                                                       VerticalAlignment="Center"/>
+                                                                       FontFamily="Consolas"
+                                                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                                                       FontWeight="Bold" Foreground="#FF00FF88" VerticalAlignment="Center"/>
                                                         </StackPanel>
                                                         <TextBlock Text="{x:Bind RiskDisplay}"
-                                                                   FontFamily="Consolas" FontSize="9"
-                                                                   Foreground="#FFFFA040"
-                                                                   VerticalAlignment="Center"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   Foreground="#FFFFA040" VerticalAlignment="Center"/>
                                                     </StackPanel>
-
-                                                    <!-- Row 2: Test Combo button -->
                                                     <Button Grid.Row="2"
-                                                            Content="▶ Test Combo"
-                                                            FontFamily="Consolas" FontSize="9"
-                                                            Padding="8,2" Margin="0,3,0,0"
-                                                            Background="#FF142828"
-                                                            Foreground="#FF00B4B4"
-                                                            BorderBrush="#FF2E5050"
-                                                            CornerRadius="3"
+                                                            Content="&#9654; Test Combo"
+                                                            FontFamily="Consolas"
+                                                            FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                            Padding="10,4" Margin="0,4,0,0"
+                                                            Background="#FF142828" Foreground="#FF00B4B4"
+                                                            BorderBrush="#FF2E5050" CornerRadius="4"
                                                             Tag="{x:Bind}"
                                                             Click="OnTestComboClicked"/>
                                                 </Grid>
@@ -758,12 +846,11 @@
                                     </ListView.ItemTemplate>
                                 </ListView>
 
-                                <!-- ── Empty-state hint when multi mode has no combos yet ── -->
-                                <TextBlock Text="No combinations yet — waiting for corner data…"
-                                           FontFamily="Consolas" FontSize="9"
-                                           Foreground="#FF3A5050"
-                                           HorizontalAlignment="Center"
-                                           Margin="0,6,0,0"
+                                <TextBlock Text="No combinations yet &#8212; waiting for corner data&#8230;"
+                                           FontFamily="Consolas"
+                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                           Opacity="0.5" Foreground="#FF8AABAB"
+                                           HorizontalAlignment="Center" Margin="0,8,0,0"
                                            Visibility="{x:Bind ViewModel.IsMultiEmptyState, Mode=OneWay}"/>
 
                             </StackPanel>
@@ -774,157 +861,163 @@
                 </ScrollViewer>
             </TabViewItem>
 
-            <!-- ── Setup Optimizer: improvement steps log ────────────────── -->
+            <!-- ── Setup Optimizer ────────────────── -->
             <TabViewItem Header="Setup Optimizer" IsClosable="False">
-                    <Grid Margin="8">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Border Grid.Row="0"
-                                Background="#FF0A1414" BorderBrush="#FF2E4040"
-                                BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="🔧" FontSize="12"/>
-                                <TextBlock Text="Pasos de Mejora del Setup"
-                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#FF00B4B4"/>
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Row="1"
-                                Background="#FF060E0E" BorderBrush="#FF2E4040"
-                                BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
-                            <ScrollViewer x:Name="SetupScrollViewer"
-                                          Padding="8" VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
-                                <ItemsControl ItemsSource="{x:Bind ViewModel.SetupLogs}"
-                                              ItemTemplate="{StaticResource AnalysisEntryRow}"/>
-                            </ScrollViewer>
-                        </Border>
-                    </Grid>
-
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Background="#FF0C1414" BorderBrush="#FF2E4040"
+                            BorderThickness="1,1,1,0" CornerRadius="8,8,0,0" Padding="14,10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="&#128295;"
+                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"/>
+                            <TextBlock Text="Pasos de Mejora del Setup"
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                       FontWeight="SemiBold" Foreground="#FF00B4B4"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1"
+                            Background="#FF060E0E" BorderBrush="#FF2E4040"
+                            BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
+                        <ScrollViewer x:Name="SetupScrollViewer"
+                                      Padding="10" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.SetupLogs}"
+                                          ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
             </TabViewItem>
 
-            <!-- ── ML & Policy: probabilistic candidates + inspector ──── -->
+            <!-- ── ML &amp; Policy ──── -->
             <TabViewItem Header="ML &amp; Policy" IsClosable="False">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Auto">
-                <Border
-                        Background="#FF080F0F"
+                <Border Background="#FF0A1010"
                         BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                        Padding="8,6">
-                    <Grid ColumnSpacing="8">
+                        Padding="10,8">
+                    <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*"/>  <!-- candidate cards -->
-                            <ColumnDefinition Width="*"/>   <!-- decision inspector -->
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- ── Candidate cards (Safe / Balanced / Aggressive) ──── -->
-                        <StackPanel Grid.Column="0" Spacing="4">
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
-                                <TextBlock Text="🎯" FontSize="10" VerticalAlignment="Center"/>
-                                <TextBlock Text="CANDIDATOS PROBABILÍSTICOS"
-                                           FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                           Foreground="#FF00B4B4" VerticalAlignment="Center"/>
-                                <TextBlock Text="Safe · Balanced · Aggressive"
-                                           FontFamily="Consolas" FontSize="9"
-                                           Foreground="#FF405858" VerticalAlignment="Center"/>
+                        <!-- Candidate cards -->
+                        <StackPanel Grid.Column="0" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                                <TextBlock Text="&#127919;"
+                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="CANDIDATOS PROBABIL&#205;STICOS"
+                                           FontFamily="Consolas"
+                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                           FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                <TextBlock Text="Safe &#183; Balanced &#183; Aggressive"
+                                           FontFamily="Consolas"
+                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                           Opacity="0.6" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
                             </StackPanel>
 
                             <ItemsControl ItemsSource="{x:Bind ViewModel.AdvisedCandidates}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="ml:DecisionCandidate">
-                                        <Border MinWidth="200" MaxWidth="280"
-                                                CornerRadius="6" Padding="10,8"
+                                        <Border MinWidth="220" MaxWidth="300"
+                                                CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                                                Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}"
                                                 BorderThickness="1">
                                             <Border.Background>
-                                                <SolidColorBrush Color="#FF0D1E1E"/>
+                                                <SolidColorBrush Color="#FF122020"/>
                                             </Border.Background>
                                             <Border.BorderBrush>
                                                 <SolidColorBrush Color="#FF2A4040"/>
                                             </Border.BorderBrush>
-                                            <StackPanel Spacing="4">
-
-                                                <!-- Row 0: tier badge + section:param delta -->
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <Border CornerRadius="3" Padding="5,2">
+                                            <StackPanel Spacing="6">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <Border CornerRadius="4" Padding="6,3">
                                                         <Border.Background>
                                                             <SolidColorBrush Color="#FF142828"/>
                                                         </Border.Background>
                                                         <TextBlock Text="{x:Bind TierDisplay}"
-                                                                   FontFamily="Consolas" FontSize="9"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="#FF00D4B4"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   FontWeight="SemiBold" Foreground="#FF00D4B4"/>
                                                     </Border>
                                                     <TextBlock Text="{x:Bind ProposalDisplay}"
-                                                               FontFamily="Consolas" FontSize="10"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="#FFE0F0F0"
+                                                               FontFamily="Consolas"
+                                                               FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                                               FontWeight="SemiBold" Foreground="#FFFFFFFF"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
-
-                                                <!-- Row 1: mean Δscore + risk badge + confidence -->
-                                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <StackPanel Spacing="0">
-                                                        <TextBlock Text="μΔscore"
-                                                                   FontFamily="Consolas" FontSize="8"
-                                                                   Foreground="#FF607878"/>
+                                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                                    <StackPanel Spacing="2">
+                                                        <TextBlock Text="&#956;&#916;score"
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                                         <TextBlock Text="{x:Bind MeanDisplay}"
-                                                                   FontFamily="Consolas" FontSize="14"
-                                                                   FontWeight="Bold"
-                                                                   Foreground="#FF80E040"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                                                   FontWeight="SemiBold" Foreground="#FFFFFFFF"/>
                                                     </StackPanel>
-                                                    <StackPanel Spacing="0">
+                                                    <StackPanel Spacing="2">
                                                         <TextBlock Text="Risk"
-                                                                   FontFamily="Consolas" FontSize="8"
-                                                                   Foreground="#FF607878"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                                         <TextBlock Text="{x:Bind RiskDisplay}"
-                                                                   FontFamily="Consolas" FontSize="11"
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="{x:Bind RiskForeground}"/>
                                                     </StackPanel>
-                                                    <StackPanel Spacing="0">
+                                                    <StackPanel Spacing="2">
                                                         <TextBlock Text="Conf"
-                                                                   FontFamily="Consolas" FontSize="8"
-                                                                   Foreground="#FF607878"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   FontWeight="SemiBold" Opacity="0.75" Foreground="#FF8AABAB"/>
                                                         <TextBlock Text="{x:Bind ConfidenceDisplay}"
-                                                                   FontFamily="Consolas" FontSize="11"
-                                                                   Foreground="#FFFFA040"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                                                   FontWeight="SemiBold" Foreground="#FFFFFFFF"/>
                                                     </StackPanel>
                                                 </StackPanel>
-
-                                                <!-- Row 2: 80 % and 95 % intervals -->
-                                                <StackPanel Spacing="2">
-                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <StackPanel Spacing="3">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <TextBlock Text="80%"
-                                                                   FontFamily="Consolas" FontSize="8"
-                                                                   Foreground="#FF607878" Width="24"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   Opacity="0.75" Foreground="#FF8AABAB" Width="28"/>
                                                         <TextBlock Text="{x:Bind Interval80Display}"
-                                                                   FontFamily="Consolas" FontSize="9"
-                                                                   Foreground="#FFB0D0D0"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   Foreground="#FFFFFFFF"/>
                                                     </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <TextBlock Text="95%"
-                                                                   FontFamily="Consolas" FontSize="8"
-                                                                   Foreground="#FF607878" Width="24"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   Opacity="0.75" Foreground="#FF8AABAB" Width="28"/>
                                                         <TextBlock Text="{x:Bind Interval95Display}"
-                                                                   FontFamily="Consolas" FontSize="9"
-                                                                   Foreground="#FF8090A0"/>
+                                                                   FontFamily="Consolas"
+                                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                                   Foreground="#FFB0C8C8"/>
                                                     </StackPanel>
                                                 </StackPanel>
-
-                                                <!-- Row 3: explanation -->
                                                 <TextBlock Text="{x:Bind Explanation}"
-                                                           FontFamily="Consolas" FontSize="8"
-                                                           Foreground="#FF607878"
-                                                           TextWrapping="Wrap"
-                                                           MaxLines="3"
+                                                           FontFamily="Consolas"
+                                                           FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                           Opacity="0.65" Foreground="#FF8AABAB"
+                                                           TextWrapping="Wrap" MaxLines="3"
                                                            TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                         </Border>
@@ -933,59 +1026,58 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <!-- ── Decision Inspector panel ──────────────────────────── -->
+                        <!-- Decision Inspector -->
                         <Border Grid.Column="1"
-                                Background="#FF080F14"
+                                Background="#FF0A1018"
                                 BorderBrush="#FF1E3040" BorderThickness="1"
-                                CornerRadius="6" Padding="10,8">
-                            <StackPanel Spacing="6">
-
-                                <!-- Header -->
+                                CornerRadius="{Binding Source={StaticResource CardCornerRadiusBase}, Converter={StaticResource ScaleCr}}"
+                                Padding="{Binding Source={StaticResource CardPaddingBase}, Converter={StaticResource ScaleTh}}">
+                            <StackPanel Spacing="8">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="🔍" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="&#128269;"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Text="DECISION INSPECTOR"
-                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
                                 </StackPanel>
-
-                                <!-- Weights row -->
-                                <StackPanel Spacing="1">
+                                <StackPanel Spacing="2">
                                     <TextBlock Text="Weights (AdaptiveWeightEngine)"
-                                               FontFamily="Consolas" FontSize="8"
-                                               Foreground="#FF405858"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Opacity="0.6" Foreground="#FF8AABAB"/>
                                     <TextBlock Text="{x:Bind ViewModel.WeightsDisplayText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                                               Foreground="#FF00E676"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                               FontWeight="SemiBold" Foreground="#FFFFFFFF"/>
                                 </StackPanel>
-
-                                <!-- Discriminator row -->
-                                <StackPanel Spacing="1">
+                                <StackPanel Spacing="2">
                                     <TextBlock Text="Driver vs Setup"
-                                               FontFamily="Consolas" FontSize="8"
-                                               Foreground="#FF405858"/>
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Opacity="0.6" Foreground="#FF8AABAB"/>
                                     <TextBlock Text="{x:Bind ViewModel.DiscriminatorExplanationText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="9"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
                                                Foreground="#FFFFA040"
-                                               TextWrapping="Wrap"
-                                               MaxLines="2"
+                                               TextWrapping="Wrap" MaxLines="2"
                                                TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
-
-                                <!-- Ranking explanation -->
-                                <StackPanel Spacing="1">
+                                <StackPanel Spacing="2">
                                     <TextBlock Text="Ranking Rationale"
-                                               FontFamily="Consolas" FontSize="8"
-                                               Foreground="#FF405858"/>
-                                    <ScrollViewer MaxHeight="110"
+                                               FontFamily="Consolas"
+                                               FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                               Opacity="0.6" Foreground="#FF8AABAB"/>
+                                    <ScrollViewer MaxHeight="120"
                                                   VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled">
                                         <TextBlock Text="{x:Bind ViewModel.DecisionInspectorText, Mode=OneWay}"
-                                                   FontFamily="Consolas" FontSize="8"
-                                                   Foreground="#FF90B0B0"
-                                                   TextWrapping="Wrap"/>
+                                                   FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   Foreground="#FFB0C8C8" TextWrapping="Wrap"/>
                                     </ScrollViewer>
                                 </StackPanel>
-
                             </StackPanel>
                         </Border>
 
@@ -994,7 +1086,7 @@
                 </ScrollViewer>
             </TabViewItem>
 
-            <!-- ── History: behaviour + driving time logs ────────────────── -->
+            <!-- ── History ────────────────── -->
             <TabViewItem Header="History" IsClosable="False">
                 <Grid ColumnSpacing="0">
                     <Grid.ColumnDefinitions>
@@ -1008,20 +1100,22 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0"
-                                Background="#FF0A1414" BorderBrush="#FF2E4040"
-                                BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="🚗" FontSize="12"/>
+                                Background="#FF0C1414" BorderBrush="#FF2E4040"
+                                BorderThickness="1,1,1,0" CornerRadius="8,8,0,0" Padding="14,10">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="&#128663;"
+                                           FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"/>
                                 <TextBlock Text="Comportamiento del Coche"
-                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#FF00B4B4"/>
+                                           FontFamily="Consolas"
+                                           FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                           FontWeight="SemiBold" Foreground="#FF00B4B4"/>
                             </StackPanel>
                         </Border>
                         <Border Grid.Row="1"
                                 Background="#FF060E0E" BorderBrush="#FF2E4040"
-                                BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
                             <ScrollViewer x:Name="BehaviorScrollViewer"
-                                          Padding="8" VerticalScrollBarVisibility="Auto"
+                                          Padding="10" VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.BehaviorLogs}"
                                               ItemTemplate="{StaticResource AnalysisEntryRow}"/>
@@ -1029,27 +1123,28 @@
                         </Border>
                     </Grid>
 
-
                     <Grid Grid.Column="1" Margin="4,8,8,8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0"
-                                Background="#FF0A1414" BorderBrush="#FF2E4040"
-                                BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="⏱" FontSize="12"/>
-                                <TextBlock Text="Análisis de Tiempo de Conducción"
-                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#FF00B4B4"/>
+                                Background="#FF0C1414" BorderBrush="#FF2E4040"
+                                BorderThickness="1,1,1,0" CornerRadius="8,8,0,0" Padding="14,10">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="&#9203;"
+                                           FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"/>
+                                <TextBlock Text="An&#225;lisis de Tiempo de Conducci&#243;n"
+                                           FontFamily="Consolas"
+                                           FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                           FontWeight="SemiBold" Foreground="#FF00B4B4"/>
                             </StackPanel>
                         </Border>
                         <Border Grid.Row="1"
                                 Background="#FF060E0E" BorderBrush="#FF2E4040"
-                                BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
                             <ScrollViewer x:Name="DrivingScrollViewer"
-                                          Padding="8" VerticalScrollBarVisibility="Auto"
+                                          Padding="10" VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.DrivingLogs}"
                                               ItemTemplate="{StaticResource AnalysisEntryRow}"/>
@@ -1057,11 +1152,10 @@
                         </Border>
                     </Grid>
 
-
                 </Grid>
             </TabViewItem>
 
-            <!-- ── Technical Inspector: corner phase analysis ──────────────── -->
+            <!-- ── Technical Inspector ──────────────── -->
             <TabViewItem Header="Technical Inspector" IsClosable="False">
                 <Grid Margin="8,4,8,8">
                     <Grid.RowDefinitions>
@@ -1069,30 +1163,32 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0"
-                            Background="#FF0A1414" BorderBrush="#FF2E4040"
-                            BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="🏎" FontSize="12"/>
+                            Background="#FF0C1414" BorderBrush="#FF2E4040"
+                            BorderThickness="1,1,1,0" CornerRadius="8,8,0,0" Padding="14,10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="&#127950;"
+                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"/>
                             <TextBlock Text="Resumen de Fases de Curva"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="#FF00B4B4"/>
-                            <TextBlock Text="segmentación por G lateral — análisis por curva detectada"
-                                       FontFamily="Consolas" FontSize="10"
-                                       Foreground="#FF607070" VerticalAlignment="Center"/>
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                       FontWeight="SemiBold" Foreground="#FF00B4B4"/>
+                            <TextBlock Text="segmentaci&#243;n por G lateral &#8212; an&#225;lisis por curva detectada"
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                       Opacity="0.6" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                     <Border Grid.Row="1"
                             Background="#FF060E0E" BorderBrush="#FF2E4040"
-                            BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                            BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
                         <ScrollViewer x:Name="CornerScrollViewer"
-                                      Padding="8" VerticalScrollBarVisibility="Auto"
+                                      Padding="10" VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
                             <ItemsControl ItemsSource="{x:Bind ViewModel.CornerLogs}"
                                           ItemTemplate="{StaticResource AnalysisEntryRow}"/>
                         </ScrollViewer>
                     </Border>
                 </Grid>
-
             </TabViewItem>
 
         </TabView>

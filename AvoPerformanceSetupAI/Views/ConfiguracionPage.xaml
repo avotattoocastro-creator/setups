@@ -95,6 +95,28 @@
                     <ToggleSwitch Header="Dark Mode" IsOn="True" />
                 </StackPanel>
             </Border>
+
+            <!-- UI Scale -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Escala de Interfaz (UI Scale)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Ajusta el tamaño de fuente global de la interfaz. Rango: 1.0× – 1.6×."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="1.0×" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <Slider x:Name="UiScaleSlider"
+                                Minimum="1.0" Maximum="1.6" StepFrequency="0.05"
+                                Width="260"
+                                ValueChanged="UiScaleSlider_ValueChanged"/>
+                        <TextBlock Text="1.6×" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="UiScaleValueText"
+                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" MinWidth="42"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Page>
