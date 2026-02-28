@@ -138,6 +138,13 @@
                                    FontFamily="Consolas" FontSize="12" FontWeight="Bold"
                                    Foreground="#FF00E676" VerticalAlignment="Center"/>
                     </StackPanel>
+                    <!-- AC shared-memory connection badge -->
+                    <Border Background="#FF0A1E0A" BorderBrush="#FF1E4030" BorderThickness="1"
+                            CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.AcStatusText, Mode=OneWay}"
+                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#FF00E676"/>
+                    </Border>
                 </StackPanel>
 
                 <!-- Action buttons -->

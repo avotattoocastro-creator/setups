@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.Telemetry;
 
 namespace AvoPerformanceSetupAI.ViewModels;
 
@@ -15,6 +16,16 @@ public partial class TelemetryViewModel : ObservableObject
     private int  _tick;
     private readonly Random _rng = new(Environment.TickCount);
 
+    // ── Assetto Corsa real-time reader ────────────────────────────────────────
+
+    private readonly AcTelemetryReader _acReader = new();
+
+    /// <summary>Scratch array for copying ring-buffer tail; reused each tick. 125 samples ≈ 0.5 s of data at 250 Hz.</summary>
+    private readonly TelemetrySample[] _featureBuf = new TelemetrySample[125];
+
+    /// <summary>Number of 800 ms ticks between feature-analysis runs (6 × 800 ms ≈ 4.8 s).</summary>
+    private const int FeatureAnalysisTickInterval = 6;
+
     // ── Observable state ─────────────────────────────────────────────────────
 
     [ObservableProperty] private bool   _isSimulating;
@@ -24,6 +35,8 @@ public partial class TelemetryViewModel : ObservableObject
     [ObservableProperty] private string _lapDelta         = "---";
     [ObservableProperty] private double _lapPosition;
     [ObservableProperty] private string _lapPositionText  = "Pos:  0%";
+    [ObservableProperty] private bool   _isAcConnected;
+    [ObservableProperty] private string _acStatusText     = "AC: SIMULACIÓN";
 
     // ── Collections ──────────────────────────────────────────────────────────
 
@@ -198,6 +211,14 @@ public partial class TelemetryViewModel : ObservableObject
         IsSimulating = true;
         StatusText   = "● ACTIVO";
         _tick        = 0;
+
+        // Try to connect to Assetto Corsa shared memory; fall back to simulation if unavailable
+        IsAcConnected = _acReader.TryConnect();
+        AcStatusText  = IsAcConnected ? "AC: CONECTADO" : "AC: SIMULACIÓN";
+        AppLogger.Instance.Info(IsAcConnected
+            ? "Telemetría AC conectada — datos en tiempo real desde shared memory."
+            : "Assetto Corsa no detectado — modo simulación activo.");
+
         _updateTimer = new System.Threading.Timer(OnTick, null, 0, 800);
         AppLogger.Instance.Ai("Telemetría en tiempo real ACTIVADA — tick cada 800 ms.");
         StartSimulationCommand.NotifyCanExecuteChanged();
@@ -213,6 +234,9 @@ public partial class TelemetryViewModel : ObservableObject
         StatusText   = "● DETENIDO";
         _updateTimer?.Dispose();
         _updateTimer = null;
+        _acReader.Disconnect();
+        IsAcConnected = false;
+        AcStatusText  = "AC: SIMULACIÓN";
         AppLogger.Instance.Info("Telemetría pausada.");
         StartSimulationCommand.NotifyCanExecuteChanged();
         StopSimulationCommand.NotifyCanExecuteChanged();
@@ -249,11 +273,42 @@ public partial class TelemetryViewModel : ObservableObject
                 if (step.Proposal is not null)
                     SessionsViewModel.Shared.PushTelemetryProposal(step.Proposal);
             }
+
+            // ── Feature analysis from AC ring buffer ──────────────────────────
+            if (IsAcConnected && t % FeatureAnalysisTickInterval == 0)
+                RunFeatureAnalysis();
         });
+    }
+
+    /// <summary>
+    /// Extracts features from the most recent 125 samples (~0.5 s at 250 Hz)
+    /// and appends human-readable results to the behaviour log.
+    /// </summary>
+    private void RunFeatureAnalysis()
+    {
+        var n = _acReader.Buffer.CopyTail(_featureBuf, _featureBuf.Length);
+        if (n == 0) return;
+
+        var features = FeatureExtractor.Extract(_featureBuf, n);
+        foreach (var (tag, msg) in FeatureExtractor.FormatLog(in features))
+            Append(BehaviorLogs, tag, msg);
     }
 
     private void UpdateChannels()
     {
+        // ── When AC is connected and in a live session, use real sample data ──
+        if (IsAcConnected)
+        {
+            var sample = _acReader.Buffer.ReadLast();
+            if (sample.AcStatus == (int)AcStatus.Live && sample.SpeedKmh >= 0)
+            {
+                UpdateChannelsFromSample(in sample);
+                return;
+            }
+        }
+
+        // ── Simulation fallback ───────────────────────────────────────────────
+
         // Advance lap position (cycles 0 → 1 over LapTicks ticks)
         LapPosition     = (_tick % LapTicks) / (double)LapTicks;
         LapPositionText = $"Pos: {LapPosition * 100,3:F0}%";
@@ -267,6 +322,47 @@ public partial class TelemetryViewModel : ObservableObject
             // Oscillate real value ±4 % around the position-adjusted ideal
             var noise = (_rng.NextDouble() - 0.5) * 0.08;
             ch.RealValue = Math.Round(ideal * (1.0 + noise), 2);
+        }
+    }
+
+    /// <summary>
+    /// Updates all channels from a real AC <see cref="TelemetrySample"/>.
+    /// Ideal values still come from the <see cref="LapProfiles"/> interpolation,
+    /// keyed on the actual normalised lap position reported by AC.
+    /// Real values map directly from the sample fields.
+    /// </summary>
+    private void UpdateChannelsFromSample(in TelemetrySample s)
+    {
+        // Lap position from AC spline
+        LapPosition     = Math.Clamp(s.NormalizedLapPos, 0.0, 1.0);
+        LapPositionText = $"Pos: {LapPosition * 100,3:F0}%";
+
+        // Prepare real values for each named channel
+        // Index order must match ChannelDefs (SPEED, RPM, GEAR, THROTTLE, BRAKE,
+        //   STEER, LAT_G, LONG_G, FUEL, T_F, T_R, P_F, P_R)
+        var realValues = new double[]
+        {
+            s.SpeedKmh,
+            s.Rpms,
+            Math.Max(0, s.Gear - 1),                                   // AC: 0=R,1=N,2=1st → show 0..n
+            s.Throttle * 100.0,
+            s.Brake    * 100.0,
+            s.SteerAngle * (180.0 / Math.PI),                          // rad → degrees
+            s.AccGLateral,
+            s.AccGLongitudinal,
+            s.Fuel,
+            (s.TyreTempFL + s.TyreTempFR) * 0.5,                      // front average °C
+            (s.TyreTempRL + s.TyreTempRR) * 0.5,                      // rear  average °C
+            (s.TyrePressureFL + s.TyrePressureFR) * 0.5,              // front average bar
+            (s.TyrePressureRL + s.TyrePressureRR) * 0.5,              // rear  average bar
+        };
+
+        for (int i = 0; i < Channels.Count && i < LapProfiles.Length && i < realValues.Length; i++)
+        {
+            var ch    = Channels[i];
+            var ideal = LerpProfile(LapProfiles[i], LapPosition);
+            ch.IdealValue = Math.Round(ideal, 2);
+            ch.RealValue  = Math.Round(realValues[i], 2);
         }
     }
 
