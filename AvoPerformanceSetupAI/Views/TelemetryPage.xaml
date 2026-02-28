@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.TelemetryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:AvoPerformanceSetupAI.Models"
+    Background="Transparent"
+    RequestedTheme="Dark">
+
+    <Page.Resources>
+
+        <!-- ═══ Telemetry channel card — real values ═══ -->
+        <DataTemplate x:Key="RealChannelCard" x:DataType="models:TelemetryChannel">
+            <Border Background="#FF182828"
+                    BorderBrush="#FF2E4040" BorderThickness="1"
+                    CornerRadius="6" Padding="10,8" Margin="3">
+                <StackPanel MinWidth="88" Spacing="2">
+                    <TextBlock Text="{x:Bind Name}"
+                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                               Foreground="#FF607878"/>
+                    <StackPanel Orientation="Horizontal" Spacing="3">
+                        <TextBlock Text="{x:Bind RealDisplay}"
+                                   FontFamily="Consolas" FontSize="17" FontWeight="Bold"
+                                   Foreground="#FFE0F8F8"/>
+                        <TextBlock Text="{x:Bind Unit}"
+                                   FontFamily="Consolas" FontSize="10"
+                                   Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    </StackPanel>
+                    <TextBlock Text="{x:Bind DeltaDisplay}"
+                               FontFamily="Consolas" FontSize="10"
+                               Foreground="#FFFFA040"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- ═══ Telemetry channel card — ideal values ═══ -->
+        <DataTemplate x:Key="IdealChannelCard" x:DataType="models:TelemetryChannel">
+            <Border Background="#FF0F2418"
+                    BorderBrush="#FF1E4030" BorderThickness="1"
+                    CornerRadius="6" Padding="10,8" Margin="3">
+                <StackPanel MinWidth="88" Spacing="2">
+                    <TextBlock Text="{x:Bind Name}"
+                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                               Foreground="#FF607878"/>
+                    <StackPanel Orientation="Horizontal" Spacing="3">
+                        <TextBlock Text="{x:Bind IdealDisplay}"
+                                   FontFamily="Consolas" FontSize="17" FontWeight="Bold"
+                                   Foreground="#FF00E676"/>
+                        <TextBlock Text="{x:Bind Unit}"
+                                   FontFamily="Consolas" FontSize="10"
+                                   Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    </StackPanel>
+                    <TextBlock Text="objetivo"
+                               FontFamily="Consolas" FontSize="10"
+                               Foreground="#FF3A6050"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- ═══ Analysis terminal row ═══ -->
+        <DataTemplate x:Key="AnalysisEntryRow" x:DataType="models:AnalysisEntry">
+            <Grid Padding="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="66"/>
+                    <ColumnDefinition Width="86"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{x:Bind Time}"
+                           FontFamily="Consolas" FontSize="11"
+                           Foreground="#FF607070" VerticalAlignment="Top"/>
+                <Border Grid.Column="1"
+                        Background="#FF1A3030" CornerRadius="3"
+                        Padding="4,1" Margin="4,1,4,0"
+                        VerticalAlignment="Top">
+                    <TextBlock Text="{x:Bind Tag}"
+                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                               Foreground="#FF00D4B4" HorizontalAlignment="Center"/>
+                </Border>
+                <TextBlock Grid.Column="2"
+                           Text="{x:Bind Message}"
+                           FontFamily="Consolas" FontSize="11"
+                           Foreground="#FFB0D0D0"
+                           TextWrapping="Wrap" VerticalAlignment="Top"/>
+            </Grid>
+        </DataTemplate>
+
+    </Page.Resources>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Main layout: header / real panel / ideal panel / analysis row
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- header -->
+            <RowDefinition Height="Auto"/>  <!-- real telemetry -->
+            <RowDefinition Height="Auto"/>  <!-- ideal telemetry -->
+            <RowDefinition Height="*"/>     <!-- analysis terminals -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Header ─────────────────────────────────────────────────────── -->
+        <Border Grid.Row="0"
+                Background="#FF0A1414"
+                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Title + live status + lap times -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="📡" FontSize="15" VerticalAlignment="Center"/>
+                        <TextBlock Text="Telemetría" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="{x:Bind ViewModel.StatusText}"
+                               FontFamily="Consolas" FontSize="12" Foreground="#FF00B4B4"
+                               VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="Vuelta:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Text="{x:Bind ViewModel.LapTimeReal}"
+                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                   Foreground="#FFE0F8F8"/>
+                        <TextBlock Text="{x:Bind ViewModel.LapDelta}"
+                                   FontFamily="Consolas" FontSize="12" Foreground="#FFFFA040"/>
+                        <TextBlock Text="/ Ideal:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Text="{x:Bind ViewModel.LapTimeIdeal}"
+                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                   Foreground="#FF00E676"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Action buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button Content="▶ Iniciar"
+                            Command="{x:Bind ViewModel.StartSimulationCommand}"
+                            Background="#FF00B4B4" Foreground="White"
+                            CornerRadius="6" Padding="12,4" FontSize="12"/>
+                    <Button Content="⏹ Pausar"
+                            Command="{x:Bind ViewModel.StopSimulationCommand}"
+                            Background="#FF2A3A3A" Foreground="#FFB0C8C8"
+                            CornerRadius="6" Padding="12,4" FontSize="12"/>
+                    <Button Content="🗑 Limpiar"
+                            Command="{x:Bind ViewModel.ClearAnalysisCommand}"
+                            Background="#FF1E2A2A" Foreground="#FF8AABAB"
+                            BorderBrush="#FF2E4040" BorderThickness="1"
+                            CornerRadius="6" Padding="10,4" FontSize="12"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── Real telemetry panel ────────────────────────────────────────── -->
+        <Border Grid.Row="1"
+                Background="#FF0F1A1A"
+                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                Padding="8,8,8,4">
+            <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
+                    <TextBlock Text="📊" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text="TELEMETRÍA REAL"
+                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                    <TextBlock Text="tiempo real — delta naranja = Real − Ideal"
+                               FontFamily="Consolas" FontSize="10"
+                               Foreground="#FF607070" VerticalAlignment="Center"/>
+                </StackPanel>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
+                                  ItemTemplate="{StaticResource RealChannelCard}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Ideal telemetry panel ───────────────────────────────────────── -->
+        <Border Grid.Row="2"
+                Background="#FF0A1414"
+                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                Padding="8,8,8,4">
+            <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
+                    <TextBlock Text="🎯" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text="TELEMETRÍA IDEAL"
+                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#FF00E676" VerticalAlignment="Center"/>
+                    <TextBlock Text="valores objetivo para mejor vuelta posible"
+                               FontFamily="Consolas" FontSize="10"
+                               Foreground="#FF607070" VerticalAlignment="Center"/>
+                </StackPanel>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
+                                  ItemTemplate="{StaticResource IdealChannelCard}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Three analysis terminals ───────────────────────────────────── -->
+        <Grid Grid.Row="3" ColumnSpacing="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Terminal 1: Car behaviour -->
+            <Grid Grid.Column="0" Margin="8,8,4,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0"
+                        Background="#FF0A1414" BorderBrush="#FF2E4040"
+                        BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="🚗" FontSize="12"/>
+                        <TextBlock Text="Comportamiento del Coche"
+                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#FF00B4B4"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Row="1"
+                        Background="#FF060E0E" BorderBrush="#FF2E4040"
+                        BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                    <ScrollViewer x:Name="BehaviorScrollViewer"
+                                  Padding="8" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.BehaviorLogs}"
+                                      ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- Terminal 2: Driving time -->
+            <Grid Grid.Column="1" Margin="4,8,4,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0"
+                        Background="#FF0A1414" BorderBrush="#FF2E4040"
+                        BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="⏱" FontSize="12"/>
+                        <TextBlock Text="Análisis de Tiempo de Conducción"
+                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#FF00B4B4"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Row="1"
+                        Background="#FF060E0E" BorderBrush="#FF2E4040"
+                        BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                    <ScrollViewer x:Name="DrivingScrollViewer"
+                                  Padding="8" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.DrivingLogs}"
+                                      ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- Terminal 3: Setup improvement steps -->
+            <Grid Grid.Column="2" Margin="4,8,8,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0"
+                        Background="#FF0A1414" BorderBrush="#FF2E4040"
+                        BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="🔧" FontSize="12"/>
+                        <TextBlock Text="Pasos de Mejora del Setup"
+                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#FF00B4B4"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Row="1"
+                        Background="#FF060E0E" BorderBrush="#FF2E4040"
+                        BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                    <ScrollViewer x:Name="SetupScrollViewer"
+                                  Padding="8" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.SetupLogs}"
+                                      ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+        </Grid>
+    </Grid>
+</Page>
