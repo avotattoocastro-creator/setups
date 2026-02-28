@@ -42,3 +42,13 @@ public sealed class CategoryToTextBrushConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) =>
         throw new NotImplementedException();
 }
+
+/// <summary>Formats a <see cref="float"/> (0..1) as a percentage string, e.g. "73%".</summary>
+public sealed class FloatToPercentConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value is float f ? $"{f:P0}" : "0%";
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}

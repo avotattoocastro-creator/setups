@@ -74,6 +74,9 @@ public partial class TelemetryViewModel : ObservableObject
     /// <summary>Oversteer index (0..1) during the exit (acceleration) phase of the last corner.</summary>
     [ObservableProperty] private float _lastCornerOversteerExit;
 
+    /// <summary>Duration of the most recently completed corner as a formatted string, e.g. "3.2s".</summary>
+    [ObservableProperty] private string _lastCornerDurationText = "—";
+
     // ── Collections ──────────────────────────────────────────────────────────
 
     /// <summary>Telemetry channels — each holds both the real (live) and ideal (target) value.</summary>
@@ -323,6 +326,7 @@ public partial class TelemetryViewModel : ObservableObject
         LastCornerUndersteerExit  = 0f;
         LastCornerOversteerEntry  = 0f;
         LastCornerOversteerExit   = 0f;
+        LastCornerDurationText    = "—";
         // AcTelemetryReader stamps every sample with DateTime.UtcNow, so using
         // DateTime.UtcNow here guarantees only corners whose first sample arrives
         // after the clear will be logged — no stale corners re-appear.
@@ -536,6 +540,7 @@ public partial class TelemetryViewModel : ObservableObject
             LastCornerUndersteerExit  = cs.ExitFrame.UndersteerExit;
             LastCornerOversteerEntry  = cs.EntryFrame.OversteerEntry;
             LastCornerOversteerExit   = cs.ExitFrame.OversteerExit;
+            LastCornerDurationText    = $"{cs.Duration.TotalSeconds:F1}s";
 
             // 4. Phase-aware RuleEngine evaluation
             UpdateProposalsFromCorner(in cs);

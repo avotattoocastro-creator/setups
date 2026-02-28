@@ -24,4 +24,7 @@ public class Proposal
     /// that triggered this proposal. 0 when generated from a file-parse heuristic.
     /// </summary>
     public float Confidence { get; set; }
+
+    /// <summary>Confidence formatted as a percentage string, e.g. "73%".</summary>
+    public string ConfidenceDisplay => $"{Confidence:P0}";
 }
