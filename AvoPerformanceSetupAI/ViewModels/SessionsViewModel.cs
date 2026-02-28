@@ -14,6 +14,9 @@ namespace AvoPerformanceSetupAI.ViewModels;
 
 public partial class SessionsViewModel : ObservableObject
 {
+    /// <summary>Application-wide shared instance used by all pages.</summary>
+    public static SessionsViewModel Shared { get; } = new SessionsViewModel();
+
     // ── Config fields ────────────────────────────────────────────────────────
     [ObservableProperty] private string _carId = string.Empty;
     [ObservableProperty] private string _trackId = string.Empty;
@@ -513,4 +516,65 @@ public partial class SessionsViewModel : ObservableObject
     }
 
     private bool CanRollback() => !string.IsNullOrEmpty(_backupPath) && File.Exists(_backupPath);
+
+    // ── Telemetry integration ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called by <see cref="TelemetryViewModel"/> on each setup-adjustment tick.
+    /// Adds a new proposal or replaces an existing one with the same Section+Parameter
+    /// in <see cref="LastProposals"/>, and increments the selected iteration counter.
+    /// Does nothing when no iteration is selected.
+    /// </summary>
+    public void PushTelemetryProposal(Proposal p)
+    {
+        if (SelectedIteration is null) return;
+
+        bool replaced = false;
+        for (int i = 0; i < LastProposals.Count; i++)
+        {
+            if (LastProposals[i].Section.Equals(p.Section, StringComparison.OrdinalIgnoreCase) &&
+                LastProposals[i].Parameter.Equals(p.Parameter, StringComparison.OrdinalIgnoreCase))
+            {
+                LastProposals[i] = p;
+                replaced = true;
+                break;
+            }
+        }
+
+        if (!replaced)
+            LastProposals.Add(p);
+
+        SelectedIteration.Iter++;
+    }
+
+    /// <summary>
+    /// Batch variant of <see cref="PushTelemetryProposal"/>: applies all proposals
+    /// from <paramref name="proposals"/> in a single pass, updating the iteration
+    /// counter only once. Does nothing when no iteration is selected or the array
+    /// is empty.
+    /// </summary>
+    public void PushTelemetryProposals(Proposal[] proposals)
+    {
+        if (SelectedIteration is null || proposals.Length == 0) return;
+
+        foreach (var p in proposals)
+        {
+            bool replaced = false;
+            for (int i = 0; i < LastProposals.Count; i++)
+            {
+                if (LastProposals[i].Section.Equals(p.Section, StringComparison.OrdinalIgnoreCase) &&
+                    LastProposals[i].Parameter.Equals(p.Parameter, StringComparison.OrdinalIgnoreCase))
+                {
+                    LastProposals[i] = p;
+                    replaced = true;
+                    break;
+                }
+            }
+
+            if (!replaced)
+                LastProposals.Add(p);
+        }
+
+        SelectedIteration.Iter++;
+    }
 }

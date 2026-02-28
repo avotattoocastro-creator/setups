@@ -51,6 +51,10 @@
             <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
                 <views:TerminalPage />
             </TabViewItem>
+
+            <TabViewItem x:Name="TabTelemetria" Header="📡 Telemetría" IsClosable="False">
+                <views:TelemetryPage />
+            </TabViewItem>
         </TabView>
     </Grid>
 </Window>

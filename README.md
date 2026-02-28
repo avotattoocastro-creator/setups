@@ -111,15 +111,36 @@ Resource files are in `AvoPerformanceSetupAI/Strings/`:
 
 ```
 AvoPerformanceSetupAI/
-├── Models/           # Data models (SetupIteration, Proposal)
+├── Models/           # Data models (SetupIteration, Proposal, IniEntry, LogEntry)
 ├── ViewModels/       # MVVM ViewModels with CommunityToolkit.Mvvm
-├── Views/            # Tab pages (Configuracion, Sesiones, Control)
-├── Strings/          # Localization resources
+├── Views/            # Tab pages (Configuracion, Sesiones, Control, Terminal)
+├── Converters/       # IValueConverter classes (CategoryToBadgeBrush, CategoryToText)
+├── Services/         # AppLogger, SetupIniParser, SetupSettings
+├── Strings/          # Localization resources (en-US, es-ES)
 └── Assets/           # App icons and images
 ```
 
 ## Notes
 
 - The app uses a **dark theme** with teal accent colors.
-- Mock data is pre-loaded in ViewModels for UI demonstration.
-- No real telemetry or AI integration — UI shell only.
+- Folder paths (setup root + output) are **persisted** via `ApplicationData.LocalSettings` and survive restarts.
+- All pages share a single `SessionsViewModel.Shared` instance — changes in Sesiones are immediately reflected in the Control tab.
+- The INI parser reads real Assetto Corsa / ACC setup files; proposals are generated from actual numeric parameters.
+
+---
+
+## Changelog
+
+### v1.1.0 (2026-02)
+- **Settings persistence** — `RootFolder` and `OutputFolder` are saved to `ApplicationData.LocalSettings` and automatically restored on next launch.
+- **Shared ViewModel** — Added `SessionsViewModel.Shared` singleton so Sesiones and Control tabs always show the same session state.
+- **ControlPage** — Replaced placeholder with a live-bound control panel (session info, telemetry status, risk level, Connect / Start / Stop / Apply Proposal / Rollback buttons).
+- **Converters refactor** — `CategoryToBadgeBrushConverter` and `CategoryToTextBrushConverter` moved to a dedicated `Converters/CategoryConverters.cs` file.
+- **Package** version bumped to `1.1.0.0`.
+
+### v1.0.0 (2026-01)
+- Initial WinUI 3 application with MVVM architecture.
+- Sesiones tab with Car / Track / Mode selectors, Setup DataGrid, and AI proposal panel.
+- Terminal tab with real-time log filtering (INFO / AI / DATA / WARN / ERROR).
+- Configuración tab with folder picker (setup root + output destination).
+- INI parser + section-aware apply and rollback.
