@@ -47,8 +47,8 @@ public sealed class AcTelemetryReader : IDisposable
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /// <summary>Ring buffer that receives every polled sample.</summary>
-    public TelemetryRingBuffer Buffer { get; } = new(capacity: 1000);
+    /// <summary>Ring buffer that receives every polled sample. Capacity: 30 000 (≈ 120 s at 250 Hz).</summary>
+    public TelemetryRingBuffer Buffer { get; } = new(capacity: 30_000);
 
     /// <summary>
     /// <see langword="true"/> after a successful <see cref="TryConnect"/>;
@@ -60,6 +60,11 @@ public sealed class AcTelemetryReader : IDisposable
     /// Maximum RPM read from the statics page on connect; 0 when not connected.
     /// </summary>
     public int MaxRpm { get; private set; }
+
+    /// <summary>
+    /// Maximum fuel capacity (litres) read from the statics page on connect; 0 when not connected.
+    /// </summary>
+    public float MaxFuel { get; private set; }
 
     /// <summary>
     /// Attempts to open the three AC shared-memory pages and start the 250 Hz
@@ -85,9 +90,10 @@ public sealed class AcTelemetryReader : IDisposable
                 _viewGraphics = _mmfGraphics.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
                 _viewStatics  = _mmfStatics .CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
 
-                // Read static info once
+                // Read static info once and cache for embedding in every sample
                 var statics = ReadStruct<AcStaticsData>(_viewStatics);
-                MaxRpm = statics.MaxRpm > 0 ? statics.MaxRpm : 9000;
+                MaxRpm  = statics.MaxRpm > 0 ? statics.MaxRpm : 9000;
+                MaxFuel = statics.MaxFuel;
 
                 IsConnected = true;
                 StartPollThread();
@@ -110,6 +116,8 @@ public sealed class AcTelemetryReader : IDisposable
             StopPollThread();
             CloseHandles();
             IsConnected = false;
+            MaxRpm      = 0;
+            MaxFuel     = 0.0f;
         }
     }
 
@@ -235,6 +243,9 @@ public sealed class AcTelemetryReader : IDisposable
             NormalizedLapPos = graphics.NormalizedCarPos,
             LapTimeMs        = graphics.ICurrentTimeMs,
             AcStatus         = graphics.Status,
+
+            MaxRpm  = MaxRpm,
+            MaxFuel = MaxFuel,
         };
 
         Buffer.Push(in sample);

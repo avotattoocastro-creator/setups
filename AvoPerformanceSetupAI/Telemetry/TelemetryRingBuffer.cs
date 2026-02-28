@@ -14,8 +14,8 @@ public sealed class TelemetryRingBuffer
     private int                        _count; // items currently stored
     private readonly object            _lock = new();
 
-    /// <param name="capacity">Maximum number of samples to retain. Must be &gt; 0.</param>
-    public TelemetryRingBuffer(int capacity = 1000)
+    /// <param name="capacity">Maximum number of samples to retain. Must be &gt; 0. Default is 30 000 (~120 s at 250 Hz).</param>
+    public TelemetryRingBuffer(int capacity = 30_000)
     {
         if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
         _capacity = capacity;

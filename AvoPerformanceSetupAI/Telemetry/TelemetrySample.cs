@@ -78,7 +78,7 @@ public readonly record struct TelemetrySample
     public float SlipAngleRL { get; init; }
     public float SlipAngleRR { get; init; }
 
-    // ── Session context ───────────────────────────────────────────────────────
+    // ── Session context  (acpmf_graphics) ────────────────────────────────────
 
     /// <summary>Normalised position on the lap spline: 0 = start/finish, 1 = start/finish.</summary>
     public float NormalizedLapPos { get; init; }
@@ -86,4 +86,11 @@ public readonly record struct TelemetrySample
     public int   LapTimeMs        { get; init; }
     /// <summary>Assetto Corsa session status (0 = Off, 1 = Replay, 2 = Live, 3 = Pause).</summary>
     public int   AcStatus         { get; init; }
+
+    // ── Session statics  (acpmf_static — constant for the whole session) ─────
+
+    /// <summary>Maximum engine RPM for the current car (from acpmf_static).</summary>
+    public int   MaxRpm           { get; init; }
+    /// <summary>Maximum fuel capacity in litres for the current car (from acpmf_static).</summary>
+    public float MaxFuel          { get; init; }
 }
