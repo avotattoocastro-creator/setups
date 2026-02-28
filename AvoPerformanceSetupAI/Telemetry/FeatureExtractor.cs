@@ -457,6 +457,9 @@ public static class FeatureExtractor
         double sumFrontSlipMid   = 0, sumRearSlipMid   = 0; int nMid   = 0;
         double sumFrontSlipExit  = 0, sumRearSlipExit  = 0; int nExit  = 0;
 
+        // Per-phase yaw-gain accumulators (used to blend with slip-based indices)
+        float sumYawGainEntry = 0f, sumYawGainMid = 0f, sumYawGainExit = 0f;
+
         // Wheelspin (all samples) and lockup (braking samples)
         double sumFrontWS = 0, sumRearWS = 0;
         double sumFrontWSBrake = 0, sumRearWSBrake = 0; int nBraking = 0;
@@ -477,16 +480,21 @@ public static class FeatureExtractor
             var frontSlip = (Math.Abs(s.SlipAngleFL) + Math.Abs(s.SlipAngleFR)) * 0.5;
             var rearSlip  = (Math.Abs(s.SlipAngleRL) + Math.Abs(s.SlipAngleRR)) * 0.5;
 
+            var yawGain = BalanceMetrics.ComputeYawGain(s.YawRate, s.SteerAngle, s.SpeedKmh);
+
             switch (DetectPhase(s))
             {
                 case CornerPhase.BrakingZone:
                     sumFrontSlipEntry += frontSlip; sumRearSlipEntry += rearSlip; nEntry++;
+                    sumYawGainEntry += yawGain;
                     break;
                 case CornerPhase.Cornering:
                     sumFrontSlipMid += frontSlip; sumRearSlipMid += rearSlip; nMid++;
+                    sumYawGainMid += yawGain;
                     break;
                 case CornerPhase.Acceleration:
                     sumFrontSlipExit += frontSlip; sumRearSlipExit += rearSlip; nExit++;
+                    sumYawGainExit += yawGain;
                     break;
             }
 
@@ -518,20 +526,30 @@ public static class FeatureExtractor
         if (nEntry > 0)
         {
             var d = sumFrontSlipEntry / nEntry - sumRearSlipEntry / nEntry;
-            understeerEntry = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
-            oversteerEntry  = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
+            var slipUnderEntry  = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
+            var slipOverEntry   = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
+            var yawIndexEntry   = BalanceMetrics.ComputeBalanceIndex(sumYawGainEntry / nEntry);
+            understeerEntry     = BlendIndex(slipUnderEntry, Math.Max(0f, -yawIndexEntry));
+            oversteerEntry      = BlendIndex(slipOverEntry,  Math.Max(0f,  yawIndexEntry));
         }
 
-        var understeerMid = nMid > 0
-            ? Norm(Math.Max(0.0, sumFrontSlipMid / nMid - sumRearSlipMid / nMid), SlipAngleThreshold)
-            : 0f;
+        var understeerMid = 0f;
+        if (nMid > 0)
+        {
+            var slipUnderMid = Norm(Math.Max(0.0, sumFrontSlipMid / nMid - sumRearSlipMid / nMid), SlipAngleThreshold);
+            var yawIndexMid  = BalanceMetrics.ComputeBalanceIndex(sumYawGainMid / nMid);
+            understeerMid    = BlendIndex(slipUnderMid, Math.Max(0f, -yawIndexMid));
+        }
 
         var understeerExit = 0f; var oversteerExit = 0f;
         if (nExit > 0)
         {
             var d = sumFrontSlipExit / nExit - sumRearSlipExit / nExit;
-            understeerExit = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
-            oversteerExit  = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
+            var slipUnderExit = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
+            var slipOverExit  = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
+            var yawIndexExit  = BalanceMetrics.ComputeBalanceIndex(sumYawGainExit / nExit);
+            understeerExit    = BlendIndex(slipUnderExit, Math.Max(0f, -yawIndexExit));
+            oversteerExit     = BlendIndex(slipOverExit,  Math.Max(0f,  yawIndexExit));
         }
 
         // ── Wheelspin ratio rear ──────────────────────────────────────────────
@@ -601,4 +619,11 @@ public static class FeatureExtractor
 
     private static float Norm(double raw, double threshold)
         => (float)Math.Min(raw / threshold, 1.0);
+
+    /// <summary>
+    /// Blends a slip-angle-based index with a yaw-gain-based index at 50 % each.
+    /// Result is clamped to [0, 1].
+    /// </summary>
+    private static float BlendIndex(float slipIndex, float yawIndex)
+        => Math.Min(0.5f * slipIndex + 0.5f * yawIndex, 1f);
 }
