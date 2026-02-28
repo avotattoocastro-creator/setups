@@ -51,6 +51,10 @@
             <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
                 <views:TerminalPage />
             </TabViewItem>
+
+            <TabViewItem x:Name="TabAiAssistant" Header="🤖 IA Asistente" IsClosable="False">
+                <views:AiAssistantPage />
+            </TabViewItem>
         </TabView>
     </Grid>
 </Window>

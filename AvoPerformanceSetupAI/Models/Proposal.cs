@@ -7,4 +7,6 @@ public class Proposal
     public string From { get; set; } = string.Empty;
     public string To { get; set; } = string.Empty;
     public string Delta { get; set; } = string.Empty;
+    /// <summary>Human-readable explanation of why this proposal was generated.</summary>
+    public string Reason { get; set; } = string.Empty;
 }

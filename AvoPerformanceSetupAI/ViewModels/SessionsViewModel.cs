@@ -95,6 +95,12 @@ public partial class SessionsViewModel : ObservableObject
 
     partial void OnSelectedSetupFileChanged(string? value)
     {
+        // Propagate full path to shared settings so AiAssistantViewModel can access it
+        SetupSettings.Instance.CurrentSetupPath = (!string.IsNullOrEmpty(value) &&
+            !string.IsNullOrEmpty(CarId) && !string.IsNullOrEmpty(TrackId))
+            ? Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, value)
+            : string.Empty;
+
         LoadProposalsFromFile();
         ApplyCommand.NotifyCanExecuteChanged();
         ApplyProposalCommand.NotifyCanExecuteChanged();
