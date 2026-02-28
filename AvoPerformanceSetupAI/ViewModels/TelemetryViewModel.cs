@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using AvoPerformanceSetupAI.Models;
+using AvoPerformanceSetupAI.Reference;
+using AvoPerformanceSetupAI.Reference.Import;
 using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.Telemetry;
 
@@ -30,6 +33,28 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     // ── Corner detector (stateful, thread-safe) ───────────────────────────────
 
     private readonly CornerDetector _cornerDetector = new();
+
+    // ── Reference lap comparator & store ─────────────────────────────────────
+
+    private readonly ReferenceLapComparator _comparator    = new();
+    private readonly ReferenceLapStore      _refStore      = ReferenceLapStore.Instance;
+    private readonly CsvReferenceImporter   _csvImporter   = new();
+
+    // Recording state — all accessed on the UI thread (fast timer)
+    private readonly List<ReferenceLapSample> _recordingBuffer   = [];
+    private bool  _waitingForLapStart;
+    private float _lastRecordedLapPos;
+    private float _lastFastLapPos;
+
+    /// <summary>
+    /// Car and track identifiers used when saving recorded reference laps.
+    /// These can be set by the caller (e.g. populated from AC static shared-memory
+    /// when the car/track is known); they default to empty strings, which is still
+    /// valid — <see cref="ReferenceLapStore"/> stores such laps under the
+    /// <c>_unknown\_unknown</c> sub-folder.
+    /// </summary>
+    public string CurrentCarId   { get; set; } = string.Empty;
+    public string CurrentTrackId { get; set; } = string.Empty;
 
     /// <summary>50 ms DispatcherTimer for real-time phase/corner updates on the UI thread.</summary>
     private DispatcherTimer? _fastTimer;
@@ -88,6 +113,56 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// whether to switch to Simulation mode.
     /// </summary>
     [ObservableProperty] private bool _showSwitchToSimulationPrompt;
+
+    // ── Reference lap observables ─────────────────────────────────────────────
+
+    /// <summary><see langword="true"/> while actively recording samples for a new reference lap.</summary>
+    [ObservableProperty] private bool   _isRecording;
+
+    /// <summary>
+    /// Fraction (0..1) of the current recording lap that has been captured.
+    /// Drives the progress bar in the reference toolbar.
+    /// </summary>
+    [ObservableProperty] private double _recordingProgress;
+
+    /// <summary>Display name of the currently loaded reference, or "Sin referencia".</summary>
+    [ObservableProperty] private string _activeReferenceName = "Sin referencia";
+
+    /// <summary>Source label of the active reference ("Grabada", "Importada", or "").</summary>
+    [ObservableProperty] private string _referenceSource = string.Empty;
+
+    // ── Live vs Ideal delta display ───────────────────────────────────────────
+
+    /// <summary>EMA-smoothed speed delta formatted for display, e.g. "+3.2 km/h".</summary>
+    [ObservableProperty] private string _liveDeltaSpeedText    = "—";
+
+    /// <summary>EMA-smoothed brake delta formatted for display, e.g. "+5 %".</summary>
+    [ObservableProperty] private string _liveDeltaBrakeText    = "—";
+
+    /// <summary>EMA-smoothed throttle delta formatted for display, e.g. "-3 %".</summary>
+    [ObservableProperty] private string _liveDeltaThrottleText = "—";
+
+    /// <summary>EMA-smoothed yaw-gain delta formatted for display, e.g. "+0.12".</summary>
+    [ObservableProperty] private string _liveDeltaYawGainText  = "—";
+
+    /// <summary>Notable event text from the comparator, e.g. "You brake 6.3 m late vs ideal".</summary>
+    [ObservableProperty] private string _referenceSummaryText  = string.Empty;
+
+    /// <summary>Saved references for the current car/track, bound to the selector ComboBox.</summary>
+    public ObservableCollection<ReferenceLapMeta> SavedReferences { get; } = [];
+
+    [ObservableProperty] private ReferenceLapMeta? _selectedReference;
+
+    partial void OnSelectedReferenceChanged(ReferenceLapMeta? value)
+    {
+        if (value is null) return;
+        var lap = _refStore.LoadReference(value.FilePath);
+        if (lap is null) return;
+        _comparator.LoadReference(lap);
+        ActiveReferenceName = value.DisplayName;
+        ReferenceSource     = value.Source == ReferenceLapSource.Recorded ? "Grabada" : "Importada";
+        AppLogger.Instance.Info($"Referencia cargada: {value.DisplayName}");
+    }
 
     /// <summary>
     /// Convenience bool for binding a XAML ToggleSwitch:
@@ -419,6 +494,13 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         ConnectionStatusText         = "Simulation";
         ShowSwitchToSimulationPrompt = false;
         ResetAcSanityState();
+        // Cancel any in-progress recording
+        _recordingBuffer.Clear();
+        _waitingForLapStart = false;
+        IsRecording         = false;
+        RecordingProgress   = 0.0;
+        StartRecordingCommand.NotifyCanExecuteChanged();
+        CancelRecordingCommand.NotifyCanExecuteChanged();
         CurrentPhase  = "—";
         AppLogger.Instance.Info("Telemetría pausada.");
         StartSimulationCommand.NotifyCanExecuteChanged();
@@ -426,6 +508,59 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     }
 
     private bool CanStop() => IsSimulating;
+
+    // ── Reference recording commands ──────────────────────────────────────────
+
+    [RelayCommand(CanExecute = nameof(CanStartRecording))]
+    private void StartRecording()
+    {
+        _recordingBuffer.Clear();
+        _waitingForLapStart = true;
+        IsRecording         = false;   // will flip to true once a clean lap-start arrives
+        RecordingProgress   = 0.0;
+        AppLogger.Instance.Info("Grabación de vuelta ideal: esperando inicio de vuelta…");
+        StartRecordingCommand.NotifyCanExecuteChanged();
+        CancelRecordingCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanStartRecording() => IsSimulating && IsAcConnected && !IsRecording && !_waitingForLapStart;
+
+    [RelayCommand(CanExecute = nameof(CanCancelRecording))]
+    private void CancelRecording()
+    {
+        _recordingBuffer.Clear();
+        _waitingForLapStart = false;
+        IsRecording         = false;
+        RecordingProgress   = 0.0;
+        AppLogger.Instance.Info("Grabación de vuelta ideal cancelada.");
+        StartRecordingCommand.NotifyCanExecuteChanged();
+        CancelRecordingCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanCancelRecording() => IsRecording || _waitingForLapStart;
+
+    /// <summary>
+    /// Called from <see cref="Views.TelemetryPage"/> after the FileOpenPicker
+    /// returns a CSV path.  Runs the import on a background thread to keep the
+    /// UI responsive and then loads the result into the comparator.
+    /// </summary>
+    public async Task ImportCsvFileAsync(string filePath)
+    {
+        try
+        {
+            var lap = await Task.Run(() => _csvImporter.Import(filePath));
+            var path = _refStore.SaveReference(lap);
+            _comparator.LoadReference(lap);
+            ActiveReferenceName = System.IO.Path.GetFileNameWithoutExtension(path);
+            ReferenceSource     = "Importada";
+            RefreshSavedReferences(lap.CarId, lap.TrackId);
+            AppLogger.Instance.Info($"CSV importado y guardado: {path}");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Warn($"Error al importar CSV: {ex.Message}");
+        }
+    }
 
     [RelayCommand]
     private void ClearAnalysis()
@@ -444,6 +579,11 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         LastCornerOversteerEntry  = 0f;
         LastCornerOversteerExit   = 0f;
         LastCornerDurationText    = "—";
+        LiveDeltaSpeedText        = "—";
+        LiveDeltaBrakeText        = "—";
+        LiveDeltaThrottleText     = "—";
+        LiveDeltaYawGainText      = "—";
+        ReferenceSummaryText      = string.Empty;
         // AcTelemetryReader stamps every sample with DateTime.UtcNow, so using
         // DateTime.UtcNow here guarantees only corners whose first sample arrives
         // after the clear will be logged — no stale corners re-appear.
@@ -692,6 +832,168 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
             // 5. Phase-aware RuleEngine evaluation
             UpdateProposalsFromCorner(in cs);
         }
+
+        // 6. Reference lap recording
+        if ((IsRecording || _waitingForLapStart) && sample.AcStatus == (int)AcStatus.Live)
+            UpdateRecording(in sample);
+
+        // 7. Live vs Ideal comparison (distance-aligned, EMA-smoothed)
+        if (_comparator.IsActive && sample.AcStatus == (int)AcStatus.Live)
+            UpdateLiveDeltas(in sample);
+    }
+
+    // ── Recording helpers ─────────────────────────────────────────────────────
+
+    private const float LapWrapThreshold   = 0.10f; // lapPos < this after being > 0.90 = new lap
+    private const float LapWrapHighWater   = 0.90f;
+
+    /// <summary>
+    /// State machine for capturing a clean single lap.
+    /// Waits for NormalizedLapPos to cross the start/finish line, then collects
+    /// one sample per fast-tick (≈20 Hz) until the next crossing, then auto-saves.
+    /// </summary>
+    private void UpdateRecording(in TelemetrySample s)
+    {
+        var lapPos = s.NormalizedLapPos;
+
+        // Detect start/finish crossing: lapPos wraps from high → low
+        var crossed = _lastFastLapPos > LapWrapHighWater && lapPos < LapWrapThreshold;
+        _lastFastLapPos = lapPos;
+
+        if (_waitingForLapStart)
+        {
+            if (crossed)
+            {
+                // Clean lap start detected — begin recording
+                _waitingForLapStart = false;
+                IsRecording         = true;
+                _recordingBuffer.Clear();
+                _lastRecordedLapPos = lapPos;
+                RecordingProgress   = 0.0;
+                AppLogger.Instance.Info("Grabación de vuelta ideal iniciada.");
+                StartRecordingCommand.NotifyCanExecuteChanged();
+                CancelRecordingCommand.NotifyCanExecuteChanged();
+            }
+            return;
+        }
+
+        if (!IsRecording) return;
+
+        // Lap complete: crossing detected while already recording
+        if (crossed && _recordingBuffer.Count > 50)
+        {
+            FinaliseLapRecording();
+            return;
+        }
+
+        // Collect sample — only when lapPos has advanced (distance-based dedup)
+        if (Math.Abs(lapPos - _lastRecordedLapPos) >= 0.0005f || _recordingBuffer.Count == 0)
+        {
+            _recordingBuffer.Add(BuildRecordingSample(in s));
+            _lastRecordedLapPos = lapPos;
+            RecordingProgress   = lapPos;
+        }
+    }
+
+    private void FinaliseLapRecording()
+    {
+        IsRecording       = false;
+        RecordingProgress = 1.0;
+        var raw           = new List<ReferenceLapSample>(_recordingBuffer);
+        _recordingBuffer.Clear();
+        StartRecordingCommand.NotifyCanExecuteChanged();
+        CancelRecordingCommand.NotifyCanExecuteChanged();
+
+        if (raw.Count < 2)
+        {
+            AppLogger.Instance.Warn("Grabación descartada — menos de 2 muestras.");
+            return;
+        }
+
+        try
+        {
+            var lap = new ReferenceLap
+            {
+                CarId      = CurrentCarId,
+                TrackId    = CurrentTrackId,
+                Source     = ReferenceLapSource.Recorded,
+                CreatedUtc = DateTime.UtcNow,
+                Samples    = ReferenceLapResampler.Resample(raw),
+            };
+            var path = _refStore.SaveReference(lap);
+            _comparator.LoadReference(lap);
+            ActiveReferenceName = $"Vuelta grabada {lap.CreatedUtc:HH:mm:ss}";
+            ReferenceSource     = "Grabada";
+            RefreshSavedReferences(lap.CarId, lap.TrackId);
+            AppLogger.Instance.Ai($"Vuelta ideal grabada y guardada: {path}");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Warn($"Error al guardar vuelta ideal: {ex.Message}");
+        }
+    }
+
+    private static ReferenceLapSample BuildRecordingSample(in TelemetrySample s)
+    {
+        var yawGain = BalanceMetrics.ComputeYawGain(s.YawRate, s.SteerAngle, s.SpeedKmh);
+        return new ReferenceLapSample
+        {
+            LapDistPct        = s.NormalizedLapPos,
+            SpeedKmh          = s.SpeedKmh,
+            Throttle          = s.Throttle,
+            Brake             = s.Brake,
+            Steering          = s.SteerAngle,
+            Gear              = s.Gear,
+            Rpm               = s.Rpms,
+            LatG              = s.AccGLateral,
+            LongG             = s.AccGLongitudinal,
+            YawGain           = yawGain,
+            SlipAngleFrontAvg = (Math.Abs(s.SlipAngleFL) + Math.Abs(s.SlipAngleFR)) * 0.5f,
+            SlipAngleRearAvg  = (Math.Abs(s.SlipAngleRL) + Math.Abs(s.SlipAngleRR)) * 0.5f,
+            WheelSlipRearAvg  = (Math.Abs(s.WheelSlipRL) + Math.Abs(s.WheelSlipRR)) * 0.5f,
+            TyreTempAvg       = (s.TyreTempFL + s.TyreTempFR + s.TyreTempRL + s.TyreTempRR) * 0.25f,
+            TyreTempFL        = s.TyreTempFL,
+            TyreTempFR        = s.TyreTempFR,
+            TyreTempRL        = s.TyreTempRL,
+            TyreTempRR        = s.TyreTempRR,
+            TyrePressureFL    = s.TyrePressureFL,
+            TyrePressureFR    = s.TyrePressureFR,
+            TyrePressureRL    = s.TyrePressureRL,
+            TyrePressureRR    = s.TyrePressureRR,
+        };
+    }
+
+    // ── Live vs Ideal update ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Calls the comparator with the latest live sample (distance-aligned,
+    /// EMA-smoothed) and updates the four display properties.
+    /// </summary>
+    private void UpdateLiveDeltas(in TelemetrySample s)
+    {
+        var frame = _comparator.Update(in s);
+        if (frame is null) return;
+
+        static string FmtSpeed(float v)    => v >= 0 ? $"+{v:F1} km/h" : $"{v:F1} km/h";
+        static string FmtPct(float v)      => v >= 0 ? $"+{v * 100f:F0} %" : $"{v * 100f:F0} %";
+        static string FmtYaw(float v)      => v >= 0 ? $"+{v:F2}" : $"{v:F2}";
+
+        LiveDeltaSpeedText    = FmtSpeed(frame.DeltaSpeedKmh);
+        LiveDeltaBrakeText    = FmtPct(frame.DeltaBrake);
+        LiveDeltaThrottleText = FmtPct(frame.DeltaThrottle);
+        LiveDeltaYawGainText  = FmtYaw(frame.DeltaYawGain);
+
+        if (!string.IsNullOrEmpty(frame.SummaryText))
+            ReferenceSummaryText = frame.SummaryText;
+    }
+
+    // ── Saved-reference list refresh ─────────────────────────────────────────
+
+    private void RefreshSavedReferences(string carId, string trackId)
+    {
+        SavedReferences.Clear();
+        foreach (var meta in _refStore.ListReferences(carId, trackId))
+            SavedReferences.Add(meta);
     }
 
     /// <summary>
