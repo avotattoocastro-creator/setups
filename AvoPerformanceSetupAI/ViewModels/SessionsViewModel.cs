@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -24,6 +25,7 @@ public partial class SessionsViewModel : ObservableObject
     [ObservableProperty] private string _statusText = "● READY";
     [ObservableProperty] private string _brainInfo = "Python | latency: 12 ms";
     [ObservableProperty] private string _riskLevel = "LOW";
+    [ObservableProperty] private string _aiLevelLabel = "Nivel 1: Básico";
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isConnected;
 
@@ -75,8 +77,11 @@ public partial class SessionsViewModel : ObservableObject
         if (!string.IsNullOrEmpty(SetupSettings.Instance.RootFolder))
             LoadCars(SetupSettings.Instance.RootFolder);
 
+        // Reflect the persisted AI level on startup
+        UpdateAiLevelLabel(SetupSettings.Instance.AiLevel);
+
         AppLogger.Instance.Data($"Sesión inicializada — Modo: {Mode}");
-        AppLogger.Instance.Ai($"Motor IA listo — {BrainInfo}");
+        AppLogger.Instance.Ai($"Motor IA listo — {BrainInfo}  |  {AiLevelLabel}");
         AppLogger.Instance.Info($"Nivel de riesgo actual: {RiskLevel}");
     }
 
@@ -86,7 +91,57 @@ public partial class SessionsViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(SetupSettings.RootFolder))
             LoadCars(SetupSettings.Instance.RootFolder);
+        else if (e.PropertyName == nameof(SetupSettings.AiLevel))
+        {
+            UpdateAiLevelLabel(SetupSettings.Instance.AiLevel);
+            AppLogger.Instance.Ai($"Nivel de análisis de conducción actualizado — {AiLevelLabel}");
+            // Regenerate proposals with the new level if a file is already selected
+            if (!string.IsNullOrEmpty(SelectedSetupFile))
+                LoadProposalsFromFile();
+        }
     }
+
+    // ── AI-level helpers ──────────────────────────────────────────────────────
+
+    private static readonly string[] AiLevelNames =
+    [
+        "Nivel 1: Básico",
+        "Nivel 2: Estándar",
+        "Nivel 3: Avanzado",
+        "Nivel 4: Experto",
+        "Nivel 5: Profesional"
+    ];
+
+    private void UpdateAiLevelLabel(int level)
+    {
+        var idx = Math.Clamp(level, SetupSettings.MinAiLevel, SetupSettings.MaxAiLevel) - 1;
+        AiLevelLabel = AiLevelNames[idx];
+    }
+
+    /// <summary>
+    /// Returns the maximum number of proposals to generate for the given AI level.
+    /// Higher levels analyse more parameters and propose a wider range of changes.
+    /// </summary>
+    private static int MaxProposalsForLevel(int level) => level switch
+    {
+        1 => 3,
+        2 => 5,
+        3 => 8,
+        4 => 12,
+        _ => 16   // level 5
+    };
+
+    /// <summary>
+    /// Returns the number of entries sampled per INI section for the given AI level.
+    /// </summary>
+    private static int EntriesPerSectionForLevel(int level) => level switch
+    {
+        1 => 1,
+        2 => 2,
+        3 => 3,
+        4 => 4,
+        _ => 5   // level 5
+    };
 
     // ── Cascading property changes ────────────────────────────────────────────
 
@@ -258,11 +313,15 @@ public partial class SessionsViewModel : ObservableObject
                         out var v) && v != 0.0)
                 .ToList();
 
-            // Sample: up to 2 entries per section, capped at 6 proposals total
+            var aiLevel       = Math.Clamp(SetupSettings.Instance.AiLevel, SetupSettings.MinAiLevel, SetupSettings.MaxAiLevel);
+            var maxProposals  = MaxProposalsForLevel(aiLevel);
+            var perSection    = EntriesPerSectionForLevel(aiLevel);
+
+            // Sample: up to `perSection` entries per section, capped at `maxProposals` proposals total
             var sample = tunable
                 .GroupBy(e => e.Section)
-                .SelectMany(g => g.Take(2))
-                .Take(6)
+                .SelectMany(g => g.Take(perSection))
+                .Take(maxProposals)
                 .ToList();
 
             foreach (var entry in sample)
@@ -293,7 +352,8 @@ public partial class SessionsViewModel : ObservableObject
 
             AppLogger.Instance.Ai(
                 $"Propuestas generadas desde '{SelectedSetupFile}' — " +
-                $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados.");
+                $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados  " +
+                $"[{AiLevelLabel}].");
 
             if (tunable.Count == 0)
                 AppLogger.Instance.Warn(
