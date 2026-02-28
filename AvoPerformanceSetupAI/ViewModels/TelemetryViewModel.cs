@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.Telemetry;
@@ -19,6 +22,16 @@ public partial class TelemetryViewModel : ObservableObject
     // ── Assetto Corsa real-time reader ────────────────────────────────────────
 
     private readonly AcTelemetryReader _acReader = new();
+
+    // ── Corner detector (stateful, thread-safe) ───────────────────────────────
+
+    private readonly CornerDetector _cornerDetector = new();
+
+    /// <summary>50 ms DispatcherTimer for real-time phase/corner updates on the UI thread.</summary>
+    private DispatcherTimer? _fastTimer;
+
+    /// <summary>CornerIndex of the last corner already reflected in the bindable properties.</summary>
+    private int _lastReportedCornerIndex = -1;
 
     /// <summary>Number of 800 ms ticks between feature-analysis runs (6 × 800 ms ≈ 4.8 s).</summary>
     private const int FeatureAnalysisTickInterval = 6;
@@ -38,10 +51,40 @@ public partial class TelemetryViewModel : ObservableObject
     [ObservableProperty] private bool   _isAcConnected;
     [ObservableProperty] private string _acStatusText     = "AC: SIMULACIÓN";
 
+    // ── Corner / phase observables ────────────────────────────────────────────
+
+    /// <summary>Current driving phase inferred from the latest telemetry sample.</summary>
+    [ObservableProperty] private string _currentPhase = "—";
+
+    /// <summary>Direction of the most recently completed corner ("Left", "Right", or "—").</summary>
+    [ObservableProperty] private string _lastCornerDirection = "—";
+
+    /// <summary>Understeer index (0..1) during the entry (braking) phase of the last corner.</summary>
+    [ObservableProperty] private float _lastCornerUndersteerEntry;
+
+    /// <summary>Understeer index (0..1) during the mid-corner phase of the last corner.</summary>
+    [ObservableProperty] private float _lastCornerUndersteerMid;
+
+    /// <summary>Understeer index (0..1) during the exit (acceleration) phase of the last corner.</summary>
+    [ObservableProperty] private float _lastCornerUndersteerExit;
+
+    /// <summary>Oversteer index (0..1) during the entry (braking) phase of the last corner.</summary>
+    [ObservableProperty] private float _lastCornerOversteerEntry;
+
+    /// <summary>Oversteer index (0..1) during the exit (acceleration) phase of the last corner.</summary>
+    [ObservableProperty] private float _lastCornerOversteerExit;
+
     // ── Collections ──────────────────────────────────────────────────────────
 
     /// <summary>Telemetry channels — each holds both the real (live) and ideal (target) value.</summary>
     public ObservableCollection<TelemetryChannel> Channels    { get; } = new();
+
+    /// <summary>
+    /// Live rule-based proposals from the latest completed corner, combining
+    /// Entry (braking), Mid (balance), and Exit (traction) phase evaluations.
+    /// Suitable for binding to a real-time proposals panel.
+    /// </summary>
+    public ObservableCollection<Proposal> Proposals { get; } = new();
 
     /// <summary>Car-behaviour analysis log.</summary>
     public ObservableCollection<AnalysisEntry>    BehaviorLogs { get; } = new();
@@ -209,7 +252,16 @@ public partial class TelemetryViewModel : ObservableObject
     /// Must be called once from the UI thread (page constructor) to allow the timer
     /// callbacks to marshal back onto the UI dispatcher.
     /// </summary>
-    public void Initialize(DispatcherQueue dispatcher) => _dispatcher = dispatcher;
+    public void Initialize(DispatcherQueue dispatcher)
+    {
+        _dispatcher = dispatcher;
+
+        // Create a 50 ms DispatcherTimer for real-time phase/corner updates.
+        // Must be created on the UI thread (DispatcherTimer fires on the thread it was created on).
+        _fastTimer          = new DispatcherTimer();
+        _fastTimer.Interval = TimeSpan.FromMilliseconds(50);
+        _fastTimer.Tick    += OnFastTick;
+    }
 
     // ── Commands ──────────────────────────────────────────────────────────────
 
@@ -228,6 +280,7 @@ public partial class TelemetryViewModel : ObservableObject
             : "Assetto Corsa no detectado — modo simulación activo.");
 
         _updateTimer = new System.Threading.Timer(OnTick, null, 0, 800);
+        _fastTimer?.Start();
         AppLogger.Instance.Ai("Telemetría en tiempo real ACTIVADA — tick cada 800 ms.");
         StartSimulationCommand.NotifyCanExecuteChanged();
         StopSimulationCommand.NotifyCanExecuteChanged();
@@ -242,9 +295,11 @@ public partial class TelemetryViewModel : ObservableObject
         StatusText   = "● DETENIDO";
         _updateTimer?.Dispose();
         _updateTimer = null;
+        _fastTimer?.Stop();
         _acReader.Disconnect();
         IsAcConnected = false;
         AcStatusText  = "AC: SIMULACIÓN";
+        CurrentPhase  = "—";
         AppLogger.Instance.Info("Telemetría pausada.");
         StartSimulationCommand.NotifyCanExecuteChanged();
         StopSimulationCommand.NotifyCanExecuteChanged();
@@ -259,6 +314,15 @@ public partial class TelemetryViewModel : ObservableObject
         DrivingLogs.Clear();
         SetupLogs.Clear();
         CornerLogs.Clear();
+        Proposals.Clear();
+        _lastReportedCornerIndex  = -1;
+        CurrentPhase              = "—";
+        LastCornerDirection       = "—";
+        LastCornerUndersteerEntry = 0f;
+        LastCornerUndersteerMid   = 0f;
+        LastCornerUndersteerExit  = 0f;
+        LastCornerOversteerEntry  = 0f;
+        LastCornerOversteerExit   = 0f;
         // AcTelemetryReader stamps every sample with DateTime.UtcNow, so using
         // DateTime.UtcNow here guarantees only corners whose first sample arrives
         // after the clear will be logged — no stale corners re-appear.
@@ -437,6 +501,90 @@ public partial class TelemetryViewModel : ObservableObject
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // ── 50 ms fast-path: phase detection + corner summary ─────────────────────
+
+    /// <summary>
+    /// Fires every 50 ms on the UI thread. Keeps <see cref="CurrentPhase"/>,
+    /// the <c>LastCorner*</c> observables, and <see cref="Proposals"/> up-to-date
+    /// without blocking the 250 Hz AC poll loop.
+    /// </summary>
+    private void OnFastTick(object sender, object e)
+    {
+        if (!IsAcConnected) return;
+
+        // 1. Derive current driving phase from the most recent sample
+        var sample = _acReader.Buffer.ReadLast();
+        if (sample.AcStatus == (int)AcStatus.Live)
+            CurrentPhase = DerivePhaseLabel(in sample);
+        else
+            CurrentPhase = "—";
+
+        // 2. Feed new samples into the corner detector (non-blocking)
+        _cornerDetector.Update(_acReader.Buffer);
+
+        // 3. Reflect the latest completed corner in the bindable properties
+        var latest = _cornerDetector.LatestCorner;
+        if (latest.HasValue && latest.Value.CornerIndex != _lastReportedCornerIndex)
+        {
+            var cs = latest.Value;
+            _lastReportedCornerIndex  = cs.CornerIndex;
+            LastCornerDirection       = cs.Direction == CornerDirection.Left  ? "Left"
+                                      : cs.Direction == CornerDirection.Right ? "Right" : "—";
+            LastCornerUndersteerEntry = cs.EntryFrame.UndersteerEntry;
+            LastCornerUndersteerMid   = cs.MidFrame.UndersteerMid;
+            LastCornerUndersteerExit  = cs.ExitFrame.UndersteerExit;
+            LastCornerOversteerEntry  = cs.EntryFrame.OversteerEntry;
+            LastCornerOversteerExit   = cs.ExitFrame.OversteerExit;
+
+            // 4. Phase-aware RuleEngine evaluation
+            UpdateProposalsFromCorner(in cs);
+        }
+    }
+
+    /// <summary>
+    /// Derives a human-readable driving phase label from a single
+    /// <see cref="TelemetrySample"/>, using the same thresholds as
+    /// <see cref="CornerDetector"/> for consistency.
+    /// </summary>
+    private static string DerivePhaseLabel(in TelemetrySample s)
+    {
+        if (s.Brake > 0.12f)                                                    return "Entry";
+        if (s.Throttle > 0.25f)                                                 return "Exit";
+        if (Math.Abs(s.AccGLateral) > 0.2f || Math.Abs(s.SteerAngle) > 0.12f) return "Mid";
+        return "Straight";
+    }
+
+    /// <summary>
+    /// Evaluates <see cref="RuleEngine"/> on each phase-specific
+    /// <see cref="FeatureFrame"/> of the completed corner, merges results by
+    /// <c>Section/Parameter</c> (keeping highest confidence), and updates
+    /// <see cref="Proposals"/>. Also pushes to
+    /// <see cref="SessionsViewModel.Shared"/> for the Sessions panel.
+    /// </summary>
+    private void UpdateProposalsFromCorner(in CornerSummary cs)
+    {
+        // Phase-aware evaluation: Entry for braking, Mid for balance, Exit for traction
+        var entryProps = RuleEngine.Evaluate(cs.EntryFrame);
+        var midProps   = RuleEngine.Evaluate(cs.MidFrame);
+        var exitProps  = RuleEngine.Evaluate(cs.ExitFrame);
+
+        // Merge by Section/Parameter, keeping the highest-confidence proposal per key
+        var merged = new Dictionary<string, Proposal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in entryProps.Concat(midProps).Concat(exitProps))
+        {
+            var key = $"{p.Section}/{p.Parameter}";
+            if (!merged.TryGetValue(key, out var existing) || p.Confidence > existing.Confidence)
+                merged[key] = p;
+        }
+
+        Proposals.Clear();
+        foreach (var p in merged.Values.OrderByDescending(p => p.Confidence).Take(RuleEngine.MaxProposals))
+            Proposals.Add(p);
+
+        if (Proposals.Count > 0)
+            SessionsViewModel.Shared.PushTelemetryProposals([.. Proposals]);
+    }
 
     private static void Append(ObservableCollection<AnalysisEntry> col, string tag, string msg)
     {
