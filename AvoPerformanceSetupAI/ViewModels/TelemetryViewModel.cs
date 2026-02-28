@@ -369,6 +369,87 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         }
     }
 
+    // ── Decision Inspector observables ────────────────────────────────────────
+
+    /// <summary>
+    /// Top-3 decision candidates (Safe / Balanced / Aggressive) produced by
+    /// <see cref="RiskAwareDecisionEngine"/>, bound to the probabilistic
+    /// candidate cards in the UI.
+    /// </summary>
+    public ObservableCollection<AvoPerformanceSetupAI.ML.DecisionCandidate> AdvisedCandidates { get; } = new();
+
+    /// <summary>
+    /// One-line summary of the currently active adaptive blend weights, e.g.
+    /// "ML 52 % · RL 31 % · Heur 17 %".
+    /// Displayed in the Decision Inspector panel.
+    /// </summary>
+    [ObservableProperty]
+    private string _weightsDisplayText = "ML — · RL — · Heur —";
+
+    /// <summary>
+    /// Human-readable explanation from the Driver-vs-Setup discriminator, e.g.
+    /// "Setup (0.72) — persistent mid-corner under-rotation".
+    /// </summary>
+    [ObservableProperty]
+    private string _discriminatorExplanationText = "—";
+
+    /// <summary>
+    /// Multi-line text block that explains why the Safe / Balanced / Aggressive
+    /// candidates were chosen over the others.
+    /// </summary>
+    [ObservableProperty]
+    private string _decisionInspectorText = "Run telemetry to populate decision inspector.";
+
+    // ── Helpers for populating Decision Inspector ──────────────────────────────
+
+    /// <summary>
+    /// Refreshes <see cref="AdvisedCandidates"/>, <see cref="WeightsDisplayText"/>,
+    /// and <see cref="DecisionInspectorText"/> from a fresh set of candidates.
+    /// Must be called on the UI thread.
+    /// </summary>
+    internal void UpdateDecisionInspector(
+        AvoPerformanceSetupAI.ML.DecisionCandidate[] candidates,
+        AvoPerformanceSetupAI.ML.AdaptiveWeightEngine? weightEngine,
+        AvoPerformanceSetupAI.Telemetry.RootCauseResult rootCause)
+    {
+        // Update candidate cards
+        AdvisedCandidates.Clear();
+        foreach (var c in candidates)
+            AdvisedCandidates.Add(c);
+
+        // Weights display
+        if (weightEngine != null)
+        {
+            WeightsDisplayText =
+                $"ML {weightEngine.MlWeight:P0} · " +
+                $"RL {weightEngine.RlWeight:P0} · " +
+                $"Heur {weightEngine.HeuristicWeight:P0}";
+        }
+
+        // Discriminator explanation
+        DiscriminatorExplanationText = string.IsNullOrEmpty(rootCause.Explanation)
+            ? $"{rootCause.Cause} ({rootCause.Confidence:P0})"
+            : rootCause.Explanation;
+
+        // Decision inspector text
+        if (candidates.Length == 0)
+        {
+            DecisionInspectorText = "No candidates available — waiting for corner data.";
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in candidates)
+        {
+            sb.AppendLine($"[{c.Tier}]  {c.Proposal.Section}:{c.Proposal.Parameter} {c.Proposal.Delta}");
+            // UncertaintyEstimate.ToString() produces: "μ=+5.2 σ=1.4 [80%: +1.3..+9.1] [95%: ...]"
+            sb.AppendLine($"  {c.Uncertainty}");
+            sb.AppendLine($"  Conf={c.CalibratedConfidence:P0}  Risk={c.RiskLevel}  Utility={c.Utility:+0.0;-0.0}");
+            sb.AppendLine($"  {c.Explanation}");
+        }
+        DecisionInspectorText = sb.ToString().TrimEnd();
+    }
+
     /// <summary>Car-behaviour analysis log.</summary>
     public ObservableCollection<AnalysisEntry>    BehaviorLogs { get; } = new();
 

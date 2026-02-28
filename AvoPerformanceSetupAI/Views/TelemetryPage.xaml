@@ -7,6 +7,7 @@
     xmlns:converters="using:AvoPerformanceSetupAI.Converters"
     xmlns:local="using:AvoPerformanceSetupAI.Reference"
     xmlns:telemetry="using:AvoPerformanceSetupAI.Telemetry"
+    xmlns:ml="using:AvoPerformanceSetupAI.ML"
     Background="Transparent"
     RequestedTheme="Dark">
 
@@ -107,6 +108,7 @@
             <RowDefinition Height="Auto"/>  <!-- real telemetry -->
             <RowDefinition Height="Auto"/>  <!-- ideal telemetry -->
             <RowDefinition Height="Auto"/>  <!-- live analysis panel -->
+            <RowDefinition Height="Auto"/>  <!-- probabilistic candidates + decision inspector -->
             <RowDefinition Height="2*"/>    <!-- analysis terminals -->
             <RowDefinition Height="*"/>     <!-- corner phase summaries -->
         </Grid.RowDefinitions>
@@ -754,8 +756,192 @@
             </Grid>
         </Border>
 
+        <!-- ── Probabilistic candidates + Decision Inspector (Row 5) ─────── -->
+        <Border Grid.Row="5"
+                Background="#FF080F0F"
+                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>  <!-- candidate cards -->
+                    <ColumnDefinition Width="*"/>   <!-- decision inspector -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ── Candidate cards (Safe / Balanced / Aggressive) ──── -->
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
+                        <TextBlock Text="🎯" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="CANDIDATOS PROBABILÍSTICOS"
+                                   FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                        <TextBlock Text="Safe · Balanced · Aggressive"
+                                   FontFamily="Consolas" FontSize="9"
+                                   Foreground="#FF405858" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.AdvisedCandidates}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="ml:DecisionCandidate">
+                                <Border MinWidth="200" MaxWidth="280"
+                                        CornerRadius="6" Padding="10,8"
+                                        BorderThickness="1">
+                                    <Border.Background>
+                                        <SolidColorBrush Color="#FF0D1E1E"/>
+                                    </Border.Background>
+                                    <Border.BorderBrush>
+                                        <SolidColorBrush Color="#FF2A4040"/>
+                                    </Border.BorderBrush>
+                                    <StackPanel Spacing="4">
+
+                                        <!-- Row 0: tier badge + section:param delta -->
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border CornerRadius="3" Padding="5,2">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="#FF142828"/>
+                                                </Border.Background>
+                                                <TextBlock Text="{x:Bind TierDisplay}"
+                                                           FontFamily="Consolas" FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#FF00D4B4"/>
+                                            </Border>
+                                            <TextBlock Text="{x:Bind ProposalDisplay}"
+                                                       FontFamily="Consolas" FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#FFE0F0F0"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+
+                                        <!-- Row 1: mean Δscore + risk badge + confidence -->
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <StackPanel Spacing="0">
+                                                <TextBlock Text="μΔscore"
+                                                           FontFamily="Consolas" FontSize="8"
+                                                           Foreground="#FF607878"/>
+                                                <TextBlock Text="{x:Bind MeanDisplay}"
+                                                           FontFamily="Consolas" FontSize="14"
+                                                           FontWeight="Bold"
+                                                           Foreground="#FF80E040"/>
+                                            </StackPanel>
+                                            <StackPanel Spacing="0">
+                                                <TextBlock Text="Risk"
+                                                           FontFamily="Consolas" FontSize="8"
+                                                           Foreground="#FF607878"/>
+                                                <TextBlock Text="{x:Bind RiskDisplay}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{x:Bind RiskForeground}"/>
+                                            </StackPanel>
+                                            <StackPanel Spacing="0">
+                                                <TextBlock Text="Conf"
+                                                           FontFamily="Consolas" FontSize="8"
+                                                           Foreground="#FF607878"/>
+                                                <TextBlock Text="{x:Bind ConfidenceDisplay}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="#FFFFA040"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Row 2: 80 % and 95 % intervals -->
+                                        <StackPanel Spacing="2">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="80%"
+                                                           FontFamily="Consolas" FontSize="8"
+                                                           Foreground="#FF607878" Width="24"/>
+                                                <TextBlock Text="{x:Bind Interval80Display}"
+                                                           FontFamily="Consolas" FontSize="9"
+                                                           Foreground="#FFB0D0D0"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="95%"
+                                                           FontFamily="Consolas" FontSize="8"
+                                                           Foreground="#FF607878" Width="24"/>
+                                                <TextBlock Text="{x:Bind Interval95Display}"
+                                                           FontFamily="Consolas" FontSize="9"
+                                                           Foreground="#FF8090A0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Row 3: explanation -->
+                                        <TextBlock Text="{x:Bind Explanation}"
+                                                   FontFamily="Consolas" FontSize="8"
+                                                   Foreground="#FF607878"
+                                                   TextWrapping="Wrap"
+                                                   MaxLines="3"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- ── Decision Inspector panel ──────────────────────────── -->
+                <Border Grid.Column="1"
+                        Background="#FF080F14"
+                        BorderBrush="#FF1E3040" BorderThickness="1"
+                        CornerRadius="6" Padding="10,8">
+                    <StackPanel Spacing="6">
+
+                        <!-- Header -->
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="🔍" FontSize="10" VerticalAlignment="Center"/>
+                            <TextBlock Text="DECISION INSPECTOR"
+                                       FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                       Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Weights row -->
+                        <StackPanel Spacing="1">
+                            <TextBlock Text="Weights (AdaptiveWeightEngine)"
+                                       FontFamily="Consolas" FontSize="8"
+                                       Foreground="#FF405858"/>
+                            <TextBlock Text="{x:Bind ViewModel.WeightsDisplayText, Mode=OneWay}"
+                                       FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="#FF00E676"/>
+                        </StackPanel>
+
+                        <!-- Discriminator row -->
+                        <StackPanel Spacing="1">
+                            <TextBlock Text="Driver vs Setup"
+                                       FontFamily="Consolas" FontSize="8"
+                                       Foreground="#FF405858"/>
+                            <TextBlock Text="{x:Bind ViewModel.DiscriminatorExplanationText, Mode=OneWay}"
+                                       FontFamily="Consolas" FontSize="9"
+                                       Foreground="#FFFFA040"
+                                       TextWrapping="Wrap"
+                                       MaxLines="2"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+
+                        <!-- Ranking explanation -->
+                        <StackPanel Spacing="1">
+                            <TextBlock Text="Ranking Rationale"
+                                       FontFamily="Consolas" FontSize="8"
+                                       Foreground="#FF405858"/>
+                            <ScrollViewer MaxHeight="110"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <TextBlock Text="{x:Bind ViewModel.DecisionInspectorText, Mode=OneWay}"
+                                           FontFamily="Consolas" FontSize="8"
+                                           Foreground="#FF90B0B0"
+                                           TextWrapping="Wrap"/>
+                            </ScrollViewer>
+                        </StackPanel>
+
+                    </StackPanel>
+                </Border>
+
+            </Grid>
+        </Border>
+
         <!-- ── Three analysis terminals ───────────────────────────────────── -->
-        <Grid Grid.Row="5" ColumnSpacing="0">
+        <Grid Grid.Row="6" ColumnSpacing="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -849,7 +1035,7 @@
         </Grid>
 
         <!-- ── Corner phase analysis terminal (full width) ────────────────── -->
-        <Grid Grid.Row="6" Margin="8,4,8,8">
+        <Grid Grid.Row="7" Margin="8,4,8,8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
