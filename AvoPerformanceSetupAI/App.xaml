@@ -79,6 +79,20 @@
                 <Setter Property="FontSize" Value="11" />
                 <Setter Property="FontFamily" Value="Consolas" />
             </Style>
+
+            <!-- Carbon background: subtle diagonal gradient simulating a dark carbon-fibre texture -->
+            <LinearGradientBrush x:Key="CarbonBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FF0C1818" Offset="0.00"/>
+                <GradientStop Color="#FF122020" Offset="0.25"/>
+                <GradientStop Color="#FF0A1616" Offset="0.50"/>
+                <GradientStop Color="#FF131F1F" Offset="0.75"/>
+                <GradientStop Color="#FF0E1C1C" Offset="1.00"/>
+            </LinearGradientBrush>
+
+            <!-- Convenience style: apply CarbonBackgroundBrush as a Grid background -->
+            <Style x:Key="CarbonBackground" TargetType="Grid">
+                <Setter Property="Background" Value="{StaticResource CarbonBackgroundBrush}"/>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

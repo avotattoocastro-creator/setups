@@ -8,7 +8,7 @@
     xmlns:local="using:AvoPerformanceSetupAI.Reference"
     xmlns:telemetry="using:AvoPerformanceSetupAI.Telemetry"
     xmlns:ml="using:AvoPerformanceSetupAI.ML"
-    Background="Transparent"
+    Background="{StaticResource CarbonBackgroundBrush}"
     RequestedTheme="Dark">
 
     <Page.Resources>

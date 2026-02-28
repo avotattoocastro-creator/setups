@@ -7,7 +7,7 @@
     xmlns:views="using:AvoPerformanceSetupAI.Views"
     Title="AvoPerformanceSetupAI">
 
-    <Grid Background="#FF0F1A1A">
+    <Grid Background="{StaticResource CarbonBackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
             <RowDefinition Height="*" />
@@ -28,12 +28,12 @@
 
         <!-- Main Tab View -->
         <TabView Grid.Row="1" x:Name="MainTabView"
-                 Background="#FF0F1A1A"
+                 Background="Transparent"
                  TabWidthMode="Equal"
                  IsAddTabButtonVisible="False"
                  SelectionChanged="MainTabView_SelectionChanged">
             <TabView.Resources>
-                <SolidColorBrush x:Key="TabViewBackground" Color="#FF0F1A1A" />
+                <SolidColorBrush x:Key="TabViewBackground" Color="Transparent" />
             </TabView.Resources>
 
             <TabViewItem x:Name="TabConfiguracion" Header="Configuración" IsClosable="False">
