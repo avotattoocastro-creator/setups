@@ -326,13 +326,11 @@
                  IsAddTabButtonVisible="False">
             <TabView.Resources>
                 <SolidColorBrush x:Key="TabViewBackground" Color="#FF0C1818" />
-            </TabView.Resources>
-            <TabView.ItemContainerStyle>
                 <Style TargetType="TabViewItem">
                     <Setter Property="FontSize" Value="{StaticResource FontBaseNormal}"/>
                     <Setter Property="Padding" Value="16,8"/>
                 </Style>
-            </TabView.ItemContainerStyle>
+            </TabView.Resources>
 
             <!-- ── Dashboard: Real + Ideal (collapsible Expanders) ── -->
             <TabViewItem Header="Dashboard" IsClosable="False">
