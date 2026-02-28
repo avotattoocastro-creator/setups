@@ -450,7 +450,29 @@ public static class FeatureExtractor
 
     // ── ComputeFrame implementation ───────────────────────────────────────────
 
+    // ── ExtractFrameComponents: exposes raw slip/yaw frames for agreement checks ──
+
+    /// <summary>
+    /// Returns the blended <see cref="FeatureFrame"/> together with the raw
+    /// slip-angle-only and yaw-gain-only component frames.
+    /// Pass the two raw frames to
+    /// <see cref="RuleEngine.Evaluate(in FeatureFrame, in FeatureFrame)"/>
+    /// to enable signal-agreement confidence adjustment.
+    /// </summary>
+    public static (FeatureFrame Blended, FeatureFrame SlipBased, FeatureFrame YawBased)
+        ExtractFrameComponents(TelemetrySample[] samples, int count)
+    {
+        if (samples is null) throw new ArgumentNullException(nameof(samples));
+        if (count <= 0) return (new FeatureFrame(), new FeatureFrame(), new FeatureFrame());
+        count = Math.Min(count, samples.Length);
+        return ComputeFrameComponents(samples, 0, count);
+    }
+
     private static FeatureFrame ComputeFrame(TelemetrySample[] buf, int offset, int count)
+        => ComputeFrameComponents(buf, offset, count).Blended;
+
+    private static (FeatureFrame Blended, FeatureFrame SlipBased, FeatureFrame YawBased)
+        ComputeFrameComponents(TelemetrySample[] buf, int offset, int count)
     {
         // Per-phase slip-angle accumulators
         double sumFrontSlipEntry = 0, sumRearSlipEntry = 0; int nEntry = 0;
@@ -522,34 +544,39 @@ public static class FeatureExtractor
 
         // ── Phase-specific understeer / oversteer ─────────────────────────────
 
+        // Raw per-phase slip-angle and yaw-gain component variables (hoisted for component frames)
+        float slipUnderEntry = 0f, slipOverEntry = 0f, yawIndexEntry = 0f;
+        float slipUnderMid   = 0f,                     yawIndexMid   = 0f;
+        float slipUnderExit  = 0f, slipOverExit  = 0f, yawIndexExit  = 0f;
+
         var understeerEntry = 0f; var oversteerEntry = 0f;
         if (nEntry > 0)
         {
             var d = sumFrontSlipEntry / nEntry - sumRearSlipEntry / nEntry;
-            var slipUnderEntry  = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
-            var slipOverEntry   = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
-            var yawIndexEntry   = BalanceMetrics.ComputeBalanceIndex(sumYawGainEntry / nEntry);
-            understeerEntry     = BlendIndex(slipUnderEntry, Math.Max(0f, -yawIndexEntry));
-            oversteerEntry      = BlendIndex(slipOverEntry,  Math.Max(0f,  yawIndexEntry));
+            slipUnderEntry  = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
+            slipOverEntry   = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
+            yawIndexEntry   = BalanceMetrics.ComputeBalanceIndex(sumYawGainEntry / nEntry);
+            understeerEntry = BlendIndex(slipUnderEntry, Math.Max(0f, -yawIndexEntry));
+            oversteerEntry  = BlendIndex(slipOverEntry,  Math.Max(0f,  yawIndexEntry));
         }
 
         var understeerMid = 0f;
         if (nMid > 0)
         {
-            var slipUnderMid = Norm(Math.Max(0.0, sumFrontSlipMid / nMid - sumRearSlipMid / nMid), SlipAngleThreshold);
-            var yawIndexMid  = BalanceMetrics.ComputeBalanceIndex(sumYawGainMid / nMid);
-            understeerMid    = BlendIndex(slipUnderMid, Math.Max(0f, -yawIndexMid));
+            slipUnderMid  = Norm(Math.Max(0.0, sumFrontSlipMid / nMid - sumRearSlipMid / nMid), SlipAngleThreshold);
+            yawIndexMid   = BalanceMetrics.ComputeBalanceIndex(sumYawGainMid / nMid);
+            understeerMid = BlendIndex(slipUnderMid, Math.Max(0f, -yawIndexMid));
         }
 
         var understeerExit = 0f; var oversteerExit = 0f;
         if (nExit > 0)
         {
             var d = sumFrontSlipExit / nExit - sumRearSlipExit / nExit;
-            var slipUnderExit = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
-            var slipOverExit  = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
-            var yawIndexExit  = BalanceMetrics.ComputeBalanceIndex(sumYawGainExit / nExit);
-            understeerExit    = BlendIndex(slipUnderExit, Math.Max(0f, -yawIndexExit));
-            oversteerExit     = BlendIndex(slipOverExit,  Math.Max(0f,  yawIndexExit));
+            slipUnderExit  = Norm(Math.Max(0.0, d),  SlipAngleThreshold);
+            slipOverExit   = Norm(Math.Max(0.0, -d), SlipAngleThreshold);
+            yawIndexExit   = BalanceMetrics.ComputeBalanceIndex(sumYawGainExit / nExit);
+            understeerExit = BlendIndex(slipUnderExit, Math.Max(0f, -yawIndexExit));
+            oversteerExit  = BlendIndex(slipOverExit,  Math.Max(0f,  yawIndexExit));
         }
 
         // ── Wheelspin ratio rear ──────────────────────────────────────────────
@@ -600,7 +627,7 @@ public static class FeatureExtractor
         var varVertG    = Math.Max(0.0, sumVertGSq / n - meanG * meanG);
         var suspIndex   = Norm(Math.Sqrt(varVertG), SuspOscillationThreshold);
 
-        return new FeatureFrame
+        var blended = new FeatureFrame
         {
             UndersteerEntry            = understeerEntry,
             UndersteerMid              = understeerMid,
@@ -615,6 +642,28 @@ public static class FeatureExtractor
             SuspensionOscillationIndex = suspIndex,
             SampleCount                = count,
         };
+
+        // Slip-based frame: pure slip-angle component indices
+        var slipBased = blended with
+        {
+            UndersteerEntry = slipUnderEntry,
+            UndersteerMid   = slipUnderMid,
+            UndersteerExit  = slipUnderExit,
+            OversteerEntry  = slipOverEntry,
+            OversteerExit   = slipOverExit,
+        };
+
+        // Yaw-based frame: pure yaw-gain component indices
+        var yawBased = blended with
+        {
+            UndersteerEntry = Math.Max(0f, -yawIndexEntry),
+            UndersteerMid   = Math.Max(0f, -yawIndexMid),
+            UndersteerExit  = Math.Max(0f, -yawIndexExit),
+            OversteerEntry  = Math.Max(0f,  yawIndexEntry),
+            OversteerExit   = Math.Max(0f,  yawIndexExit),
+        };
+
+        return (blended, slipBased, yawBased);
     }
 
     private static float Norm(double raw, double threshold)

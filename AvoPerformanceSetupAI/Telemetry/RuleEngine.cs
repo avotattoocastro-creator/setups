@@ -24,6 +24,12 @@ public static class RuleEngine
     /// <summary>Maximum number of proposals returned by <see cref="Evaluate"/>.</summary>
     public const int MaxProposals = 6;
 
+    /// <summary>Confidence multiplier applied when yaw and slip signals agree in direction (+20 %).</summary>
+    public const float ConfidenceBoostFactor   = 1.2f;
+
+    /// <summary>Confidence multiplier applied when yaw and slip signals disagree in direction (−30 %).</summary>
+    public const float ConfidencePenaltyFactor = 0.7f;
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -195,6 +201,140 @@ public static class RuleEngine
 
         return proposals;
     }
+
+    // ── Agreement-aware overloads ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Evaluates all rules against the 50 %/50 % blend of <paramref name="slipFrame"/>
+    /// and <paramref name="yawFrame"/>, then adjusts each proposal's confidence:
+    /// +20 % when both signals agree in direction, −30 % when they disagree.
+    /// Use <see cref="FeatureExtractor.ExtractFrameComponents"/> to obtain the two frames.
+    /// Returns up to <see cref="MaxProposals"/> proposals sorted by adjusted confidence.
+    /// </summary>
+    public static Proposal[] Evaluate(in FeatureFrame slipFrame, in FeatureFrame yawFrame)
+    {
+        // Build 50/50 blended frame (non-understeer/oversteer fields taken from slipFrame)
+        var blended = slipFrame with
+        {
+            UndersteerEntry = Blend50(slipFrame.UndersteerEntry, yawFrame.UndersteerEntry),
+            UndersteerMid   = Blend50(slipFrame.UndersteerMid,   yawFrame.UndersteerMid),
+            UndersteerExit  = Blend50(slipFrame.UndersteerExit,  yawFrame.UndersteerExit),
+            OversteerEntry  = Blend50(slipFrame.OversteerEntry,  yawFrame.OversteerEntry),
+            OversteerExit   = Blend50(slipFrame.OversteerExit,   yawFrame.OversteerExit),
+        };
+
+        var proposals = Evaluate(in blended);
+
+        // Adjust confidence based on signal agreement
+        for (int i = 0; i < proposals.Length; i++)
+        {
+            var factor = GetAgreementFactor(proposals[i].Section, proposals[i].Parameter,
+                                            in slipFrame, in yawFrame);
+            if (Math.Abs(factor - 1f) > 1e-6f)
+                proposals[i].Confidence = Math.Clamp(proposals[i].Confidence * factor, 0f, 1f);
+        }
+
+        // Re-sort after confidence adjustment
+        Array.Sort(proposals, static (a, b) => b.Confidence.CompareTo(a.Confidence));
+        return proposals;
+    }
+
+    /// <summary>
+    /// Evaluates all rules with signal-agreement confidence adjustment (see
+    /// <see cref="Evaluate(in FeatureFrame, in FeatureFrame)"/>), then applies
+    /// bias and weight overrides from <paramref name="profile"/>.
+    /// When <paramref name="profile"/> is <see langword="null"/> the method behaves
+    /// identically to <see cref="Evaluate(in FeatureFrame, in FeatureFrame)"/>.
+    /// </summary>
+    public static Proposal[] Evaluate(in FeatureFrame slipFrame, in FeatureFrame yawFrame,
+                                      CarTrackProfile? profile)
+    {
+        if (profile is null) return Evaluate(in slipFrame, in yawFrame);
+
+        var usBias = Math.Clamp(profile.BaselineUndersteerBias, -1f, 1f);
+        var osBias = Math.Clamp(profile.BaselineOversteerBias,  -1f, 1f);
+
+        // Apply additive bias to both raw frames before blending
+        var biasedSlip = slipFrame with
+        {
+            UndersteerEntry = Math.Clamp(slipFrame.UndersteerEntry + usBias, 0f, 1f),
+            UndersteerMid   = Math.Clamp(slipFrame.UndersteerMid   + usBias, 0f, 1f),
+            UndersteerExit  = Math.Clamp(slipFrame.UndersteerExit  + usBias, 0f, 1f),
+            OversteerEntry  = Math.Clamp(slipFrame.OversteerEntry  + osBias, 0f, 1f),
+            OversteerExit   = Math.Clamp(slipFrame.OversteerExit   + osBias, 0f, 1f),
+        };
+        var biasedYaw = yawFrame with
+        {
+            UndersteerEntry = Math.Clamp(yawFrame.UndersteerEntry + usBias, 0f, 1f),
+            UndersteerMid   = Math.Clamp(yawFrame.UndersteerMid   + usBias, 0f, 1f),
+            UndersteerExit  = Math.Clamp(yawFrame.UndersteerExit  + usBias, 0f, 1f),
+            OversteerEntry  = Math.Clamp(yawFrame.OversteerEntry  + osBias, 0f, 1f),
+            OversteerExit   = Math.Clamp(yawFrame.OversteerExit   + osBias, 0f, 1f),
+        };
+
+        var proposals = Evaluate(in biasedSlip, in biasedYaw);
+
+        // Re-weight by PreferredProposalWeights
+        for (int i = 0; i < proposals.Length; i++)
+        {
+            var key    = $"{proposals[i].Section}:{proposals[i].Parameter}";
+            var weight = profile.GetWeight(key);
+            if (Math.Abs(weight - 1f) > 1e-6f)
+                proposals[i].Confidence = Math.Clamp(proposals[i].Confidence * weight, 0f, 1f);
+        }
+
+        Array.Sort(proposals, static (a, b) => b.Confidence.CompareTo(a.Confidence));
+        if (proposals.Length > MaxProposals)
+        {
+            var trimmed = new Proposal[MaxProposals];
+            Array.Copy(proposals, trimmed, MaxProposals);
+            return trimmed;
+        }
+
+        return proposals;
+    }
+
+    // ── Agreement helpers ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns the confidence adjustment factor for a proposal based on whether
+    /// the slip-based and yaw-based signals agree in direction.
+    /// +20 % when both signals are active (agree); −30 % when exactly one is
+    /// active (disagree); 1.0 when neither is significant.
+    /// </summary>
+    private static float AgreementFactor(float slipSignal, float yawSignal)
+    {
+        const float sig = 0.05f;
+        var slipActive = slipSignal > sig;
+        var yawActive  = yawSignal  > sig;
+
+        if (slipActive && yawActive)   return ConfidenceBoostFactor;   // agree  → +20 %
+        if (slipActive != yawActive)   return ConfidencePenaltyFactor; // disagree → −30 %
+        return 1.0f;
+    }
+
+    /// <summary>
+    /// Looks up the slip and yaw component indices that correspond to the
+    /// triggered rule and returns the agreement factor.
+    /// </summary>
+    private static float GetAgreementFactor(
+        string section, string parameter,
+        in FeatureFrame slipFrame, in FeatureFrame yawFrame)
+    {
+        (float slip, float yaw) = (section, parameter) switch
+        {
+            ("ARB",         "FRONT")        => (slipFrame.UndersteerEntry, yawFrame.UndersteerEntry),
+            ("SPRINGS",     "FRONT_SPRING") => (slipFrame.UndersteerMid,   yawFrame.UndersteerMid),
+            ("AERO",        "FRONT_WING")   => (slipFrame.UndersteerExit,  yawFrame.UndersteerExit),
+            ("ARB",         "REAR")         => (slipFrame.OversteerEntry,  yawFrame.OversteerEntry),
+            ("ELECTRONICS", "DIFF_ACC")     => (slipFrame.OversteerExit,   yawFrame.OversteerExit),
+            _                               => (0f, 0f), // non-balance rules: no adjustment
+        };
+        return AgreementFactor(slip, yaw);
+    }
+
+    /// <summary>Blends two normalized indices at 50 %/50 %, clamped to [0, 1].</summary>
+    private static float Blend50(float a, float b) => Math.Min(0.5f * a + 0.5f * b, 1f);
 
     // ── Factory helper ────────────────────────────────────────────────────────
 
