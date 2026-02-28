@@ -20,6 +20,36 @@
     <UseRidGraph>true</UseRidGraph>
   </PropertyGroup>
 
+  <!--
+    Workaround for RemovePayloadDuplicates task failing when Microsoft.Build.AppxPackage.dll
+    is missing (VS 18 Insiders without the UWP / MSIX Packaging Tools workload).
+
+    Even with WindowsPackageType=None and EnableMsixTooling=false some SDK import paths on
+    affected machines still resolve the AppxPackage .targets and attempt to load the task
+    assembly.  Overriding the task here with a safe no-op via RoslynCodeTaskFactory prevents
+    the crash; Directory.Build.props is imported before any SDK targets, so MSBuild picks up
+    this declaration first.
+  -->
+  <UsingTask TaskName="RemovePayloadDuplicates"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <!-- Accept whatever parameters the real task declares so existing call-sites compile. -->
+      <Payload           ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+      <UniquePayload     ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          // No-op: MSIX packaging is disabled (WindowsPackageType=None / EnableMsixTooling=false).
+          // Return an empty array so any downstream target that reads UniquePayload doesn't
+          // encounter a null reference.
+          UniquePayload = new Microsoft.Build.Framework.ITaskItem[0];
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
   <UsingTask TaskName="GetLatestMSVCVersion"
              TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
