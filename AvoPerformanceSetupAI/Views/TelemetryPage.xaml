@@ -110,7 +110,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Title + live status + lap times -->
+                <!-- Title + live status + lap times + lap position -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="📡" FontSize="15" VerticalAlignment="Center"/>
@@ -131,6 +131,12 @@
                         <TextBlock Text="{x:Bind ViewModel.LapTimeIdeal, Mode=OneWay}"
                                    FontFamily="Consolas" FontSize="12" FontWeight="Bold"
                                    Foreground="#FF00E676"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="🔄" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind ViewModel.LapPositionText, Mode=OneWay}"
+                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                   Foreground="#FF00E676" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
 
@@ -193,7 +199,7 @@
                     <TextBlock Text="TELEMETRÍA IDEAL"
                                FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
                                Foreground="#FF00E676" VerticalAlignment="Center"/>
-                    <TextBlock Text="valores objetivo para mejor vuelta posible"
+                    <TextBlock Text="valores objetivo ajustados por posición en pista"
                                FontFamily="Consolas" FontSize="10"
                                Foreground="#FF607070" VerticalAlignment="Center"/>
                 </StackPanel>

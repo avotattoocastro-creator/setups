@@ -39,24 +39,72 @@ public partial class TelemetryViewModel : ObservableObject
     /// <summary>Setup-improvement steps log.</summary>
     public ObservableCollection<AnalysisEntry>    SetupLogs    { get; } = new();
 
-    // ── Channel definitions ───────────────────────────────────────────────────
+    // ── Channel definitions (name, unit, initial ideal) ──────────────────────
+    // Order must match LapProfiles below (index 0..12).
 
     private static readonly (string Name, string Unit, double Ideal)[] ChannelDefs =
     [
-        ("SPEED",    "km/h", 245.0),
-        ("RPM",      "rpm",  6800.0),
+        ("SPEED",    "km/h", 230.0),
+        ("RPM",      "rpm",  7100.0),
         ("GEAR",     "",       5.0),
-        ("THROTTLE", "%",     93.0),
-        ("BRAKE",    "%",      7.0),
-        ("STEER",    "°",      2.1),
-        ("LAT_G",    "G",      1.42),
-        ("LONG_G",   "G",     -0.32),
+        ("THROTTLE", "%",     98.0),
+        ("BRAKE",    "%",      0.0),
+        ("STEER",    "°",      1.0),
+        ("LAT_G",    "G",      0.1),
+        ("LONG_G",   "G",      0.3),
         ("FUEL",     "L",     43.5),
-        ("T_F",      "°C",   83.0),
-        ("T_R",      "°C",   88.0),
+        ("T_F",      "°C",   82.0),
+        ("T_R",      "°C",   87.0),
         ("P_F",      "bar",   1.80),
         ("P_R",      "bar",   1.72),
     ];
+
+    // ── Lap-position profiles (pos 0..1 → ideal value) ───────────────────────
+    // Eight waypoints model a generic racing circuit:
+    //   0.00 = start/finish (exit of last corner, full throttle)
+    //   0.15 = heavy braking zone (T1)
+    //   0.25 = slow-corner apex
+    //   0.38 = acceleration out of slow corner
+    //   0.52 = high-speed straight (mid-lap)
+    //   0.65 = medium braking zone (T2)
+    //   0.78 = fast sweeper
+    //   0.88 = final chicane
+    //   1.00 = back at start/finish (same as 0.00)
+    // Index order must match ChannelDefs exactly.
+
+    private static readonly (double Pos, double Ideal)[][] LapProfiles =
+    [
+        // 0 SPEED km/h
+        [(0.00,230),(0.15, 85),(0.25, 62),(0.38,138),(0.52,248),(0.65,172),(0.78,200),(0.88,128),(1.00,230)],
+        // 1 RPM
+        [(0.00,7100),(0.15,3400),(0.25,3000),(0.38,5500),(0.52,7400),(0.65,5000),(0.78,6800),(0.88,4800),(1.00,7100)],
+        // 2 GEAR
+        [(0.00,5),(0.15,2),(0.25,2),(0.38,3),(0.52,6),(0.65,4),(0.78,5),(0.88,3),(1.00,5)],
+        // 3 THROTTLE %
+        [(0.00,98),(0.15,0),(0.25,22),(0.38,100),(0.52,97),(0.65,25),(0.78,82),(0.88,35),(1.00,98)],
+        // 4 BRAKE %
+        [(0.00,0),(0.15,88),(0.25,8),(0.38,0),(0.52,0),(0.65,72),(0.78,0),(0.88,62),(1.00,0)],
+        // 5 STEER °
+        [(0.00,1),(0.15,3),(0.25,14),(0.38,7),(0.52,2),(0.65,6),(0.78,11),(0.88,9),(1.00,1)],
+        // 6 LAT_G G
+        [(0.00,0.1),(0.15,0.4),(0.25,1.8),(0.38,0.9),(0.52,0.2),(0.65,1.3),(0.78,2.1),(0.88,1.6),(1.00,0.1)],
+        // 7 LONG_G G
+        [(0.00,0.3),(0.15,-2.4),(0.25,-0.3),(0.38,0.9),(0.52,0.2),(0.65,-2.0),(0.78,0.1),(0.88,-1.8),(1.00,0.3)],
+        // 8 FUEL L — decreases through the lap
+        [(0.00,43.5),(0.50,43.3),(1.00,43.1)],
+        // 9 T_F °C — mild variation
+        [(0.00,82),(0.25,85),(0.52,84),(0.78,83),(1.00,82)],
+        // 10 T_R °C
+        [(0.00,87),(0.25,91),(0.52,88),(0.78,90),(1.00,87)],
+        // 11 P_F bar
+        [(0.00,1.80),(0.25,1.82),(0.52,1.81),(0.78,1.79),(1.00,1.80)],
+        // 12 P_R bar
+        [(0.00,1.72),(0.25,1.74),(0.52,1.73),(0.78,1.71),(1.00,1.72)],
+    ];
+
+    // ── Ticks per simulated lap ───────────────────────────────────────────────
+
+    private const int LapTicks = 50; // 50 × 800 ms ≈ 40 s simulated lap
 
     // ── Analysis message banks ────────────────────────────────────────────────
 
@@ -206,12 +254,38 @@ public partial class TelemetryViewModel : ObservableObject
 
     private void UpdateChannels()
     {
-        foreach (var ch in Channels)
+        // Advance lap position (cycles 0 → 1 over LapTicks ticks)
+        LapPosition     = (_tick % LapTicks) / (double)LapTicks;
+        LapPositionText = $"Pos: {LapPosition * 100,3:F0}%";
+
+        for (int i = 0; i < Channels.Count && i < LapProfiles.Length; i++)
         {
-            // Oscillate real value ±4 % around ideal (factor in range [0.96, 1.04])
+            var ch    = Channels[i];
+            var ideal = LerpProfile(LapProfiles[i], LapPosition);
+            ch.IdealValue = Math.Round(ideal, 2);
+
+            // Oscillate real value ±4 % around the position-adjusted ideal
             var noise = (_rng.NextDouble() - 0.5) * 0.08;
-            ch.RealValue = Math.Round(ch.IdealValue * (1.0 + noise), 2);
+            ch.RealValue = Math.Round(ideal * (1.0 + noise), 2);
         }
+    }
+
+    /// <summary>
+    /// Linearly interpolates <paramref name="profile"/> at the given lap
+    /// <paramref name="pos"/> (0..1). The profile must start at pos 0 and end at pos 1.
+    /// </summary>
+    private static double LerpProfile((double Pos, double Ideal)[] profile, double pos)
+    {
+        for (int i = 0; i < profile.Length - 1; i++)
+        {
+            if (pos >= profile[i].Pos && pos <= profile[i + 1].Pos)
+            {
+                var span = profile[i + 1].Pos - profile[i].Pos;
+                var lerpT = span > 0 ? (pos - profile[i].Pos) / span : 0;
+                return profile[i].Ideal + lerpT * (profile[i + 1].Ideal - profile[i].Ideal);
+            }
+        }
+        return profile[^1].Ideal;
     }
 
     private void UpdateLapTime()
