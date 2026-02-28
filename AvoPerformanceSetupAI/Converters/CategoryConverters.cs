@@ -62,3 +62,81 @@ public sealed class NotBoolConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language)
         => value is bool b ? !b : false;
 }
+
+/// <summary>
+/// Maps an AC connection status string to the appropriate foreground
+/// <see cref="SolidColorBrush"/> for the status badge.
+/// <list type="bullet">
+///   <item>"Connected to AC" → green (#00E676)</item>
+///   <item>"Disconnected - retrying..." → orange (#FFA040)</item>
+///   <item>"AC not running" → red (#FF5050)</item>
+///   <item>anything else (Simulation) → muted teal (#8AABAB)</item>
+/// </list>
+/// </summary>
+public sealed class AcStatusToForegroundConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return value as string switch
+        {
+            var status when status?.StartsWith("Connected",    StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,   0, 230, 118)),  // green
+            var status when status?.StartsWith("Disconnected", StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 160,  64)),  // orange
+            var status when status?.StartsWith("AC not",       StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255,  80,  80)),  // red
+            _   => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 138, 171, 171)),  // muted teal (Simulation)
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
+
+/// <summary>
+/// Maps an AC connection status string to the appropriate background
+/// <see cref="SolidColorBrush"/> for the status badge.
+/// </summary>
+public sealed class AcStatusToBackgroundConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return value as string switch
+        {
+            var status when status?.StartsWith("Connected",    StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  10,  30,  10)),  // dark green
+            var status when status?.StartsWith("Disconnected", StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  30,  21,   0)),  // dark orange
+            var status when status?.StartsWith("AC not",       StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  30,  10,  10)),  // dark red
+            _   => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  24,  40,  40)),  // dark teal (Simulation)
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
+
+/// <summary>
+/// Maps an AC connection status string to the appropriate border-brush
+/// <see cref="SolidColorBrush"/> for the status badge border.
+/// </summary>
+public sealed class AcStatusToBorderConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return value as string switch
+        {
+            var status when status?.StartsWith("Connected",    StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  30,  64,  48)),  // green-toned border
+            var status when status?.StartsWith("Disconnected", StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  64,  42,   0)),  // orange border
+            var status when status?.StartsWith("AC not",       StringComparison.OrdinalIgnoreCase) == true
+                => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  64,  20,  20)),  // red border
+            _   => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  46,  64,  64)),  // teal border
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}

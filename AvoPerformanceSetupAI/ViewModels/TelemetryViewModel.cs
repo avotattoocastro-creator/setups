@@ -73,13 +73,35 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         get => SelectedSource == TelemetrySource.AssettoCorsa;
         set
         {
-            SelectedSource = value ? TelemetrySource.AssettoCorsa : TelemetrySource.Simulation;
+            // Ignore deselect attempts — the user must click the other button to switch.
+            if (!value) return;
+            SelectedSource = TelemetrySource.AssettoCorsa;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Convenience bool for binding a segmented ToggleButton:
+    /// <see langword="true"/> when <see cref="SelectedSource"/> is
+    /// <see cref="TelemetrySource.Simulation"/>.
+    /// </summary>
+    public bool IsSimulationSelected
+    {
+        get => SelectedSource == TelemetrySource.Simulation;
+        set
+        {
+            // Ignore deselect attempts — the user must click the other button to switch.
+            if (!value) return;
+            SelectedSource = TelemetrySource.Simulation;
             OnPropertyChanged();
         }
     }
 
     partial void OnSelectedSourceChanged(TelemetrySource value)
-        => OnPropertyChanged(nameof(IsAcSourceSelected));
+    {
+        OnPropertyChanged(nameof(IsAcSourceSelected));
+        OnPropertyChanged(nameof(IsSimulationSelected));
+    }
 
     // ── Corner / phase observables ────────────────────────────────────────────
 
