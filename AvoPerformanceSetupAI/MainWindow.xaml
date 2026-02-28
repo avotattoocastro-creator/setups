@@ -44,16 +44,12 @@
                 <views:SesionesPage />
             </TabViewItem>
 
-            <TabViewItem x:Name="TabControl" Header="Control" IsClosable="False">
-                <views:ControlPage />
+            <TabViewItem x:Name="TabTelemetria" Header="📡 Telemetría" IsClosable="False">
+                <views:TelemetryPage />
             </TabViewItem>
 
             <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
                 <views:TerminalPage />
-            </TabViewItem>
-
-            <TabViewItem x:Name="TabTelemetria" Header="📡 Telemetría" IsClosable="False">
-                <views:TelemetryPage />
             </TabViewItem>
         </TabView>
     </Grid>

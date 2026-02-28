@@ -105,12 +105,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- header -->
             <RowDefinition Height="Auto"/>  <!-- reconnect suggestion banner -->
-            <RowDefinition Height="Auto"/>  <!-- real telemetry -->
-            <RowDefinition Height="Auto"/>  <!-- ideal telemetry -->
-            <RowDefinition Height="Auto"/>  <!-- live analysis panel -->
-            <RowDefinition Height="Auto"/>  <!-- probabilistic candidates + decision inspector -->
-            <RowDefinition Height="2*"/>    <!-- analysis terminals -->
-            <RowDefinition Height="*"/>     <!-- corner phase summaries -->
+            <RowDefinition Height="*"/>     <!-- inner tab view -->
         </Grid.RowDefinitions>
 
         <!-- ── Header ─────────────────────────────────────────────────────── -->
@@ -284,786 +279,824 @@
             </InfoBar.Content>
         </InfoBar>
 
-        <!-- ── Real telemetry panel ────────────────────────────────────────── -->
-        <Border Grid.Row="2"
-                Background="#FF0F1A1A"
-                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                Padding="8,8,8,4">
-            <StackPanel Spacing="6">
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
-                    <TextBlock Text="📊" FontSize="12" VerticalAlignment="Center"/>
-                    <TextBlock Text="TELEMETRÍA REAL"
-                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
-                    <TextBlock Text="tiempo real — delta naranja = Real − Ideal"
-                               FontFamily="Consolas" FontSize="10"
-                               Foreground="#FF607070" VerticalAlignment="Center"/>
-                </StackPanel>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
-                                  ItemTemplate="{StaticResource RealChannelCard}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </ScrollViewer>
-            </StackPanel>
-        </Border>
 
-        <!-- ── Ideal telemetry panel ───────────────────────────────────────── -->
-        <Border Grid.Row="3"
-                Background="#FF0A1414"
-                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                Padding="8,8,8,4">
-            <StackPanel Spacing="6">
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
-                    <TextBlock Text="🎯" FontSize="12" VerticalAlignment="Center"/>
-                    <TextBlock Text="TELEMETRÍA IDEAL"
-                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#FF00E676" VerticalAlignment="Center"/>
-                    <TextBlock Text="valores objetivo ajustados por posición en pista"
-                               FontFamily="Consolas" FontSize="10"
-                               Foreground="#FF607070" VerticalAlignment="Center"/>
-                </StackPanel>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
-                                  ItemTemplate="{StaticResource IdealChannelCard}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </ScrollViewer>
-            </StackPanel>
-        </Border>
+        <!-- ── Inner Telemetría TabView ─────────────────────────────────── -->
+        <TabView Grid.Row="2"
+                 Background="#FF0F1A1A"
+                 TabWidthMode="SizeToContent"
+                 IsAddTabButtonVisible="False">
+            <TabView.Resources>
+                <SolidColorBrush x:Key="TabViewBackground" Color="#FF0F1A1A" />
+            </TabView.Resources>
 
-        <!-- ── Live Analysis Panel ────────────────────────────────────────── -->
-        <Border Grid.Row="4"
-                Background="#FF0F1A1A"
-                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                Padding="8,6">
-            <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- ── Status card: Speed / Gear / RPM / Phase / Corner ── -->
-                <Border Grid.Column="0" Background="#FF182828"
-                        BorderBrush="#FF2E4040" BorderThickness="1"
-                        CornerRadius="6" Padding="10,6">
-                    <StackPanel Spacing="4">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="🏎" FontSize="10" VerticalAlignment="Center"/>
-                            <TextBlock Text="ANÁLISIS EN VIVO"
-                                       FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                       Foreground="#FF00B4B4" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <!-- Speed / Gear / RPM -->
-                        <StackPanel Orientation="Horizontal" Spacing="14">
-                            <StackPanel Spacing="1">
-                                <TextBlock Text="VEL" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
-                                <StackPanel Orientation="Horizontal" Spacing="2">
-                                    <TextBlock Text="{x:Bind ViewModel.Channels[0].RealDisplay, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                               Foreground="#FFE0F8F8"/>
-                                    <TextBlock Text="km/h" FontFamily="Consolas" FontSize="9"
-                                               Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
-                                </StackPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="1">
-                                <TextBlock Text="MARCHA" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
-                                <TextBlock Text="{x:Bind ViewModel.Channels[2].RealDisplay, Mode=OneWay}"
-                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                           Foreground="#FFE0F8F8"/>
-                            </StackPanel>
-                            <StackPanel Spacing="1">
-                                <TextBlock Text="RPM" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
-                                <TextBlock Text="{x:Bind ViewModel.Channels[1].RealDisplay, Mode=OneWay}"
-                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold"
-                                           Foreground="#FFE0F8F8"/>
-                            </StackPanel>
-                        </StackPanel>
-                        <!-- Phase + Corner direction + Duration -->
-                        <StackPanel Orientation="Horizontal" Spacing="14">
-                            <StackPanel Spacing="1">
-                                <TextBlock Text="FASE" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
-                                <TextBlock Text="{x:Bind ViewModel.CurrentPhase, Mode=OneWay}"
-                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#FF00D4B4"/>
-                            </StackPanel>
-                            <StackPanel Spacing="1">
-                                <TextBlock Text="ÚLT. CURVA" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <TextBlock Text="{x:Bind ViewModel.LastCornerDirection, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="#FF00D4B4"/>
-                                    <TextBlock Text="{x:Bind ViewModel.LastCornerDurationText, Mode=OneWay}"
-                                               FontFamily="Consolas" FontSize="11"
-                                               Foreground="#FF607878" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Meters card: 5 progress bars with labels ── -->
-                <Border Grid.Column="1" Background="#FF182828"
-                        BorderBrush="#FF2E4040" BorderThickness="1"
-                        CornerRadius="6" Padding="10,6" MinWidth="264">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="ÍNDICES ÚLT. CURVA"
-                                   FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                   Foreground="#FF00B4B4" Margin="0,0,0,2"/>
-                        <!-- US Entry -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="36"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="US Entrada" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
-                                         Value="{x:Bind ViewModel.LastCornerUndersteerEntry, Mode=OneWay}"
-                                         Background="#FF1A3030" Foreground="#FFFFA040"/>
-                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Text="{x:Bind ViewModel.LastCornerUndersteerEntry, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
-                        </Grid>
-                        <!-- US Mid -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="36"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="US Medio" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
-                                         Value="{x:Bind ViewModel.LastCornerUndersteerMid, Mode=OneWay}"
-                                         Background="#FF1A3030" Foreground="#FFFFA040"/>
-                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Text="{x:Bind ViewModel.LastCornerUndersteerMid, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
-                        </Grid>
-                        <!-- US Exit -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="36"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="US Salida" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
-                                         Value="{x:Bind ViewModel.LastCornerUndersteerExit, Mode=OneWay}"
-                                         Background="#FF1A3030" Foreground="#FFFFA040"/>
-                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Text="{x:Bind ViewModel.LastCornerUndersteerExit, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
-                        </Grid>
-                        <!-- OS Entry -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="36"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="OS Entrada" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
-                                         Value="{x:Bind ViewModel.LastCornerOversteerEntry, Mode=OneWay}"
-                                         Background="#FF1A3030" Foreground="#FFE04040"/>
-                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFE04040" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Text="{x:Bind ViewModel.LastCornerOversteerEntry, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
-                        </Grid>
-                        <!-- OS Exit -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="36"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="OS Salida" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
-                                         Value="{x:Bind ViewModel.LastCornerOversteerExit, Mode=OneWay}"
-                                         Background="#FF1A3030" Foreground="#FFE04040"/>
-                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFE04040" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Text="{x:Bind ViewModel.LastCornerOversteerExit, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Live vs Ideal delta card ── -->
-                <Border Grid.Column="1" Background="#FF0F1A10"
-                        BorderBrush="#FF1E4030" BorderThickness="1"
-                        CornerRadius="6" Padding="10,6" MinWidth="220"
-                        Margin="8,0,0,0">
-                    <StackPanel Spacing="4">
-                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
-                            <TextBlock Text="⚖" FontSize="9" VerticalAlignment="Center"/>
-                            <TextBlock Text="VS IDEAL"
-                                       FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                       Foreground="#FF00E676" VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.ReferenceSummaryText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFFFA040" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                        <!-- ΔSpeed -->
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="ΔVel" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.LiveDeltaSpeedText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                       Foreground="#FF00E676"/>
-                        </StackPanel>
-                        <!-- ΔBrake -->
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="ΔFren" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.LiveDeltaBrakeText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                       Foreground="#FFFFA040"/>
-                        </StackPanel>
-                        <!-- ΔThrottle -->
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="ΔAcel" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.LiveDeltaThrottleText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                       Foreground="#FF80E040"/>
-                        </StackPanel>
-                        <!-- ΔYawGain -->
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="ΔYaw" FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.LiveDeltaYawGainText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="12" FontWeight="Bold"
-                                       Foreground="#FFE0B040"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Proposals panel (Single / Multi-Optimize toggle) ── -->
-                <Border Grid.Column="3" Background="#FF0A1414"
-                        BorderBrush="#FF2E4040" BorderThickness="1"
-                        CornerRadius="6" Padding="8,6">
+            <!-- ── Dashboard: real + ideal telemetry feeds ──────────────── -->
+            <TabViewItem Header="Dashboard" IsClosable="False">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
+                        <!-- Real telemetry panel -->
+                <Border
+                        Background="#FF0F1A1A"
+                        BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                        Padding="8,8,8,4">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
+                            <TextBlock Text="📊" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="TELEMETRÍA REAL"
+                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                            <TextBlock Text="tiempo real — delta naranja = Real − Ideal"
+                                       FontFamily="Consolas" FontSize="10"
+                                       Foreground="#FF607070" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
+                                          ItemTemplate="{StaticResource RealChannelCard}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
 
-                        <!-- ── Panel header + mode toggle ── -->
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                        <!-- Ideal telemetry panel -->
+                <Border
+                        Background="#FF0A1414"
+                        BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                        Padding="8,8,8,4">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
+                            <TextBlock Text="🎯" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="TELEMETRÍA IDEAL"
+                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#FF00E676" VerticalAlignment="Center"/>
+                            <TextBlock Text="valores objetivo ajustados por posición en pista"
+                                       FontFamily="Consolas" FontSize="10"
+                                       Foreground="#FF607070" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
+                                          ItemTemplate="{StaticResource IdealChannelCard}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
 
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
-                                        VerticalAlignment="Center">
-                                <TextBlock Text="💡" FontSize="10" VerticalAlignment="Center"/>
-                                <TextBlock Text="PROPUESTAS EN VIVO"
+                    </StackPanel>
+                </ScrollViewer>
+            </TabViewItem>
+
+            <!-- ── Live Analysis: readouts, meters, proposals ────────────── -->
+            <TabViewItem Header="Live Analysis" IsClosable="False">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto">
+                <Border
+                        Background="#FF0F1A1A"
+                        BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                        Padding="8,6">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ── Status card: Speed / Gear / RPM / Phase / Corner ── -->
+                        <Border Grid.Column="0" Background="#FF182828"
+                                BorderBrush="#FF2E4040" BorderThickness="1"
+                                CornerRadius="6" Padding="10,6">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="🏎" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="ANÁLISIS EN VIVO"
+                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <!-- Speed / Gear / RPM -->
+                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="VEL" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="2">
+                                            <TextBlock Text="{x:Bind ViewModel.Channels[0].RealDisplay, Mode=OneWay}"
+                                                       FontFamily="Consolas" FontSize="15" FontWeight="Bold"
+                                                       Foreground="#FFE0F8F8"/>
+                                            <TextBlock Text="km/h" FontFamily="Consolas" FontSize="9"
+                                                       Foreground="#FF607878" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="MARCHA" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                        <TextBlock Text="{x:Bind ViewModel.Channels[2].RealDisplay, Mode=OneWay}"
+                                                   FontFamily="Consolas" FontSize="15" FontWeight="Bold"
+                                                   Foreground="#FFE0F8F8"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="RPM" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                        <TextBlock Text="{x:Bind ViewModel.Channels[1].RealDisplay, Mode=OneWay}"
+                                                   FontFamily="Consolas" FontSize="15" FontWeight="Bold"
+                                                   Foreground="#FFE0F8F8"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <!-- Phase + Corner direction + Duration -->
+                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="FASE" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                        <TextBlock Text="{x:Bind ViewModel.CurrentPhase, Mode=OneWay}"
+                                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="#FF00D4B4"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="ÚLT. CURVA" FontFamily="Consolas" FontSize="9" Foreground="#FF607878"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="{x:Bind ViewModel.LastCornerDirection, Mode=OneWay}"
+                                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="#FF00D4B4"/>
+                                            <TextBlock Text="{x:Bind ViewModel.LastCornerDurationText, Mode=OneWay}"
+                                                       FontFamily="Consolas" FontSize="11"
+                                                       Foreground="#FF607878" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── Meters card: 5 progress bars with labels ── -->
+                        <Border Grid.Column="1" Background="#FF182828"
+                                BorderBrush="#FF2E4040" BorderThickness="1"
+                                CornerRadius="6" Padding="10,6" MinWidth="264">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="ÍNDICES ÚLT. CURVA"
+                                           FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                           Foreground="#FF00B4B4" Margin="0,0,0,2"/>
+                                <!-- US Entry -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="36"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="US Entrada" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                                 Value="{x:Bind ViewModel.LastCornerUndersteerEntry, Mode=OneWay}"
+                                                 Background="#FF1A3030" Foreground="#FFFFA040"/>
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.LastCornerUndersteerEntry, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
+                                </Grid>
+                                <!-- US Mid -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="36"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="US Medio" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                                 Value="{x:Bind ViewModel.LastCornerUndersteerMid, Mode=OneWay}"
+                                                 Background="#FF1A3030" Foreground="#FFFFA040"/>
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.LastCornerUndersteerMid, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
+                                </Grid>
+                                <!-- US Exit -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="36"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="US Salida" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                                 Value="{x:Bind ViewModel.LastCornerUndersteerExit, Mode=OneWay}"
+                                                 Background="#FF1A3030" Foreground="#FFFFA040"/>
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFFFA040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.LastCornerUndersteerExit, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
+                                </Grid>
+                                <!-- OS Entry -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="36"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="OS Entrada" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                                 Value="{x:Bind ViewModel.LastCornerOversteerEntry, Mode=OneWay}"
+                                                 Background="#FF1A3030" Foreground="#FFE04040"/>
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFE04040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.LastCornerOversteerEntry, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
+                                </Grid>
+                                <!-- OS Exit -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="36"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="OS Salida" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Maximum="1" Height="7" Margin="4,0"
+                                                 Value="{x:Bind ViewModel.LastCornerOversteerExit, Mode=OneWay}"
+                                                 Background="#FF1A3030" Foreground="#FFE04040"/>
+                                    <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFE04040" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.LastCornerOversteerExit, Converter={StaticResource FloatToPercent}, Mode=OneWay}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── Live vs Ideal delta card ── -->
+                        <Border Grid.Column="1" Background="#FF0F1A10"
+                                BorderBrush="#FF1E4030" BorderThickness="1"
+                                CornerRadius="6" Padding="10,6" MinWidth="220"
+                                Margin="8,0,0,0">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
+                                    <TextBlock Text="⚖" FontSize="9" VerticalAlignment="Center"/>
+                                    <TextBlock Text="VS IDEAL"
+                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                               Foreground="#FF00E676" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.ReferenceSummaryText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFFFA040" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <!-- ΔSpeed -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="ΔVel" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveDeltaSpeedText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               Foreground="#FF00E676"/>
+                                </StackPanel>
+                                <!-- ΔBrake -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="ΔFren" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveDeltaBrakeText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               Foreground="#FFFFA040"/>
+                                </StackPanel>
+                                <!-- ΔThrottle -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="ΔAcel" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveDeltaThrottleText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               Foreground="#FF80E040"/>
+                                </StackPanel>
+                                <!-- ΔYawGain -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="ΔYaw" FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878" Width="36" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveDeltaYawGainText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               Foreground="#FFE0B040"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── Proposals panel (Single / Multi-Optimize toggle) ── -->
+                        <Border Grid.Column="3" Background="#FF0A1414"
+                                BorderBrush="#FF2E4040" BorderThickness="1"
+                                CornerRadius="6" Padding="8,6">
+                            <StackPanel>
+
+                                <!-- ── Panel header + mode toggle ── -->
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="💡" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBlock Text="PROPUESTAS EN VIVO"
+                                                   FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                                   Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- Segmented mode toggle: [Single] [Multi-Optimize] -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
+                                        <ToggleButton Content="Single"
+                                                      FontFamily="Consolas" FontSize="9"
+                                                      Padding="8,2"
+                                                      IsChecked="{x:Bind ViewModel.IsSingleMode, Mode=TwoWay}"
+                                                      Background="#FF0F2828"
+                                                      Foreground="#FFB0D0D0"
+                                                      BorderBrush="#FF2E4040"
+                                                      CornerRadius="3,0,0,3"/>
+                                        <ToggleButton Content="Multi-Optimize"
+                                                      FontFamily="Consolas" FontSize="9"
+                                                      Padding="8,2"
+                                                      IsChecked="{x:Bind ViewModel.IsMultiMode, Mode=TwoWay}"
+                                                      Background="#FF0F2828"
+                                                      Foreground="#FFB0D0D0"
+                                                      BorderBrush="#FF2E4040"
+                                                      CornerRadius="0,3,3,0"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- ── Driving mode toggle: [Sprint] [Endurance] ── -->
+                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,0,4">
+                                    <TextBlock Text="MODE"
+                                               FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FF607878"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0"/>
+                                    <ToggleButton Content="Sprint"
+                                                  FontFamily="Consolas" FontSize="9"
+                                                  Padding="10,2"
+                                                  IsChecked="{x:Bind ViewModel.IsSprintMode, Mode=TwoWay}"
+                                                  Background="#FF0F2828"
+                                                  Foreground="#FFFFA040"
+                                                  BorderBrush="#FF2E4040"
+                                                  CornerRadius="3,0,0,3"/>
+                                    <ToggleButton Content="Endurance"
+                                                  FontFamily="Consolas" FontSize="9"
+                                                  Padding="10,2"
+                                                  IsChecked="{x:Bind ViewModel.IsEnduranceMode, Mode=TwoWay}"
+                                                  Background="#FF0F2828"
+                                                  Foreground="#FF80E040"
+                                                  BorderBrush="#FF2E4040"
+                                                  CornerRadius="0,3,3,0"/>
+                                </StackPanel>
+
+                                <!-- ── Single-change proposals list ── -->
+                                <ListView ItemsSource="{x:Bind ViewModel.Proposals}"
+                                          SelectionMode="None" IsItemClickEnabled="False"
+                                          MaxHeight="114"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          Visibility="{x:Bind ViewModel.IsSingleMode, Mode=OneWay}">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="MinHeight" Value="0"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:Proposal">
+                                            <Grid Padding="0,2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="72"/>
+                                                    <ColumnDefinition Width="96"/>
+                                                    <ColumnDefinition Width="44"/>
+                                                    <ColumnDefinition Width="38"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="#FF1A3030" CornerRadius="3"
+                                                        Padding="4,1" Margin="0,1,4,1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Section}" FontFamily="Consolas" FontSize="10"
+                                                               Foreground="#FF00D4B4" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Parameter}"
+                                                           FontFamily="Consolas" FontSize="10" Foreground="#FFB0D0D0"
+                                                           VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                <Border Grid.Column="2" Background="#FF0F2010" CornerRadius="3"
+                                                        Padding="4,1" Margin="0,1,4,1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Delta}" FontFamily="Consolas" FontSize="10"
+                                                               Foreground="#FF80E040" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="3" Text="{x:Bind ConfidenceDisplay}"
+                                                           FontFamily="Consolas" FontSize="10" Foreground="#FFFFA040"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                           Margin="0,0,4,0"/>
+                                                <TextBlock Grid.Column="4" Text="{x:Bind Reason}"
+                                                           FontFamily="Consolas" FontSize="10" Foreground="#FF607878"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+
+                                <!-- ── Multi-optimize combination list ── -->
+                                <ListView ItemsSource="{x:Bind ViewModel.CombinedProposals}"
+                                          SelectionMode="Single"
+                                          SelectedItem="{x:Bind ViewModel.SelectedCombinedProposal, Mode=TwoWay}"
+                                          MaxHeight="160"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          Visibility="{x:Bind ViewModel.IsMultiMode, Mode=OneWay}">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="MinHeight" Value="0"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="telemetry:CombinedProposal">
+                                            <Border Background="#FF0D1E1E" CornerRadius="4"
+                                                    Padding="6,4" Margin="0,2">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+
+                                                    <!-- Row 0: grouped change labels -->
+                                                    <TextBlock Grid.Row="0"
+                                                               Text="{x:Bind ChangesDisplay}"
+                                                               FontFamily="Consolas" FontSize="10"
+                                                               Foreground="#FF00D4B4"
+                                                               TextWrapping="Wrap"/>
+
+                                                    <!-- Row 1: score delta + risk badge -->
+                                                    <StackPanel Grid.Row="1" Orientation="Horizontal"
+                                                                Spacing="8" Margin="0,2,0,0">
+                                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                                            <TextBlock Text="Δscore"
+                                                                       FontFamily="Consolas" FontSize="9"
+                                                                       Foreground="#FF607878"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{x:Bind ScoreDeltaDisplay}"
+                                                                       FontFamily="Consolas" FontSize="11"
+                                                                       FontWeight="Bold"
+                                                                       Foreground="#FF80E040"
+                                                                       VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{x:Bind RiskDisplay}"
+                                                                   FontFamily="Consolas" FontSize="9"
+                                                                   Foreground="#FFFFA040"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+
+                                                    <!-- Row 2: Test Combo button -->
+                                                    <Button Grid.Row="2"
+                                                            Content="▶ Test Combo"
+                                                            FontFamily="Consolas" FontSize="9"
+                                                            Padding="8,2" Margin="0,3,0,0"
+                                                            Background="#FF142828"
+                                                            Foreground="#FF00B4B4"
+                                                            BorderBrush="#FF2E5050"
+                                                            CornerRadius="3"
+                                                            Tag="{x:Bind}"
+                                                            Click="OnTestComboClicked"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+
+                                <!-- ── Empty-state hint when multi mode has no combos yet ── -->
+                                <TextBlock Text="No combinations yet — waiting for corner data…"
+                                           FontFamily="Consolas" FontSize="9"
+                                           Foreground="#FF3A5050"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,6,0,0"
+                                           Visibility="{x:Bind ViewModel.IsMultiEmptyState, Mode=OneWay}"/>
+
+                            </StackPanel>
+                        </Border>
+
+                    </Grid>
+                </Border>
+                </ScrollViewer>
+            </TabViewItem>
+
+            <!-- ── Setup Optimizer: improvement steps log ────────────────── -->
+            <TabViewItem Header="Setup Optimizer" IsClosable="False">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0"
+                                Background="#FF0A1414" BorderBrush="#FF2E4040"
+                                BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🔧" FontSize="12"/>
+                                <TextBlock Text="Pasos de Mejora del Setup"
+                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#FF00B4B4"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1"
+                                Background="#FF060E0E" BorderBrush="#FF2E4040"
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                            <ScrollViewer x:Name="SetupScrollViewer"
+                                          Padding="8" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.SetupLogs}"
+                                              ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+            </TabViewItem>
+
+            <!-- ── ML & Policy: probabilistic candidates + inspector ──── -->
+            <TabViewItem Header="ML &amp; Policy" IsClosable="False">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto">
+                <Border
+                        Background="#FF080F0F"
+                        BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
+                        Padding="8,6">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>  <!-- candidate cards -->
+                            <ColumnDefinition Width="*"/>   <!-- decision inspector -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ── Candidate cards (Safe / Balanced / Aggressive) ──── -->
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
+                                <TextBlock Text="🎯" FontSize="10" VerticalAlignment="Center"/>
+                                <TextBlock Text="CANDIDATOS PROBABILÍSTICOS"
                                            FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
                                            Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                <TextBlock Text="Safe · Balanced · Aggressive"
+                                           FontFamily="Consolas" FontSize="9"
+                                           Foreground="#FF405858" VerticalAlignment="Center"/>
                             </StackPanel>
 
-                            <!-- Segmented mode toggle: [Single] [Multi-Optimize] -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
-                                <ToggleButton Content="Single"
-                                              FontFamily="Consolas" FontSize="9"
-                                              Padding="8,2"
-                                              IsChecked="{x:Bind ViewModel.IsSingleMode, Mode=TwoWay}"
-                                              Background="#FF0F2828"
-                                              Foreground="#FFB0D0D0"
-                                              BorderBrush="#FF2E4040"
-                                              CornerRadius="3,0,0,3"/>
-                                <ToggleButton Content="Multi-Optimize"
-                                              FontFamily="Consolas" FontSize="9"
-                                              Padding="8,2"
-                                              IsChecked="{x:Bind ViewModel.IsMultiMode, Mode=TwoWay}"
-                                              Background="#FF0F2828"
-                                              Foreground="#FFB0D0D0"
-                                              BorderBrush="#FF2E4040"
-                                              CornerRadius="0,3,3,0"/>
-                            </StackPanel>
-                        </Grid>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.AdvisedCandidates}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="ml:DecisionCandidate">
+                                        <Border MinWidth="200" MaxWidth="280"
+                                                CornerRadius="6" Padding="10,8"
+                                                BorderThickness="1">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="#FF0D1E1E"/>
+                                            </Border.Background>
+                                            <Border.BorderBrush>
+                                                <SolidColorBrush Color="#FF2A4040"/>
+                                            </Border.BorderBrush>
+                                            <StackPanel Spacing="4">
 
-                        <!-- ── Driving mode toggle: [Sprint] [Endurance] ── -->
-                        <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,0,4">
-                            <TextBlock Text="MODE"
-                                       FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FF607878"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,6,0"/>
-                            <ToggleButton Content="Sprint"
-                                          FontFamily="Consolas" FontSize="9"
-                                          Padding="10,2"
-                                          IsChecked="{x:Bind ViewModel.IsSprintMode, Mode=TwoWay}"
-                                          Background="#FF0F2828"
-                                          Foreground="#FFFFA040"
-                                          BorderBrush="#FF2E4040"
-                                          CornerRadius="3,0,0,3"/>
-                            <ToggleButton Content="Endurance"
-                                          FontFamily="Consolas" FontSize="9"
-                                          Padding="10,2"
-                                          IsChecked="{x:Bind ViewModel.IsEnduranceMode, Mode=TwoWay}"
-                                          Background="#FF0F2828"
-                                          Foreground="#FF80E040"
-                                          BorderBrush="#FF2E4040"
-                                          CornerRadius="0,3,3,0"/>
-                        </StackPanel>
-
-                        <!-- ── Single-change proposals list ── -->
-                        <ListView ItemsSource="{x:Bind ViewModel.Proposals}"
-                                  SelectionMode="None" IsItemClickEnabled="False"
-                                  MaxHeight="114"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  Visibility="{x:Bind ViewModel.IsSingleMode, Mode=OneWay}">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="MinHeight" Value="0"/>
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="models:Proposal">
-                                    <Grid Padding="0,2">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="72"/>
-                                            <ColumnDefinition Width="96"/>
-                                            <ColumnDefinition Width="44"/>
-                                            <ColumnDefinition Width="38"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Background="#FF1A3030" CornerRadius="3"
-                                                Padding="4,1" Margin="0,1,4,1" VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind Section}" FontFamily="Consolas" FontSize="10"
-                                                       Foreground="#FF00D4B4" HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Parameter}"
-                                                   FontFamily="Consolas" FontSize="10" Foreground="#FFB0D0D0"
-                                                   VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                        <Border Grid.Column="2" Background="#FF0F2010" CornerRadius="3"
-                                                Padding="4,1" Margin="0,1,4,1" VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind Delta}" FontFamily="Consolas" FontSize="10"
-                                                       Foreground="#FF80E040" HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock Grid.Column="3" Text="{x:Bind ConfidenceDisplay}"
-                                                   FontFamily="Consolas" FontSize="10" Foreground="#FFFFA040"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                   Margin="0,0,4,0"/>
-                                        <TextBlock Grid.Column="4" Text="{x:Bind Reason}"
-                                                   FontFamily="Consolas" FontSize="10" Foreground="#FF607878"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-
-                        <!-- ── Multi-optimize combination list ── -->
-                        <ListView ItemsSource="{x:Bind ViewModel.CombinedProposals}"
-                                  SelectionMode="Single"
-                                  SelectedItem="{x:Bind ViewModel.SelectedCombinedProposal, Mode=TwoWay}"
-                                  MaxHeight="160"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  Visibility="{x:Bind ViewModel.IsMultiMode, Mode=OneWay}">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="MinHeight" Value="0"/>
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="telemetry:CombinedProposal">
-                                    <Border Background="#FF0D1E1E" CornerRadius="4"
-                                            Padding="6,4" Margin="0,2">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
-
-                                            <!-- Row 0: grouped change labels -->
-                                            <TextBlock Grid.Row="0"
-                                                       Text="{x:Bind ChangesDisplay}"
-                                                       FontFamily="Consolas" FontSize="10"
-                                                       Foreground="#FF00D4B4"
-                                                       TextWrapping="Wrap"/>
-
-                                            <!-- Row 1: score delta + risk badge -->
-                                            <StackPanel Grid.Row="1" Orientation="Horizontal"
-                                                        Spacing="8" Margin="0,2,0,0">
-                                                <StackPanel Orientation="Horizontal" Spacing="3">
-                                                    <TextBlock Text="Δscore"
-                                                               FontFamily="Consolas" FontSize="9"
-                                                               Foreground="#FF607878"
-                                                               VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{x:Bind ScoreDeltaDisplay}"
-                                                               FontFamily="Consolas" FontSize="11"
-                                                               FontWeight="Bold"
-                                                               Foreground="#FF80E040"
-                                                               VerticalAlignment="Center"/>
+                                                <!-- Row 0: tier badge + section:param delta -->
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border CornerRadius="3" Padding="5,2">
+                                                        <Border.Background>
+                                                            <SolidColorBrush Color="#FF142828"/>
+                                                        </Border.Background>
+                                                        <TextBlock Text="{x:Bind TierDisplay}"
+                                                                   FontFamily="Consolas" FontSize="9"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#FF00D4B4"/>
+                                                    </Border>
+                                                    <TextBlock Text="{x:Bind ProposalDisplay}"
+                                                               FontFamily="Consolas" FontSize="10"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#FFE0F0F0"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
-                                                <TextBlock Text="{x:Bind RiskDisplay}"
-                                                           FontFamily="Consolas" FontSize="9"
-                                                           Foreground="#FFFFA040"
-                                                           VerticalAlignment="Center"/>
-                                            </StackPanel>
 
-                                            <!-- Row 2: Test Combo button -->
-                                            <Button Grid.Row="2"
-                                                    Content="▶ Test Combo"
-                                                    FontFamily="Consolas" FontSize="9"
-                                                    Padding="8,2" Margin="0,3,0,0"
-                                                    Background="#FF142828"
-                                                    Foreground="#FF00B4B4"
-                                                    BorderBrush="#FF2E5050"
-                                                    CornerRadius="3"
-                                                    Tag="{x:Bind}"
-                                                    Click="OnTestComboClicked"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
+                                                <!-- Row 1: mean Δscore + risk badge + confidence -->
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <StackPanel Spacing="0">
+                                                        <TextBlock Text="μΔscore"
+                                                                   FontFamily="Consolas" FontSize="8"
+                                                                   Foreground="#FF607878"/>
+                                                        <TextBlock Text="{x:Bind MeanDisplay}"
+                                                                   FontFamily="Consolas" FontSize="14"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#FF80E040"/>
+                                                    </StackPanel>
+                                                    <StackPanel Spacing="0">
+                                                        <TextBlock Text="Risk"
+                                                                   FontFamily="Consolas" FontSize="8"
+                                                                   Foreground="#FF607878"/>
+                                                        <TextBlock Text="{x:Bind RiskDisplay}"
+                                                                   FontFamily="Consolas" FontSize="11"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{x:Bind RiskForeground}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Spacing="0">
+                                                        <TextBlock Text="Conf"
+                                                                   FontFamily="Consolas" FontSize="8"
+                                                                   Foreground="#FF607878"/>
+                                                        <TextBlock Text="{x:Bind ConfidenceDisplay}"
+                                                                   FontFamily="Consolas" FontSize="11"
+                                                                   Foreground="#FFFFA040"/>
+                                                    </StackPanel>
+                                                </StackPanel>
 
-                        <!-- ── Empty-state hint when multi mode has no combos yet ── -->
-                        <TextBlock Text="No combinations yet — waiting for corner data…"
-                                   FontFamily="Consolas" FontSize="9"
-                                   Foreground="#FF3A5050"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,6,0,0"
-                                   Visibility="{x:Bind ViewModel.IsMultiEmptyState, Mode=OneWay}"/>
+                                                <!-- Row 2: 80 % and 95 % intervals -->
+                                                <StackPanel Spacing="2">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <TextBlock Text="80%"
+                                                                   FontFamily="Consolas" FontSize="8"
+                                                                   Foreground="#FF607878" Width="24"/>
+                                                        <TextBlock Text="{x:Bind Interval80Display}"
+                                                                   FontFamily="Consolas" FontSize="9"
+                                                                   Foreground="#FFB0D0D0"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <TextBlock Text="95%"
+                                                                   FontFamily="Consolas" FontSize="8"
+                                                                   Foreground="#FF607878" Width="24"/>
+                                                        <TextBlock Text="{x:Bind Interval95Display}"
+                                                                   FontFamily="Consolas" FontSize="9"
+                                                                   Foreground="#FF8090A0"/>
+                                                    </StackPanel>
+                                                </StackPanel>
 
-                    </StackPanel>
-                </Border>
-
-            </Grid>
-        </Border>
-
-        <!-- ── Probabilistic candidates + Decision Inspector (Row 5) ─────── -->
-        <Border Grid.Row="5"
-                Background="#FF080F0F"
-                BorderBrush="#FF2E4040" BorderThickness="0,0,0,1"
-                Padding="8,6">
-            <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2*"/>  <!-- candidate cards -->
-                    <ColumnDefinition Width="*"/>   <!-- decision inspector -->
-                </Grid.ColumnDefinitions>
-
-                <!-- ── Candidate cards (Safe / Balanced / Aggressive) ──── -->
-                <StackPanel Grid.Column="0" Spacing="4">
-                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
-                        <TextBlock Text="🎯" FontSize="10" VerticalAlignment="Center"/>
-                        <TextBlock Text="CANDIDATOS PROBABILÍSTICOS"
-                                   FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                   Foreground="#FF00B4B4" VerticalAlignment="Center"/>
-                        <TextBlock Text="Safe · Balanced · Aggressive"
-                                   FontFamily="Consolas" FontSize="9"
-                                   Foreground="#FF405858" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.AdvisedCandidates}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="6"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="ml:DecisionCandidate">
-                                <Border MinWidth="200" MaxWidth="280"
-                                        CornerRadius="6" Padding="10,8"
-                                        BorderThickness="1">
-                                    <Border.Background>
-                                        <SolidColorBrush Color="#FF0D1E1E"/>
-                                    </Border.Background>
-                                    <Border.BorderBrush>
-                                        <SolidColorBrush Color="#FF2A4040"/>
-                                    </Border.BorderBrush>
-                                    <StackPanel Spacing="4">
-
-                                        <!-- Row 0: tier badge + section:param delta -->
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <Border CornerRadius="3" Padding="5,2">
-                                                <Border.Background>
-                                                    <SolidColorBrush Color="#FF142828"/>
-                                                </Border.Background>
-                                                <TextBlock Text="{x:Bind TierDisplay}"
-                                                           FontFamily="Consolas" FontSize="9"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#FF00D4B4"/>
-                                            </Border>
-                                            <TextBlock Text="{x:Bind ProposalDisplay}"
-                                                       FontFamily="Consolas" FontSize="10"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#FFE0F0F0"
-                                                       VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-
-                                        <!-- Row 1: mean Δscore + risk badge + confidence -->
-                                        <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <StackPanel Spacing="0">
-                                                <TextBlock Text="μΔscore"
+                                                <!-- Row 3: explanation -->
+                                                <TextBlock Text="{x:Bind Explanation}"
                                                            FontFamily="Consolas" FontSize="8"
-                                                           Foreground="#FF607878"/>
-                                                <TextBlock Text="{x:Bind MeanDisplay}"
-                                                           FontFamily="Consolas" FontSize="14"
-                                                           FontWeight="Bold"
-                                                           Foreground="#FF80E040"/>
+                                                           Foreground="#FF607878"
+                                                           TextWrapping="Wrap"
+                                                           MaxLines="3"
+                                                           TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
-                                            <StackPanel Spacing="0">
-                                                <TextBlock Text="Risk"
-                                                           FontFamily="Consolas" FontSize="8"
-                                                           Foreground="#FF607878"/>
-                                                <TextBlock Text="{x:Bind RiskDisplay}"
-                                                           FontFamily="Consolas" FontSize="11"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{x:Bind RiskForeground}"/>
-                                            </StackPanel>
-                                            <StackPanel Spacing="0">
-                                                <TextBlock Text="Conf"
-                                                           FontFamily="Consolas" FontSize="8"
-                                                           Foreground="#FF607878"/>
-                                                <TextBlock Text="{x:Bind ConfidenceDisplay}"
-                                                           FontFamily="Consolas" FontSize="11"
-                                                           Foreground="#FFFFA040"/>
-                                            </StackPanel>
-                                        </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
-                                        <!-- Row 2: 80 % and 95 % intervals -->
-                                        <StackPanel Spacing="2">
-                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                <TextBlock Text="80%"
-                                                           FontFamily="Consolas" FontSize="8"
-                                                           Foreground="#FF607878" Width="24"/>
-                                                <TextBlock Text="{x:Bind Interval80Display}"
-                                                           FontFamily="Consolas" FontSize="9"
-                                                           Foreground="#FFB0D0D0"/>
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                <TextBlock Text="95%"
-                                                           FontFamily="Consolas" FontSize="8"
-                                                           Foreground="#FF607878" Width="24"/>
-                                                <TextBlock Text="{x:Bind Interval95Display}"
-                                                           FontFamily="Consolas" FontSize="9"
-                                                           Foreground="#FF8090A0"/>
-                                            </StackPanel>
-                                        </StackPanel>
+                        <!-- ── Decision Inspector panel ──────────────────────────── -->
+                        <Border Grid.Column="1"
+                                Background="#FF080F14"
+                                BorderBrush="#FF1E3040" BorderThickness="1"
+                                CornerRadius="6" Padding="10,8">
+                            <StackPanel Spacing="6">
 
-                                        <!-- Row 3: explanation -->
-                                        <TextBlock Text="{x:Bind Explanation}"
+                                <!-- Header -->
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="🔍" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="DECISION INSPECTOR"
+                                               FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
+                                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Weights row -->
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="Weights (AdaptiveWeightEngine)"
+                                               FontFamily="Consolas" FontSize="8"
+                                               Foreground="#FF405858"/>
+                                    <TextBlock Text="{x:Bind ViewModel.WeightsDisplayText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="#FF00E676"/>
+                                </StackPanel>
+
+                                <!-- Discriminator row -->
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="Driver vs Setup"
+                                               FontFamily="Consolas" FontSize="8"
+                                               Foreground="#FF405858"/>
+                                    <TextBlock Text="{x:Bind ViewModel.DiscriminatorExplanationText, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="9"
+                                               Foreground="#FFFFA040"
+                                               TextWrapping="Wrap"
+                                               MaxLines="2"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+
+                                <!-- Ranking explanation -->
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="Ranking Rationale"
+                                               FontFamily="Consolas" FontSize="8"
+                                               Foreground="#FF405858"/>
+                                    <ScrollViewer MaxHeight="110"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <TextBlock Text="{x:Bind ViewModel.DecisionInspectorText, Mode=OneWay}"
                                                    FontFamily="Consolas" FontSize="8"
-                                                   Foreground="#FF607878"
-                                                   TextWrapping="Wrap"
-                                                   MaxLines="3"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+                                                   Foreground="#FF90B0B0"
+                                                   TextWrapping="Wrap"/>
+                                    </ScrollViewer>
+                                </StackPanel>
 
-                <!-- ── Decision Inspector panel ──────────────────────────── -->
-                <Border Grid.Column="1"
-                        Background="#FF080F14"
-                        BorderBrush="#FF1E3040" BorderThickness="1"
-                        CornerRadius="6" Padding="10,8">
-                    <StackPanel Spacing="6">
+                            </StackPanel>
+                        </Border>
 
-                        <!-- Header -->
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="🔍" FontSize="10" VerticalAlignment="Center"/>
-                            <TextBlock Text="DECISION INSPECTOR"
-                                       FontFamily="Consolas" FontSize="9" FontWeight="SemiBold"
-                                       Foreground="#FF00B4B4" VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Weights row -->
-                        <StackPanel Spacing="1">
-                            <TextBlock Text="Weights (AdaptiveWeightEngine)"
-                                       FontFamily="Consolas" FontSize="8"
-                                       Foreground="#FF405858"/>
-                            <TextBlock Text="{x:Bind ViewModel.WeightsDisplayText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
-                                       Foreground="#FF00E676"/>
-                        </StackPanel>
-
-                        <!-- Discriminator row -->
-                        <StackPanel Spacing="1">
-                            <TextBlock Text="Driver vs Setup"
-                                       FontFamily="Consolas" FontSize="8"
-                                       Foreground="#FF405858"/>
-                            <TextBlock Text="{x:Bind ViewModel.DiscriminatorExplanationText, Mode=OneWay}"
-                                       FontFamily="Consolas" FontSize="9"
-                                       Foreground="#FFFFA040"
-                                       TextWrapping="Wrap"
-                                       MaxLines="2"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-
-                        <!-- Ranking explanation -->
-                        <StackPanel Spacing="1">
-                            <TextBlock Text="Ranking Rationale"
-                                       FontFamily="Consolas" FontSize="8"
-                                       Foreground="#FF405858"/>
-                            <ScrollViewer MaxHeight="110"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
-                                <TextBlock Text="{x:Bind ViewModel.DecisionInspectorText, Mode=OneWay}"
-                                           FontFamily="Consolas" FontSize="8"
-                                           Foreground="#FF90B0B0"
-                                           TextWrapping="Wrap"/>
-                            </ScrollViewer>
-                        </StackPanel>
-
-                    </StackPanel>
+                    </Grid>
                 </Border>
-
-            </Grid>
-        </Border>
-
-        <!-- ── Three analysis terminals ───────────────────────────────────── -->
-        <Grid Grid.Row="6" ColumnSpacing="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Terminal 1: Car behaviour -->
-            <Grid Grid.Column="0" Margin="8,8,4,8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Grid.Row="0"
-                        Background="#FF0A1414" BorderBrush="#FF2E4040"
-                        BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="🚗" FontSize="12"/>
-                        <TextBlock Text="Comportamiento del Coche"
-                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="#FF00B4B4"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Row="1"
-                        Background="#FF060E0E" BorderBrush="#FF2E4040"
-                        BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
-                    <ScrollViewer x:Name="BehaviorScrollViewer"
-                                  Padding="8" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.BehaviorLogs}"
-                                      ItemTemplate="{StaticResource AnalysisEntryRow}"/>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
-
-            <!-- Terminal 2: Driving time -->
-            <Grid Grid.Column="1" Margin="4,8,4,8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Grid.Row="0"
-                        Background="#FF0A1414" BorderBrush="#FF2E4040"
-                        BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="⏱" FontSize="12"/>
-                        <TextBlock Text="Análisis de Tiempo de Conducción"
-                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="#FF00B4B4"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Row="1"
-                        Background="#FF060E0E" BorderBrush="#FF2E4040"
-                        BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
-                    <ScrollViewer x:Name="DrivingScrollViewer"
-                                  Padding="8" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.DrivingLogs}"
-                                      ItemTemplate="{StaticResource AnalysisEntryRow}"/>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
-
-            <!-- Terminal 3: Setup improvement steps -->
-            <Grid Grid.Column="2" Margin="4,8,8,8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Grid.Row="0"
-                        Background="#FF0A1414" BorderBrush="#FF2E4040"
-                        BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="🔧" FontSize="12"/>
-                        <TextBlock Text="Pasos de Mejora del Setup"
-                                   FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="#FF00B4B4"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Row="1"
-                        Background="#FF060E0E" BorderBrush="#FF2E4040"
-                        BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
-                    <ScrollViewer x:Name="SetupScrollViewer"
-                                  Padding="8" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.SetupLogs}"
-                                      ItemTemplate="{StaticResource AnalysisEntryRow}"/>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
-
-        </Grid>
-
-        <!-- ── Corner phase analysis terminal (full width) ────────────────── -->
-        <Grid Grid.Row="7" Margin="8,4,8,8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Border Grid.Row="0"
-                    Background="#FF0A1414" BorderBrush="#FF2E4040"
-                    BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="🏎" FontSize="12"/>
-                    <TextBlock Text="Resumen de Fases de Curva"
-                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#FF00B4B4"/>
-                    <TextBlock Text="segmentación por G lateral — análisis por curva detectada"
-                               FontFamily="Consolas" FontSize="10"
-                               Foreground="#FF607070" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Row="1"
-                    Background="#FF060E0E" BorderBrush="#FF2E4040"
-                    BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
-                <ScrollViewer x:Name="CornerScrollViewer"
-                              Padding="8" VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.CornerLogs}"
-                                  ItemTemplate="{StaticResource AnalysisEntryRow}"/>
                 </ScrollViewer>
-            </Border>
-        </Grid>
+            </TabViewItem>
+
+            <!-- ── History: behaviour + driving time logs ────────────────── -->
+            <TabViewItem Header="History" IsClosable="False">
+                <Grid ColumnSpacing="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Margin="8,8,4,8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0"
+                                Background="#FF0A1414" BorderBrush="#FF2E4040"
+                                BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🚗" FontSize="12"/>
+                                <TextBlock Text="Comportamiento del Coche"
+                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#FF00B4B4"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1"
+                                Background="#FF060E0E" BorderBrush="#FF2E4040"
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                            <ScrollViewer x:Name="BehaviorScrollViewer"
+                                          Padding="8" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.BehaviorLogs}"
+                                              ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+
+                    <Grid Grid.Column="1" Margin="4,8,8,8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0"
+                                Background="#FF0A1414" BorderBrush="#FF2E4040"
+                                BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="⏱" FontSize="12"/>
+                                <TextBlock Text="Análisis de Tiempo de Conducción"
+                                           FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#FF00B4B4"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1"
+                                Background="#FF060E0E" BorderBrush="#FF2E4040"
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                            <ScrollViewer x:Name="DrivingScrollViewer"
+                                          Padding="8" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.DrivingLogs}"
+                                              ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+
+                </Grid>
+            </TabViewItem>
+
+            <!-- ── Technical Inspector: corner phase analysis ──────────────── -->
+            <TabViewItem Header="Technical Inspector" IsClosable="False">
+                <Grid Margin="8,4,8,8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Background="#FF0A1414" BorderBrush="#FF2E4040"
+                            BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="🏎" FontSize="12"/>
+                            <TextBlock Text="Resumen de Fases de Curva"
+                                       FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#FF00B4B4"/>
+                            <TextBlock Text="segmentación por G lateral — análisis por curva detectada"
+                                       FontFamily="Consolas" FontSize="10"
+                                       Foreground="#FF607070" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1"
+                            Background="#FF060E0E" BorderBrush="#FF2E4040"
+                            BorderThickness="1,0,1,1" CornerRadius="0,0,6,6">
+                        <ScrollViewer x:Name="CornerScrollViewer"
+                                      Padding="8" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.CornerLogs}"
+                                          ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+            </TabViewItem>
+
+        </TabView>
 
     </Grid>
+
 </Page>
