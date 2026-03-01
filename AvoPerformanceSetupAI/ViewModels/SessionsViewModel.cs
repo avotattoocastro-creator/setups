@@ -514,7 +514,9 @@ public partial class SessionsViewModel : ObservableObject
         }
 
         // Apply proposals in-memory
-        var lines = iniText.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+        var lines = SetupIniParser.NormalizeText(iniText)
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+            .ToList();
         foreach (var proposal in LastProposals)
         {
             bool applied = false;

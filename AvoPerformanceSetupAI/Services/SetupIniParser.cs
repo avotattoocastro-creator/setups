@@ -33,24 +33,27 @@ public static class SetupIniParser
         => ParseLines(File.ReadLines(filePath));
 
     /// <summary>
+    /// Normalizes JSON-escaped newline / tab sequences (<c>\\r\\n</c>, <c>\\n</c>, <c>\\t</c>)
+    /// into real control characters.  Safe to call on text that is already unescaped — the fast
+    /// path (<see cref="string.Contains(string)"/>) exits immediately when no escapes are present.
+    /// </summary>
+    public static string NormalizeText(string text)
+    {
+        if (!text.Contains("\\n") && !text.Contains("\\t")) return text;
+        return text
+            .Replace("\\r\\n", "\n")
+            .Replace("\\n",    "\n")
+            .Replace("\\t",    "\t");
+    }
+
+    /// <summary>
     /// Parses INI content already loaded as a string.
     /// Accepts both real line endings (<c>\r\n</c>, <c>\n</c>) and JSON-escaped sequences
     /// (<c>\\r\\n</c>, <c>\\n</c>) that arise when setup text is transmitted as a JSON
     /// string value and the caller has not yet unescaped it.
     /// </summary>
     public static List<IniEntry> ParseText(string text)
-    {
-        // Normalize JSON-escaped newline sequences so the parser always sees real line breaks.
-        if (text.Contains("\\n"))
-        {
-            text = text
-                .Replace("\\r\\n", "\n")
-                .Replace("\\n", "\n")
-                .Replace("\\t", "\t");
-        }
-
-        return ParseLines(text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None));
-    }
+        => ParseLines(NormalizeText(text).Split(new[] { "\r\n", "\n" }, StringSplitOptions.None));
 
     private static List<IniEntry> ParseLines(IEnumerable<string> lines)
     {
