@@ -81,7 +81,7 @@ public sealed partial class TelemetryPage : Page
     }
 
     private void AutoScroll(ScrollViewer sv) =>
-        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low,
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () => sv.ChangeView(null, sv.ScrollableHeight, null));
 
     // ── Test Combo click handler ──────────────────────────────────────────────
