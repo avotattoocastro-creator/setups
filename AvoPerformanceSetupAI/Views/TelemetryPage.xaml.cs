@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.Storage.Pickers;
 using Windows.System;
+using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.ViewModels;
 
 namespace AvoPerformanceSetupAI.Views;
@@ -12,29 +13,46 @@ public sealed partial class TelemetryPage : Page
 {
     public TelemetryViewModel ViewModel { get; } = new TelemetryViewModel();
 
+    /// <summary>Drives the "REMOTE CONNECTED" badge visibility in the header.</summary>
+    public Visibility IsRemoteModeVisible =>
+        SetupSettings.Instance.Mode == AppMode.Remote
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    // Keep handler reference for unsubscription
+    private readonly System.ComponentModel.PropertyChangedEventHandler _settingsChanged;
+
     public TelemetryPage()
     {
         this.InitializeComponent();
 
-        // Pass the UI dispatcher so the timer callbacks can marshal to the UI thread
         ViewModel.Initialize(DispatcherQueue);
 
-        // Auto-scroll each analysis terminal when a new entry is appended
         ViewModel.BehaviorLogs.CollectionChanged += (_, _) => AutoScroll(BehaviorScrollViewer);
         ViewModel.DrivingLogs.CollectionChanged  += (_, _) => AutoScroll(DrivingScrollViewer);
         ViewModel.SetupLogs.CollectionChanged    += (_, _) => AutoScroll(SetupScrollViewer);
         ViewModel.CornerLogs.CollectionChanged   += (_, _) => AutoScroll(CornerScrollViewer);
 
-        // Switch between NormalMode and RaceViewMode when IsRaceViewActive changes.
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(TelemetryViewModel.IsRaceViewActive))
                 ApplyRaceViewState(animated: true);
         };
 
-        Unloaded += (_, _) => ViewModel.Dispose();
+        _settingsChanged = (_, e) =>
+        {
+            if (e.PropertyName == nameof(SetupSettings.Mode))
+                DispatcherQueue.TryEnqueue(() => Bindings.Update());
+        };
 
-        // Apply the persisted initial state (no animation on first load).
+        SetupSettings.Instance.PropertyChanged += _settingsChanged;
+
+        Unloaded += (_, _) =>
+        {
+            ViewModel.Dispose();
+            SetupSettings.Instance.PropertyChanged -= _settingsChanged;
+        };
+
         Loaded += (_, _) => ApplyRaceViewState(animated: false);
 
         // TAB key → show HUD quick overlay (handled before focus navigation).

@@ -4,6 +4,9 @@ using Windows.Storage;
 
 namespace AvoPerformanceSetupAI.Services;
 
+/// <summary>Application connection mode — drives which library/saver implementation is used.</summary>
+public enum AppMode { Local, Remote }
+
 /// <summary>
 /// Application-wide settings singleton.
 /// Holds the root folder path for setup files so all pages can observe it.
@@ -19,6 +22,10 @@ public sealed partial class SetupSettings : ObservableObject
     private const string KeyBrandWatermarkOpacity = "BrandWatermarkOpacity";
     private const string KeyShowSplashScreen      = "ShowSplashScreen";
     private const string KeyRaceViewEnabled       = "RaceViewEnabled";
+    private const string KeyAppMode               = "AppMode";
+    private const string KeyRemoteHost            = "RemoteHost";
+    private const string KeyRemotePort            = "RemotePort";
+    private const string KeyRemoteToken           = "RemoteToken";
 
     private readonly bool _hasPackageIdentity;
 
@@ -45,6 +52,26 @@ public sealed partial class SetupSettings : ObservableObject
     [ObservableProperty]
     private bool _raceViewEnabled = false;
 
+    [ObservableProperty]
+    private AppMode _mode = AppMode.Local;
+
+    [ObservableProperty]
+    private string _remoteHost = "localhost";
+
+    [ObservableProperty]
+    private int _remotePort = 5000;
+
+    [ObservableProperty]
+    private string _remoteToken = string.Empty;
+
+    // ── Computed helpers ──────────────────────────────────────────────────────
+
+    /// <summary>Base URL for the remote Agent REST API, e.g. "http://192.168.1.10:5000".</summary>
+    public string AgentBaseUrl => $"http://{RemoteHost}:{RemotePort}";
+
+    /// <summary>WebSocket URL for the remote Agent, including the auth token.</summary>
+    public string AgentWsUrl   => $"ws://{RemoteHost}:{RemotePort}/ws?token={RemoteToken}";
+
     private SetupSettings()
     {
         try
@@ -61,6 +88,10 @@ public sealed partial class SetupSettings : ObservableObject
             _brandWatermarkOpacity = local.Values[KeyBrandWatermarkOpacity] is double bwo ? bwo : 0.06;
             _showSplashScreen      = local.Values[KeyShowSplashScreen]      is bool sss ? sss : true;
             _raceViewEnabled       = local.Values[KeyRaceViewEnabled]       is bool rve ? rve : false;
+            _mode                  = local.Values[KeyAppMode] is string ms && Enum.TryParse<AppMode>(ms, out var pm) ? pm : AppMode.Local;
+            _remoteHost            = local.Values[KeyRemoteHost]  as string ?? "localhost";
+            _remotePort            = local.Values[KeyRemotePort]  is int rp  ? rp  : 5000;
+            _remoteToken           = local.Values[KeyRemoteToken] as string ?? string.Empty;
         }
         catch (InvalidOperationException)
         {
@@ -73,6 +104,10 @@ public sealed partial class SetupSettings : ObservableObject
             _brandWatermarkOpacity = 0.06;
             _showSplashScreen      = true;
             _raceViewEnabled       = false;
+            _mode                  = AppMode.Local;
+            _remoteHost            = "localhost";
+            _remotePort            = 5000;
+            _remoteToken           = string.Empty;
         }
     }
 
@@ -124,5 +159,29 @@ public sealed partial class SetupSettings : ObservableObject
     {
         if (_hasPackageIdentity)
             ApplicationData.Current.LocalSettings.Values[KeyRaceViewEnabled] = value;
+    }
+
+    partial void OnModeChanged(AppMode value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyAppMode] = value.ToString();
+    }
+
+    partial void OnRemoteHostChanged(string value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyRemoteHost] = value;
+    }
+
+    partial void OnRemotePortChanged(int value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyRemotePort] = value;
+    }
+
+    partial void OnRemoteTokenChanged(string value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyRemoteToken] = value;
     }
 }

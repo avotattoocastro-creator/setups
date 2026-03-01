@@ -171,7 +171,7 @@
                         <TextBlock Text="&#128225;"
                                    FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
                                    VerticalAlignment="Center"/>
-                        <TextBlock Text="Telemetr&#237;a"
+                        <TextBlock Text="Telemetría"
                                    FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
                                    FontWeight="SemiBold" Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -179,6 +179,16 @@
                                FontFamily="Consolas"
                                FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
                                Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                    <!-- Remote Agent badge: visible only in Remote mode -->
+                    <Border Background="#FF0A2030"
+                            BorderBrush="#FF2A6080" BorderThickness="1"
+                            CornerRadius="4" Padding="6,2" VerticalAlignment="Center"
+                            Visibility="{x:Bind IsRemoteModeVisible, Mode=OneWay}">
+                        <TextBlock Text="🌐 REMOTE CONNECTED"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                   FontWeight="SemiBold" Foreground="#FF40C8FF"/>
+                    </Border>
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <TextBlock Text="Vuelta:" Foreground="#FF8AABAB"
                                    FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"/>

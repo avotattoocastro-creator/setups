@@ -9,6 +9,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.Services.Agent;
+using AvoPerformanceSetupAI.Services.Setup;
 
 namespace AvoPerformanceSetupAI.ViewModels;
 
@@ -29,6 +31,15 @@ public partial class SessionsViewModel : ObservableObject
     [ObservableProperty] private string _riskLevel = "LOW";
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isConnected;
+
+    /// <summary>True when the app is configured for Remote Agent mode.</summary>
+    public bool IsRemoteMode => SetupSettings.Instance.Mode == AppMode.Remote;
+
+    /// <summary>
+    /// Short connection status badge text for the Telemetry page header.
+    /// "REMOTE CONNECTED" / empty.
+    /// </summary>
+    [ObservableProperty] private string _agentStatusText = string.Empty;
 
     // ── Selected items ───────────────────────────────────────────────────────
     [ObservableProperty] private string? _selectedSetupFile;
@@ -71,34 +82,87 @@ public partial class SessionsViewModel : ObservableObject
 
     public SessionsViewModel()
     {
-        // Subscribe to root-folder changes from Configuración
+        // Subscribe to root-folder and mode changes from Configuración
         SetupSettings.Instance.PropertyChanged += OnSettingsChanged;
 
         // If a root folder is already configured, populate cars immediately
         if (!string.IsNullOrEmpty(SetupSettings.Instance.RootFolder))
-            LoadCars(SetupSettings.Instance.RootFolder);
+            _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
 
         AppLogger.Instance.Data($"Sesión inicializada — Modo: {Mode}");
         AppLogger.Instance.Ai($"Motor IA listo — {BrainInfo}");
         AppLogger.Instance.Info($"Nivel de riesgo actual: {RiskLevel}");
     }
 
+    // ── Provider factory ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Cached remote client; recreated whenever the remote connection settings change.
+    /// Disposed together with the provider when a new one is created.
+    /// </summary>
+    private AgentApiClient? _cachedAgentClient;
+    private (string host, int port, string token) _cachedClientKey;
+
+    private AgentApiClient GetOrCreateAgentClient()
+    {
+        var s = SetupSettings.Instance;
+        var key = (s.RemoteHost, s.RemotePort, s.RemoteToken);
+        if (_cachedAgentClient is null || _cachedClientKey != key)
+        {
+            _cachedAgentClient?.Dispose();
+            _cachedAgentClient = new AgentApiClient(s.RemoteHost, s.RemotePort, s.RemoteToken);
+            _cachedClientKey   = key;
+        }
+        return _cachedAgentClient;
+    }
+
+    private ISetupLibraryProvider CreateProvider()
+    {
+        if (SetupSettings.Instance.Mode == AppMode.Remote)
+            return new RemoteSetupLibraryProvider(GetOrCreateAgentClient());
+
+        return new LocalSetupLibraryProvider((Application.Current as App)!.MainWindow);
+    }
+
+    private ISetupSaver CreateSaver()
+    {
+        if (SetupSettings.Instance.Mode == AppMode.Remote)
+            return new RemoteSetupSaver(GetOrCreateAgentClient());
+
+        return new LocalSetupSaver();
+    }
+
     // ── Settings change handler ───────────────────────────────────────────────
 
     private void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SetupSettings.RootFolder))
-            LoadCars(SetupSettings.Instance.RootFolder);
+        switch (e.PropertyName)
+        {
+            case nameof(SetupSettings.RootFolder):
+                _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
+                break;
+            case nameof(SetupSettings.Mode):
+                OnPropertyChanged(nameof(IsRemoteMode));
+                _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
+                break;
+            case nameof(SetupSettings.RemoteHost):
+            case nameof(SetupSettings.RemotePort):
+            case nameof(SetupSettings.RemoteToken):
+                // Re-load if already in Remote mode
+                if (IsRemoteMode)
+                    _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
+                break;
+        }
     }
 
     // ── Cascading property changes ────────────────────────────────────────────
 
-    partial void OnCarIdChanged(string value) => LoadTracks(value);
-    partial void OnTrackIdChanged(string value) => LoadSetupFiles(value);
+    partial void OnCarIdChanged(string value)   => _ = LoadTracksAsync(value);
+    partial void OnTrackIdChanged(string value) => _ = LoadSetupFilesAsync(value);
 
     partial void OnSelectedSetupFileChanged(string? value)
     {
-        LoadProposalsFromFile();
+        _ = LoadProposalsFromFileAsync();
         ApplyCommand.NotifyCanExecuteChanged();
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
@@ -111,25 +175,36 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    // ── File-system loaders ───────────────────────────────────────────────────
+    // ── Provider-based loaders ────────────────────────────────────────────────
 
-    private void LoadCars(string rootFolder)
+    /// <summary>
+    /// Called from the Sesiones page "Select Folder" button (via command) so the
+    /// provider can show its own picker (local or remote).
+    /// </summary>
+    [RelayCommand]
+    private async Task SelectRootFolderAsync()
+    {
+        var provider = CreateProvider();
+        var path = await provider.SelectRootAsync();
+        if (path is not null)
+        {
+            AppLogger.Instance.Info($"Carpeta raíz configurada: {path}");
+            await LoadCarsAsync(path);
+        }
+    }
+
+    private async Task LoadCarsAsync(string rootFolder)
     {
         Cars.Clear();
         Tracks.Clear();
         SetupFiles.Clear();
         Iterations.Clear();
 
-        if (string.IsNullOrEmpty(rootFolder) || !Directory.Exists(rootFolder))
-        {
-            AppLogger.Instance.Warn($"Carpeta raíz no encontrada: '{rootFolder}'");
-            return;
-        }
-
+        var provider = CreateProvider();
         try
         {
-            foreach (var dir in Directory.GetDirectories(rootFolder).OrderBy(Path.GetFileName))
-                Cars.Add(Path.GetFileName(dir)!);
+            var cars = await provider.GetCarsAsync();
+            foreach (var c in cars) Cars.Add(c);
         }
         catch (Exception ex)
         {
@@ -140,34 +215,25 @@ public partial class SessionsViewModel : ObservableObject
         AppLogger.Instance.Data($"Carpeta raíz cargada: {rootFolder}");
         AppLogger.Instance.Info($"Coches encontrados: {Cars.Count}");
 
-        // Preserve previous selection if it still exists; otherwise auto-select first
         if (!string.IsNullOrEmpty(CarId) && Cars.Contains(CarId))
-            LoadTracks(CarId); // value didn't change so partial method won't fire; call explicitly
+            await LoadTracksAsync(CarId);
         else
             CarId = Cars.Count > 0 ? Cars[0] : string.Empty;
     }
 
-    private void LoadTracks(string carId)
+    private async Task LoadTracksAsync(string carId)
     {
         Tracks.Clear();
         SetupFiles.Clear();
         Iterations.Clear();
 
-        var rootFolder = SetupSettings.Instance.RootFolder;
-        if (string.IsNullOrEmpty(rootFolder) || string.IsNullOrEmpty(carId))
-            return;
+        if (string.IsNullOrEmpty(carId)) return;
 
-        var carPath = Path.Combine(rootFolder, carId);
-        if (!Directory.Exists(carPath))
-        {
-            AppLogger.Instance.Warn($"Carpeta de coche no encontrada: '{carPath}'");
-            return;
-        }
-
+        var provider = CreateProvider();
         try
         {
-            foreach (var dir in Directory.GetDirectories(carPath).OrderBy(Path.GetFileName))
-                Tracks.Add(Path.GetFileName(dir)!);
+            var tracks = await provider.GetTracksAsync(carId);
+            foreach (var t in tracks) Tracks.Add(t);
         }
         catch (Exception ex)
         {
@@ -177,36 +243,32 @@ public partial class SessionsViewModel : ObservableObject
 
         AppLogger.Instance.Data($"Coche seleccionado: {carId}  |  Circuitos encontrados: {Tracks.Count}");
 
-        // Preserve previous selection if it still exists; otherwise auto-select first
         if (!string.IsNullOrEmpty(TrackId) && Tracks.Contains(TrackId))
-            LoadSetupFiles(TrackId);
+            await LoadSetupFilesAsync(TrackId);
         else
             TrackId = Tracks.Count > 0 ? Tracks[0] : string.Empty;
     }
 
-    private void LoadSetupFiles(string trackId)
+    private async Task LoadSetupFilesAsync(string trackId)
     {
         SetupFiles.Clear();
+        Iterations.Clear();
 
-        var rootFolder = SetupSettings.Instance.RootFolder;
-        if (string.IsNullOrEmpty(rootFolder) || string.IsNullOrEmpty(CarId) || string.IsNullOrEmpty(trackId))
+        if (string.IsNullOrEmpty(CarId) || string.IsNullOrEmpty(trackId))
         {
             SetupFilesHintVisibility = Visibility.Visible;
             return;
         }
 
-        var trackPath = Path.Combine(rootFolder, CarId, trackId);
-        if (!Directory.Exists(trackPath))
-        {
-            AppLogger.Instance.Warn($"Carpeta de circuito no encontrada: '{trackPath}'");
-            SetupFilesHintVisibility = Visibility.Visible;
-            return;
-        }
-
+        var provider = CreateProvider();
         try
         {
-            foreach (var file in Directory.GetFiles(trackPath, "*.ini").OrderBy(Path.GetFileName))
-                SetupFiles.Add(Path.GetFileName(file)!);
+            var items = await provider.GetSetupsAsync(CarId, trackId);
+            foreach (var s in items) SetupFiles.Add(s.FileName);
+
+            Iterations.Clear();
+            for (int i = 0; i < SetupFiles.Count; i++)
+                Iterations.Add(new SetupIteration { Setup = SetupFiles[i], BestLap = "—", Iter = i, Exported = false });
         }
         catch (Exception ex)
         {
@@ -215,25 +277,17 @@ public partial class SessionsViewModel : ObservableObject
             return;
         }
 
-        // Populate the Setups DataGrid with the real files found on disk
-        Iterations.Clear();
-        for (int i = 0; i < SetupFiles.Count; i++)
-            Iterations.Add(new SetupIteration { Setup = SetupFiles[i], BestLap = "—", Iter = i, Exported = false });
-
         SetupFilesHintVisibility = SetupFiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-
         AppLogger.Instance.Data($"Circuito seleccionado: {trackId}  |  Archivos de setup: {SetupFiles.Count}");
-        AppLogger.Instance.Info($"Ruta de setup activa: {trackPath}");
     }
 
     // ── Proposal generation from real INI ────────────────────────────────────
 
     /// <summary>
-    /// Parses the currently selected setup <c>.ini</c> file, extracts all numeric tunable
-    /// parameters and populates <see cref="LastProposals"/> with small suggested adjustments.
-    /// Must be called whenever <see cref="SelectedSetupFile"/> changes.
+    /// Parses the currently selected setup <c>.ini</c> file (local or remote),
+    /// extracts all numeric tunable parameters and populates <see cref="LastProposals"/>.
     /// </summary>
-    private void LoadProposalsFromFile()
+    private async Task LoadProposalsFromFileAsync()
     {
         LastProposals.Clear();
 
@@ -242,66 +296,30 @@ public partial class SessionsViewModel : ObservableObject
             string.IsNullOrEmpty(TrackId))
             return;
 
-        var filePath = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile);
-        if (!File.Exists(filePath))
+        string iniText;
+        try
+        {
+            iniText = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
+        }
 
         try
         {
-            var entries = SetupIniParser.Parse(filePath);
-
-            // Keep only entries from known tunable sections with numeric, non-zero values
-            var tunable = entries
-                .Where(e =>
-                    TunableSections.Contains(e.Section) &&
-                    !NonTunableKeys.Contains(e.Key) &&
-                    double.TryParse(e.Value,
-                        System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        out var v) && v != 0.0)
-                .ToList();
-
-            // Sample: up to 2 entries per section, capped at 6 proposals total
-            var sample = tunable
-                .GroupBy(e => e.Section)
-                .SelectMany(g => g.Take(2))
-                .Take(6)
-                .ToList();
-
-            foreach (var entry in sample)
+            // Write to a temp file so the existing SetupIniParser (which takes a path) can parse it
+            var tmpPath = Path.GetTempFileName();
+            await File.WriteAllTextAsync(tmpPath, iniText);
+            try
             {
-                if (!double.TryParse(entry.Value,
-                        System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        out var current))
-                    continue;
-
-                // Nudge: 2 % of absolute value, minimum 0.05 — always proposes a decrease
-                var abs     = Math.Abs(current);
-                var nudge   = abs >= 100.0 ? Math.Round(abs * 0.02, 0)
-                            : abs >= 1.0   ? Math.Round(abs * 0.02, 3)
-                                           : 0.05;
-                var proposed = Math.Round(current - nudge, 4);
-                var deltaStr = $"-{nudge.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
-
-                LastProposals.Add(new Proposal
-                {
-                    Section   = entry.Section,
-                    Parameter = entry.Key,
-                    From      = entry.Value,
-                    To        = proposed.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    Delta     = deltaStr
-                });
+                BuildProposals(SetupIniParser.Parse(tmpPath));
             }
-
-            AppLogger.Instance.Ai(
-                $"Propuestas generadas desde '{SelectedSetupFile}' — " +
-                $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados.");
-
-            if (tunable.Count == 0)
-                AppLogger.Instance.Warn(
-                    "El archivo de setup no contiene parámetros reconocibles en secciones tunables. " +
-                    "Comprueba que la carpeta raíz apunta a setups de Assetto Corsa / ACC.");
+            finally
+            {
+                File.Delete(tmpPath);
+            }
         }
         catch (Exception ex)
         {
@@ -309,6 +327,58 @@ public partial class SessionsViewModel : ObservableObject
         }
 
         ApplyProposalCommand.NotifyCanExecuteChanged();
+    }
+
+    private void BuildProposals(IEnumerable<IniEntry> entries)
+    {
+        var tunable = entries
+            .Where(e =>
+                TunableSections.Contains(e.Section) &&
+                !NonTunableKeys.Contains(e.Key) &&
+                double.TryParse(e.Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var v) && v != 0.0)
+            .ToList();
+
+        var sample = tunable
+            .GroupBy(e => e.Section)
+            .SelectMany(g => g.Take(2))
+            .Take(6)
+            .ToList();
+
+        foreach (var entry in sample)
+        {
+            if (!double.TryParse(entry.Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var current))
+                continue;
+
+            var abs     = Math.Abs(current);
+            var nudge   = abs >= 100.0 ? Math.Round(abs * 0.02, 0)
+                        : abs >= 1.0   ? Math.Round(abs * 0.02, 3)
+                                       : 0.05;
+            var proposed = Math.Round(current - nudge, 4);
+            var deltaStr = $"-{nudge.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+            LastProposals.Add(new Proposal
+            {
+                Section   = entry.Section,
+                Parameter = entry.Key,
+                From      = entry.Value,
+                To        = proposed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Delta     = deltaStr
+            });
+        }
+
+        AppLogger.Instance.Ai(
+            $"Propuestas generadas desde '{SelectedSetupFile}' — " +
+            $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados.");
+
+        if (tunable.Count == 0)
+            AppLogger.Instance.Warn(
+                "El archivo de setup no contiene parámetros reconocibles en secciones tunables.");
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -347,42 +417,41 @@ public partial class SessionsViewModel : ObservableObject
 
     private bool CanStop() => IsRunning;
 
-    /// <summary>
-    /// Copia el archivo de setup seleccionado a la carpeta de destino configurada en Configuración.
-    /// Marca la iteración como Exported en el DataGrid.
-    /// </summary>
     [RelayCommand(CanExecute = nameof(CanApply))]
-    private void Apply()
+    private async Task ApplyAsync()
     {
-        var outFolder = SetupSettings.Instance.OutputFolder;
-        if (string.IsNullOrEmpty(outFolder))
+        var saver = CreateSaver();
+        var iniText = string.Empty;
+
+        // Read the current setup text (needed for remote save; for local we still copy the file)
+        try
+        {
+            iniText = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile!);
+        }
+        catch (Exception ex)
         {
             StatusText = "● ERROR";
-            AppLogger.Instance.Error("Carpeta de destino no configurada. Ve a la pestaña Configuración y selecciona la carpeta de destino.");
+            AppLogger.Instance.Error($"Error al leer setup para guardar: {ex.Message}");
             return;
         }
 
-        var sourceFile = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile!);
-        var destFile = Path.Combine(outFolder, SelectedSetupFile!);
-
         try
         {
-            Directory.CreateDirectory(outFolder);
-            File.Copy(sourceFile, destFile, overwrite: true);
+            var savedPath = await saver.SaveAsync(CarId, TrackId, SelectedSetupFile!, iniText);
 
-            // Mark the iteration as Exported in the DataGrid
             var iter = Iterations.FirstOrDefault(i => i.Setup == SelectedSetupFile);
-            if (iter != null)
-                iter.Exported = true;
+            if (iter != null) iter.Exported = true;
 
             StatusText = "● APPLIED";
             AppLogger.Instance.Info($"Setup aplicado correctamente: {SelectedSetupFile}");
-            AppLogger.Instance.Data($"Destino: {destFile}");
+            AppLogger.Instance.Data(IsRemoteMode
+                ? $"Setup guardado en PC simulador: {savedPath}"
+                : $"Destino: {savedPath}");
         }
         catch (Exception ex)
         {
             StatusText = "● APPLY ERROR";
-            AppLogger.Instance.Error($"Error al copiar el setup: {ex.Message}");
+            AppLogger.Instance.Error($"Error al guardar el setup: {ex.Message}");
         }
     }
 
@@ -413,68 +482,77 @@ public partial class SessionsViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Crea un backup del archivo .ini seleccionado y aplica los parámetros de LastProposals
-    /// modificando directamente los valores en el archivo, respetando la sección de cada clave.
-    /// </summary>
     [RelayCommand(CanExecute = nameof(CanApplyProposal))]
-    private void ApplyProposal()
+    private async Task ApplyProposalAsync()
     {
-        var filePath = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile!);
-
-        if (!File.Exists(filePath))
+        // Read current INI via provider (works local or remote)
+        string iniText;
+        try
         {
-            AppLogger.Instance.Error($"Archivo de setup no encontrado: {filePath}");
+            iniText = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile!);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
         }
 
-        try
+        // Apply proposals in-memory
+        var lines = iniText.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+        foreach (var proposal in LastProposals)
         {
-            // Create backup before modifying
-            _backupPath = filePath + BackupExtension;
-            File.Copy(filePath, _backupPath, overwrite: true);
-            AppLogger.Instance.Info($"Backup creado: {Path.GetFileName(_backupPath)}");
+            bool applied = false;
+            var currentSection = string.Empty;
 
-            // Read INI lines; apply each proposal matching by section AND key
-            var lines = File.ReadAllLines(filePath).ToList();
-            foreach (var proposal in LastProposals)
+            for (int i = 0; i < lines.Count; i++)
             {
-                bool applied = false;
-                var currentSection = string.Empty;
-
-                for (int i = 0; i < lines.Count; i++)
+                var trimmed = lines[i].Trim();
+                if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
                 {
-                    var trimmed = lines[i].Trim();
-
-                    // Track current section header
-                    if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
-                    {
-                        currentSection = trimmed[1..^1].Trim();
-                        continue;
-                    }
-
-                    // Match key within the correct section
-                    var eqIdx = lines[i].IndexOf('=');
-                    if (eqIdx > 0 &&
-                        currentSection.Equals(proposal.Section, StringComparison.OrdinalIgnoreCase) &&
-                        lines[i][..eqIdx].Trim().Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase))
-                    {
-                        lines[i] = $"{proposal.Parameter}={proposal.To}";
-                        AppLogger.Instance.Data(
-                            $"  [{proposal.Section}] {proposal.Parameter}: {proposal.From} → {proposal.To}  (Δ {proposal.Delta})");
-                        applied = true;
-                        break;
-                    }
+                    currentSection = trimmed[1..^1].Trim();
+                    continue;
                 }
 
-                if (!applied)
-                    AppLogger.Instance.Warn(
-                        $"  Parámetro '[{proposal.Section}] {proposal.Parameter}' no encontrado en el archivo.");
+                var eqIdx = lines[i].IndexOf('=');
+                if (eqIdx > 0 &&
+                    currentSection.Equals(proposal.Section, StringComparison.OrdinalIgnoreCase) &&
+                    lines[i][..eqIdx].Trim().Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase))
+                {
+                    lines[i] = $"{proposal.Parameter}={proposal.To}";
+                    AppLogger.Instance.Data(
+                        $"  [{proposal.Section}] {proposal.Parameter}: {proposal.From} → {proposal.To}  (Δ {proposal.Delta})");
+                    applied = true;
+                    break;
+                }
             }
 
-            File.WriteAllLines(filePath, lines);
-            StatusText = "● PROPOSAL APPLIED";
-            AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
+            if (!applied)
+                AppLogger.Instance.Warn(
+                    $"  Parámetro '[{proposal.Section}] {proposal.Parameter}' no encontrado en el archivo.");
+        }
+
+        var modifiedText = string.Join("\n", lines);
+
+        // Save via saver (local writes .bak + file; remote sends to agent)
+        try
+        {
+            if (IsRemoteMode)
+            {
+                var savedPath = await CreateSaver().SaveAsync(CarId, TrackId, SelectedSetupFile!, modifiedText);
+                StatusText = "● PROPOSAL APPLIED";
+                AppLogger.Instance.Ai($"Propuesta de IA aplicada y guardada en PC simulador: {savedPath}");
+            }
+            else
+            {
+                // Local: write backup then file
+                var filePath = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile!);
+                _backupPath = filePath + BackupExtension;
+                await File.WriteAllTextAsync(_backupPath, iniText);
+                AppLogger.Instance.Info($"Backup creado: {Path.GetFileName(_backupPath)}");
+                await File.WriteAllTextAsync(filePath, modifiedText);
+                StatusText = "● PROPOSAL APPLIED";
+                AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
+            }
             RollbackCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)

@@ -158,6 +158,81 @@
                                   Toggled="RaceViewToggle_Toggled"/>
                 </StackPanel>
             </Border>
+
+            <!-- Remote Agent Connection -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Conexión Agent Remoto" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="En modo Remote, las carpetas de setup se leen y guardan en el PC simulador a través del Agent."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+
+                    <!-- Mode toggle -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ToggleSwitch x:Name="RemoteModeToggle"
+                                      Header="Modo Remote (Agent)"
+                                      Toggled="RemoteModeToggle_Toggled"
+                                      MinWidth="0"/>
+                    </StackPanel>
+
+                    <!-- Token warning -->
+                    <Border x:Name="TokenWarningBorder"
+                            Background="#33FF6000" BorderBrush="#FFFF6000"
+                            BorderThickness="1" CornerRadius="4" Padding="10,6"
+                            Visibility="Collapsed">
+                        <TextBlock Text="⚠ Token vacío — configura el token antes de usar el modo Remote."
+                                   Foreground="#FFFFA040" FontSize="12" TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- Host + Port -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="100"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Host (IP o nombre)" Foreground="#FF8AABAB" FontSize="11"/>
+                            <TextBox x:Name="RemoteHostBox"
+                                     PlaceholderText="localhost"
+                                     Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                     BorderBrush="#FF2E4040"
+                                     TextChanged="RemoteHostBox_TextChanged"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Puerto" Foreground="#FF8AABAB" FontSize="11"/>
+                            <NumberBox x:Name="RemotePortBox"
+                                       Minimum="1" Maximum="65535"
+                                       SpinButtonPlacementMode="Compact"
+                                       Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                       BorderBrush="#FF2E4040"
+                                       ValueChanged="RemotePortBox_ValueChanged"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Token -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Token de autenticación (X-API-TOKEN)" Foreground="#FF8AABAB" FontSize="11"/>
+                        <PasswordBox x:Name="RemoteTokenBox"
+                                     PlaceholderText="Introduce el token..."
+                                     Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                     BorderBrush="#FF2E4040"
+                                     PasswordChanged="RemoteTokenBox_PasswordChanged"/>
+                    </StackPanel>
+
+                    <!-- Test Agent button + status -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Button Content="🔌 Test Agent"
+                                Click="TestAgent_Click"
+                                Background="#FF1A2020" Foreground="#FF00B4B4"
+                                BorderBrush="#FF2E5050" BorderThickness="1"
+                                CornerRadius="6" Padding="12,6"/>
+                        <TextBlock x:Name="AgentTestResultText"
+                                   FontFamily="Consolas" FontSize="13"
+                                   Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Page>

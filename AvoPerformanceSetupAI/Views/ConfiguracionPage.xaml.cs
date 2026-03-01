@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Storage.Pickers;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.Services.Agent;
 
 namespace AvoPerformanceSetupAI.Views;
 
@@ -39,6 +40,13 @@ public sealed partial class ConfiguracionPage : Page
         WatermarkOpacityValueText.Text = $"{SetupSettings.Instance.BrandWatermarkOpacity * 100:F0}%";
         SplashScreenToggle.IsOn = SetupSettings.Instance.ShowSplashScreen;
         RaceViewToggle.IsOn     = SetupSettings.Instance.RaceViewEnabled;
+
+        // Remote Agent fields
+        RemoteModeToggle.IsOn    = SetupSettings.Instance.Mode == AppMode.Remote;
+        RemoteHostBox.Text       = SetupSettings.Instance.RemoteHost;
+        RemotePortBox.Value      = SetupSettings.Instance.RemotePort;
+        RemoteTokenBox.Password  = SetupSettings.Instance.RemoteToken;
+        UpdateTokenWarning();
     }
 
     private async void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -108,6 +116,54 @@ public sealed partial class ConfiguracionPage : Page
     private void RaceViewToggle_Toggled(object sender, RoutedEventArgs e)
     {
         SetupSettings.Instance.RaceViewEnabled = RaceViewToggle.IsOn;
+    }
+
+    // ── Remote Agent ──────────────────────────────────────────────────────────
+
+    private void RemoteModeToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        SetupSettings.Instance.Mode = RemoteModeToggle.IsOn ? AppMode.Remote : AppMode.Local;
+        UpdateTokenWarning();
+    }
+
+    private void RemoteHostBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        SetupSettings.Instance.RemoteHost = RemoteHostBox.Text;
+    }
+
+    private void RemotePortBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
+    {
+        if (!double.IsNaN(e.NewValue))
+            SetupSettings.Instance.RemotePort = (int)e.NewValue;
+    }
+
+    private void RemoteTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        SetupSettings.Instance.RemoteToken = RemoteTokenBox.Password;
+        UpdateTokenWarning();
+    }
+
+    private async void TestAgent_Click(object sender, RoutedEventArgs e)
+    {
+        AgentTestResultText.Text = "Probando...";
+        AgentTestResultText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+            Microsoft.UI.ColorHelper.FromArgb(255, 138, 171, 171));
+
+        var s = SetupSettings.Instance;
+        using var client = new AgentApiClient(s.RemoteHost, s.RemotePort, s.RemoteToken);
+        bool ok = await client.PingAsync();
+
+        AgentTestResultText.Text = ok ? "✔ Agent accesible" : "✗ Agent no accesible";
+        AgentTestResultText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ok
+            ? Microsoft.UI.ColorHelper.FromArgb(255,  0, 212, 180)
+            : Microsoft.UI.ColorHelper.FromArgb(255, 255,  80,  80));
+    }
+
+    private void UpdateTokenWarning()
+    {
+        var showWarning = SetupSettings.Instance.Mode == AppMode.Remote &&
+                          string.IsNullOrWhiteSpace(SetupSettings.Instance.RemoteToken);
+        TokenWarningBorder.Visibility = showWarning ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void WatermarkOpacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)

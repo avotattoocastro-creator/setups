@@ -155,12 +155,14 @@
 
             <!-- Action Buttons Row -->
             <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="📂 Carpeta" Style="{StaticResource SecondaryActionButton}"
+                        Command="{Binding SelectRootFolderCommand}"/>
                 <Button Content="▶ Start" Style="{StaticResource AccentActionButton}"
                         Command="{Binding StartCommand}"/>
                 <Button Content="⏹ Stop"  Style="{StaticResource SecondaryActionButton}"
                         Command="{Binding StopCommand}"/>
                 <Button Content="✔ Apply" Style="{StaticResource AccentActionButton}"
-                        Command="{Binding ApplyCommand}"/>
+                        Command="{Binding ApplyAsyncCommand}"/>
                 <Button Content="⚡ Connect" Style="{StaticResource SecondaryActionButton}"
                         Command="{Binding ConnectCommand}"/>
             </StackPanel>
@@ -233,7 +235,7 @@
                 <Button Content="✔ Apply Proposal"
                         Style="{StaticResource AccentActionButton}"
                         HorizontalAlignment="Stretch"
-                        Command="{Binding ApplyProposalCommand}"/>
+                        Command="{Binding ApplyProposalAsyncCommand}"/>
                 <Button Content="↩ Rollback"
                         Style="{StaticResource SecondaryActionButton}"
                         HorizontalAlignment="Stretch"
