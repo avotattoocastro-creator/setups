@@ -28,6 +28,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     private Action<bool, string>? _connectionChangedHandler;
     private Action?               _suggestSwitchHandler;
     private Action<AgentLogEntry>? _logEntryHandler;
+    private Action<string>?        _logStatusHandler;
 
     // ── Telemetry service (AC shared memory + simulation routing) ─────────────
 
@@ -715,6 +716,11 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
             _logStream.OnLog -= _logEntryHandler;
             _logEntryHandler  = null;
         }
+        if (_logStatusHandler is not null)
+        {
+            _logStream.OnStatus -= _logStatusHandler;
+            _logStatusHandler    = null;
+        }
         // Best-effort graceful shutdown of the WebSocket (fire-and-forget is acceptable
         // here because the ViewModel is being disposed — the read loop will self-terminate
         // when the cancellation token fires).
@@ -725,7 +731,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
 
     private async Task StartLogStreamAsync(DispatcherQueue dispatcher)
     {
-        _logEntryHandler = entry =>
+        void EnqueueLogEntry(AgentLogEntry entry) =>
             dispatcher.TryEnqueue(() =>
             {
                 Logs.Add(entry);
@@ -733,16 +739,34 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
                     Logs.RemoveAt(0);
             });
 
-        _logStream.OnLog += _logEntryHandler;
+        void AddSyntheticEntry(string msg) =>
+            EnqueueLogEntry(new AgentLogEntry
+            {
+                TUtc = DateTime.UtcNow.ToString("O"),
+                Lvl  = "SYS",
+                Cat  = "LogStream",
+                Msg  = msg,
+            });
+
+        _logEntryHandler  = EnqueueLogEntry;
+        _logStatusHandler = AddSyntheticEntry;
+
+        _logStream.OnLog    += _logEntryHandler;
+        _logStream.OnStatus += _logStatusHandler;
+
+        var wsUrl = SetupSettings.Instance.AgentLogsWsUrl;
+        AppLogger.Instance.Info($"[LogStream] Connecting to: {wsUrl}");
 
         try
         {
-            await _logStream.StartAsync(SetupSettings.Instance.AgentLogsWsUrl)
-                .ConfigureAwait(false);
+            await _logStream.StartAsync(wsUrl).ConfigureAwait(false);
+            AppLogger.Instance.Info("[LogStream] StartAsync completed.");
         }
         catch (Exception ex)
         {
-            AppLogger.Instance.Warn($"Log stream no disponible: {ex.Message}");
+            var msg = $"Log WS connection failed: {ex.Message}";
+            AppLogger.Instance.Warn(msg);
+            AddSyntheticEntry(msg);
         }
     }
 

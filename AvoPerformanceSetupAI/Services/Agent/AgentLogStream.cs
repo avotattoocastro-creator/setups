@@ -11,9 +11,13 @@ namespace AvoPerformanceSetupAI.Services.Agent;
 /// Consumes live structured log entries from the Agent over WebSocket.
 /// Connect with <see cref="StartAsync"/>, disconnect with <see cref="StopAsync"/>.
 /// Each received entry fires <see cref="OnLog"/>.
+/// Status events (connecting, connected, failed) fire <see cref="OnStatus"/>.
 /// </summary>
 public sealed class AgentLogStream : IDisposable
 {
+    private const int MaxConnectAttempts = 3;
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+
     private static readonly JsonSerializerOptions _jsonOpts =
         new(JsonSerializerDefaults.Web);
 
@@ -27,31 +31,81 @@ public sealed class AgentLogStream : IDisposable
     public event Action<AgentLogEntry>? OnLog;
 
     /// <summary>
+    /// Fired with a human-readable status string: "Connecting to …",
+    /// "Connected", "Connection failed: …", "Disconnected".
+    /// Always fired on the background thread — callers must marshal to UI.
+    /// </summary>
+    public event Action<string>? OnStatus;
+
+    /// <summary>
     /// Opens the WebSocket connection to <paramref name="wsUrl"/> and starts receiving
-    /// log entries asynchronously. Safe to call again after <see cref="StopAsync"/>.
+    /// log entries asynchronously. Retries up to <see cref="MaxConnectAttempts"/> times
+    /// with a <see cref="RetryDelay"/> pause between attempts.
+    /// Safe to call again after <see cref="StopAsync"/>.
     /// </summary>
     public async Task StartAsync(string wsUrl)
     {
         await StopAsync().ConfigureAwait(false);
 
         _cts = new CancellationTokenSource();
-        _ws  = new ClientWebSocket();
+        var ct = _cts.Token;
 
-        try
+        // Warn if the host looks like it is still set to the default localhost
+        // while Remote mode is active — a common misconfiguration.
+        if (wsUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+            wsUrl.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase))
         {
-            await _ws.ConnectAsync(new Uri(wsUrl), _cts.Token).ConfigureAwait(false);
-        }
-        catch
-        {
-            // If the connection fails we clean up silently; the caller can retry.
-            _ws.Dispose();
-            _ws = null;
-            _cts.Dispose();
-            _cts = null;
-            return;
+            OnStatus?.Invoke(
+                "⚠ RemoteHost is 'localhost' — check Configuracion if the Agent is on another PC.");
         }
 
-        _readTask = ReadLoopAsync(_ws, _cts.Token);
+        System.Diagnostics.Debug.WriteLine($"[AgentLogStream] Connecting to: {wsUrl}");
+
+        for (var attempt = 1; attempt <= MaxConnectAttempts; attempt++)
+        {
+            if (ct.IsCancellationRequested) return;
+
+            OnStatus?.Invoke(
+                $"Connecting to {wsUrl} (attempt {attempt}/{MaxConnectAttempts})…");
+
+            _ws = new ClientWebSocket();
+            try
+            {
+                await _ws.ConnectAsync(new Uri(wsUrl), ct).ConfigureAwait(false);
+
+                System.Diagnostics.Debug.WriteLine("[AgentLogStream] Connected.");
+                OnStatus?.Invoke("Connected ✓");
+
+                _readTask = ReadLoopAsync(_ws, ct);
+                return;                  // success — leave
+            }
+            catch (OperationCanceledException)
+            {
+                _ws.Dispose();
+                _ws = null;
+                return;                  // disposed / StopAsync called
+            }
+            catch (Exception ex)
+            {
+                var msg = $"Connection failed (attempt {attempt}/{MaxConnectAttempts}): {ex.Message}";
+                System.Diagnostics.Debug.WriteLine($"[AgentLogStream] {msg}");
+                OnStatus?.Invoke(msg);
+
+                _ws.Dispose();
+                _ws = null;
+
+                if (attempt < MaxConnectAttempts && !ct.IsCancellationRequested)
+                {
+                    try { await Task.Delay(RetryDelay, ct).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                }
+            }
+        }
+
+        // All attempts exhausted
+        OnStatus?.Invoke($"Could not connect to {wsUrl} after {MaxConnectAttempts} attempts.");
+        _cts.Dispose();
+        _cts = null;
     }
 
     /// <summary>Closes the WebSocket and stops the receive loop.</summary>
@@ -123,7 +177,10 @@ public sealed class AgentLogStream : IDisposable
                         new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
 
                     if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        OnStatus?.Invoke("Disconnected (server closed connection).");
                         return;
+                    }
 
                     sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
                 }
@@ -133,7 +190,11 @@ public sealed class AgentLogStream : IDisposable
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
-        catch { /* network error — exit silently */ }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[AgentLogStream] Read error: {ex.Message}");
+            OnStatus?.Invoke($"Stream error: {ex.Message}");
+        }
     }
 
     private void TryDispatch(string json)
@@ -149,3 +210,4 @@ public sealed class AgentLogStream : IDisposable
         catch { /* invalid JSON — ignore */ }
     }
 }
+
