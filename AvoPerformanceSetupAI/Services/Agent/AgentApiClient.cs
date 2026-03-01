@@ -54,16 +54,21 @@ public sealed class AgentApiClient : IDisposable
 
     /// <summary>GET /api/reference/cars — list of car folder names.</summary>
     public Task<List<string>> GetCarsAsync()
-        => GetAsync<List<string>>("/api/reference/cars");
+        => GetStringListFromEndpointAsync("/api/reference/cars");
 
     /// <summary>GET /api/reference/tracks?car=... — list of track folder names for a car.</summary>
     public Task<List<string>> GetTracksAsync(string car)
-        => GetAsync<List<string>>($"/api/reference/tracks?car={Uri.EscapeDataString(car)}");
+        => GetStringListFromEndpointAsync($"/api/reference/tracks?car={Uri.EscapeDataString(car)}");
 
     /// <summary>GET /api/reference/setups?car=...&amp;track=... — list of setup files.</summary>
-    public Task<List<SetupItem>> GetSetupsAsync(string car, string track)
-        => GetAsync<List<SetupItem>>(
+    public async Task<List<SetupItem>> GetSetupsAsync(string car, string track)
+    {
+        var files = await GetStringListFromEndpointAsync(
             $"/api/reference/setups?car={Uri.EscapeDataString(car)}&track={Uri.EscapeDataString(track)}");
+        return files
+            .Select(f => new SetupItem { FileName = f, Car = car, Track = track })
+            .ToList();
+    }
 
     /// <summary>GET /api/reference/setup/read — returns raw INI text of the setup.</summary>
     public Task<string> ReadSetupAsync(string car, string track, string fileName)
@@ -111,6 +116,80 @@ public sealed class AgentApiClient : IDisposable
         }
         catch (AgentException) { throw; }
         catch (Exception ex)   { throw new AgentException($"Agent no accesible: {ex.Message}", ex); }
+    }
+
+    /// <summary>
+    /// GET <paramref name="path"/> and return the body as a string list,
+    /// tolerating both raw JSON arrays and wrapped objects.
+    /// </summary>
+    private async Task<List<string>> GetStringListFromEndpointAsync(string path)
+    {
+        try
+        {
+            var res = await _http.GetAsync(_baseUrl + path);
+            await EnsureSuccessAsync(res);
+            return await ReadStringListAsync(res);
+        }
+        catch (AgentException) { throw; }
+        catch (Exception ex)
+        {
+            throw new AgentException($"Agent no accesible en {_baseUrl}{path}: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Deserializes an HTTP response into a <c>List&lt;string&gt;</c>.
+    /// Accepts both a plain JSON array (<c>["a","b"]</c>) and a wrapped object
+    /// (<c>{{ "cars":[...] }}</c>, <c>{{ "tracks":[...] }}</c>,
+    ///  <c>{{ "setups":[...] }}</c>, <c>{{ "data":[...] }}</c>).
+    /// Logs and rethrows a detailed <see cref="AgentException"/> when the format
+    /// is not recognised.
+    /// </summary>
+    private static async Task<List<string>> ReadStringListAsync(HttpResponseMessage response)
+    {
+        var rawJson = await response.Content.ReadAsStringAsync();
+
+        // 1) Try direct array deserialization
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<string>>(rawJson, JsonOpts);
+            if (list is not null) return list;
+        }
+        catch (JsonException) { /* fall through */ }
+
+        // 2) Try wrapped object: { "cars":[...] }, { "tracks":[...] }, { "setups":[...] }, { "data":[...] }
+        try
+        {
+            using var doc = JsonDocument.Parse(rawJson);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var key in new[] { "cars", "tracks", "setups", "data", "items", "results" })
+                {
+                    if (doc.RootElement.TryGetProperty(key, out var prop) &&
+                        prop.ValueKind == JsonValueKind.Array)
+                    {
+                        var result = prop.EnumerateArray()
+                                        .Where(e => e.ValueKind == JsonValueKind.String)
+                                        .Select(e => e.GetString()!)
+                                        .ToList();
+                        AvoPerformanceSetupAI.Services.AppLogger.Instance.Warn(
+                            $"Agent devolvió lista envuelta en propiedad '{key}'. " +
+                            $"Considera actualizar el Agent para devolver un array plano.");
+                        return result;
+                    }
+                }
+            }
+        }
+        catch (JsonException) { /* fall through to detailed error */ }
+
+        // 3) Could not parse — log raw content and throw
+        var preview = rawJson.Length > 300 ? rawJson[..300] + "…" : rawJson;
+        AvoPerformanceSetupAI.Services.AppLogger.Instance.Error(
+            $"Error de deserialización JSON del Agent. JSON recibido: {preview}");
+        throw new AgentException(
+            $"Respuesta JSON no reconocida del Agent. " +
+            $"Se esperaba array de strings o objeto con propiedad 'cars'/'tracks'/'setups'/'data'. " +
+            $"JSON: {preview}");
     }
 
     private async Task<T> PostAsync<T>(string path, object? body)
