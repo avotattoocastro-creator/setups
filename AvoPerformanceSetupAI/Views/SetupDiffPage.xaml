@@ -10,86 +10,128 @@
     RequestedTheme="Dark">
 
     <Page.Resources>
-        <converters:DiffKindToColorConverter x:Key="DiffKindToColorConverter"/>
+        <converters:DiffKindToColorConverter       x:Key="DiffKindToColorConverter"/>
+        <converters:DeltaSignToColorConverter      x:Key="DeltaSignToColorConverter"/>
+        <converters:DeltaSignToBackgroundConverter x:Key="DeltaSignToBackgroundConverter"/>
     </Page.Resources>
 
-    <Grid Margin="16" RowSpacing="12">
+    <Grid Margin="16" RowSpacing="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ══ Header ══════════════════════════════════════════════════════════ -->
+        <!-- ══ Control bar ══════════════════════════════════════════════════════ -->
         <Border Grid.Row="0"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="20,14">
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                BorderThickness="1" CornerRadius="8" Padding="16,12">
+            <Grid RowSpacing="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- Baseline -->
-                <StackPanel Grid.Column="0" Spacing="4">
-                    <TextBlock Text="Baseline" Foreground="#FF8AABAB" FontSize="11"/>
-                    <ComboBox ItemsSource="{x:Bind ViewModel.SetupFiles}"
-                              SelectedItem="{x:Bind ViewModel.BaselineFile, Mode=TwoWay}"
-                              PlaceholderText="— select baseline —"
-                              HorizontalAlignment="Stretch"
-                              Background="#FF0F2020" Foreground="#FFE0F0F0"
-                              BorderBrush="#FF2E4040"/>
-                </StackPanel>
+                <!-- Row 0: Auto-diff status + copy button -->
+                <Grid Grid.Row="0" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- Candidate -->
-                <StackPanel Grid.Column="1" Spacing="4">
-                    <TextBlock Text="Candidate" Foreground="#FF8AABAB" FontSize="11"/>
-                    <ComboBox ItemsSource="{x:Bind ViewModel.SetupFiles}"
-                              SelectedItem="{x:Bind ViewModel.CandidateFile, Mode=TwoWay}"
-                              PlaceholderText="— select candidate —"
-                              HorizontalAlignment="Stretch"
-                              Background="#FF0F2020" Foreground="#FFE0F0F0"
-                              BorderBrush="#FF2E4040"/>
-                </StackPanel>
+                    <TextBlock Grid.Column="0"
+                               Text="🔀 Diff:"
+                               Foreground="#FF8AABAB" FontSize="12" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
 
-                <!-- Run button -->
-                <Button Grid.Column="2"
-                        Content="▶ Run Diff"
-                        Style="{StaticResource AccentActionButton}"
-                        VerticalAlignment="Bottom"
-                        Command="{x:Bind ViewModel.RunDiffCommand}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{x:Bind ViewModel.LastAppliedLabel, Mode=OneWay}"
+                               Foreground="#FF00D4B4" FontFamily="Consolas" FontSize="12"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
 
-                <!-- Status -->
-                <TextBlock Grid.Column="3"
-                           Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                           Foreground="#FF8AABAB" FontSize="12" FontFamily="Consolas"
-                           VerticalAlignment="Bottom"
-                           TextWrapping="Wrap"/>
+                    <TextBlock Grid.Column="2"
+                               Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               Foreground="#FF8AABAB" FontSize="11" FontFamily="Consolas"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"/>
+
+                    <Button Grid.Column="3"
+                            Content="📋 Copiar diff"
+                            Command="{x:Bind ViewModel.CopyDiffCommand}"
+                            Style="{StaticResource SecondaryActionButton}"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- Row 1: Manual comparison -->
+                <Grid Grid.Row="1" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Spacing="3">
+                        <TextBlock Text="Baseline" Foreground="#FF607070" FontSize="10"/>
+                        <ComboBox ItemsSource="{x:Bind ViewModel.SetupFiles}"
+                                  SelectedItem="{x:Bind ViewModel.BaselineFile, Mode=TwoWay}"
+                                  PlaceholderText="— baseline —"
+                                  HorizontalAlignment="Stretch"
+                                  Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                  BorderBrush="#FF2E4040" FontSize="11"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="3">
+                        <TextBlock Text="Candidate" Foreground="#FF607070" FontSize="10"/>
+                        <ComboBox ItemsSource="{x:Bind ViewModel.SetupFiles}"
+                                  SelectedItem="{x:Bind ViewModel.CandidateFile, Mode=TwoWay}"
+                                  PlaceholderText="— candidate —"
+                                  HorizontalAlignment="Stretch"
+                                  Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                  BorderBrush="#FF2E4040" FontSize="11"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="2"
+                            Content="▶ Run Diff"
+                            Style="{StaticResource AccentActionButton}"
+                            VerticalAlignment="Bottom"
+                            Command="{x:Bind ViewModel.RunDiffCommand}"/>
+                </Grid>
             </Grid>
         </Border>
 
-        <!-- ══ Group summary ════════════════════════════════════════════════════ -->
+        <!-- ══ Category badge pills ═════════════════════════════════════════════ -->
         <Border Grid.Row="1"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="16,10">
+                BorderThickness="1" CornerRadius="8" Padding="14,8">
             <StackPanel Spacing="6">
-                <TextBlock Text="Changes by Group" Foreground="#FF8AABAB" FontSize="11" FontWeight="SemiBold"/>
-                <ItemsControl ItemsSource="{x:Bind ViewModel.GroupSummaries, Mode=OneWay}">
+                <TextBlock Text="Cambios por categoría"
+                           Foreground="#FF8AABAB" FontSize="10" FontWeight="SemiBold"/>
+                <ItemsControl ItemsSource="{x:Bind ViewModel.CategoryGroups, Mode=OneWay}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="10"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:GroupSummaryRow">
+                        <DataTemplate x:DataType="vm:DiffCategoryGroup">
                             <Border Background="#FF0F2A1A" CornerRadius="4" Padding="8,3">
-                                <TextBlock Text="{x:Bind Display}"
-                                           Foreground="#FF00D4B4" FontSize="12"
-                                           FontFamily="Consolas" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{x:Bind CategoryName}"
+                                               Foreground="#FF00D4B4" FontSize="11"
+                                               FontFamily="Consolas" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                    <Border Background="#FF1A4030" CornerRadius="3" Padding="4,1">
+                                        <TextBlock Text="{x:Bind CountBadge}"
+                                                   Foreground="#FF80FFD0" FontSize="10"
+                                                   FontFamily="Consolas" FontWeight="Bold"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -97,104 +139,162 @@
             </StackPanel>
         </Border>
 
-        <!-- ══ Diff table ═══════════════════════════════════════════════════════ -->
+        <!-- ══ Grouped diff view ════════════════════════════════════════════════ -->
         <Border Grid.Row="2"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="16">
-            <Grid RowSpacing="6">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+                BorderThickness="1" CornerRadius="8" Padding="16,12">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{x:Bind ViewModel.CategoryGroups, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DiffCategoryGroup">
+                            <StackPanel Spacing="3" Margin="0,0,0,16">
 
-                <!-- Column headers -->
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="84"/>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="80"/>
-                        <ColumnDefinition Width="80"/>
-                        <ColumnDefinition Width="80"/>
-                        <ColumnDefinition Width="72"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Kind"      Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="1" Text="Group"     Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="2" Text="Parameter" Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="3" Text="Section"   Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="4" Text="Old"       Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="5" Text="New"       Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="6" Text="Δ"         Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                    <TextBlock Grid.Column="7" Text="Δ%"        Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
-                </Grid>
+                                <!-- Category header -->
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                <!-- Diff rows -->
-                <ListView Grid.Row="1"
-                          ItemsSource="{x:Bind ViewModel.DiffEntries, Mode=OneWay}"
-                          Background="Transparent"
-                          SelectionMode="None">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="Padding" Value="0,1"/>
-                            <Setter Property="MinHeight" Value="0"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="models:SetupDiffEntry">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="84"/>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="72"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           Text="{x:Bind KindDisplay}"
-                                           FontFamily="Consolas" FontSize="11"
-                                           Foreground="{x:Bind Kind, Converter={StaticResource DiffKindToColorConverter}}"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{x:Bind Group}"
-                                           FontFamily="Consolas" FontSize="11"
-                                           Foreground="#FF8AABAB"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="{x:Bind Name}"
-                                           FontFamily="Consolas" FontSize="12"
-                                           Foreground="#FFB0D8D8"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Column="3"
-                                           Text="{x:Bind Section}"
-                                           FontFamily="Consolas" FontSize="11"
-                                           Foreground="#FF607070"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Column="4"
-                                           Text="{x:Bind OldValueDisplay}"
-                                           FontFamily="Consolas" FontSize="12"
-                                           Foreground="#FF8AABAB"/>
-                                <TextBlock Grid.Column="5"
-                                           Text="{x:Bind NewValueDisplay}"
-                                           FontFamily="Consolas" FontSize="12"
-                                           Foreground="#FFE0F0F0"/>
-                                <TextBlock Grid.Column="6"
-                                           Text="{x:Bind DeltaDisplay}"
-                                           FontFamily="Consolas" FontSize="12"
-                                           Foreground="#FF00D4B4"/>
-                                <TextBlock Grid.Column="7"
-                                           Text="{x:Bind DeltaPercentDisplay}"
-                                           FontFamily="Consolas" FontSize="11"
-                                           Foreground="#FF8AABAB"/>
-                            </Grid>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{x:Bind CategoryName}"
+                                               Foreground="#FFE0F0F0"
+                                               FontSize="12" FontWeight="SemiBold"
+                                               FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+
+                                    <Border Grid.Column="1"
+                                            Background="#FF0F2A1A" CornerRadius="4"
+                                            Padding="6,2" Margin="8,0,0,0">
+                                        <TextBlock Text="{x:Bind CountBadge}"
+                                                   Foreground="#FF00D4B4"
+                                                   FontSize="10" FontFamily="Consolas"
+                                                   FontWeight="Bold"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <!-- separator line -->
+                                    <Rectangle Grid.Column="2"
+                                               Height="1" Fill="#FF2E4040"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </Grid>
+
+                                <!-- Column headers -->
+                                <Grid Padding="2,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="24"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="64"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="1" Text="Parámetro"  Foreground="#FF3A5858" FontSize="10" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Column="2" Text="Anterior"   Foreground="#FF3A5858" FontSize="10" FontFamily="Consolas" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="4" Text="Nuevo"      Foreground="#FF3A5858" FontSize="10" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Column="5" Text="Δ"          Foreground="#FF3A5858" FontSize="10" FontFamily="Consolas" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="6" Text="Δ%"         Foreground="#FF3A5858" FontSize="10" FontFamily="Consolas" HorizontalAlignment="Right"/>
+                                </Grid>
+
+                                <!-- Diff rows -->
+                                <ItemsControl ItemsSource="{x:Bind Entries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:SetupDiffEntry">
+                                            <Grid Padding="2,2" ColumnSpacing="4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="24"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="100"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="100"/>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="64"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Badge (▲ / ▼ / ~) -->
+                                                <Border Grid.Column="0"
+                                                        CornerRadius="3" Padding="3,1"
+                                                        Background="{x:Bind DeltaSign, Converter={StaticResource DeltaSignToBackgroundConverter}}"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock
+                                                        Text="{x:Bind BadgeText}"
+                                                        Foreground="{x:Bind DeltaSign, Converter={StaticResource DeltaSignToColorConverter}}"
+                                                        FontFamily="Consolas" FontSize="10"
+                                                        FontWeight="Bold"
+                                                        HorizontalAlignment="Center"/>
+                                                </Border>
+
+                                                <!-- Section.Key -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock
+                                                        Text="{x:Bind Section}"
+                                                        Foreground="#FF607070"
+                                                        FontFamily="Consolas" FontSize="11"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        VerticalAlignment="Center"/>
+                                                    <TextBlock Text="." Foreground="#FF3A5858"
+                                                               FontFamily="Consolas" FontSize="11"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock
+                                                        Text="{x:Bind Name}"
+                                                        Foreground="#FFB0D8D8"
+                                                        FontFamily="Consolas" FontSize="11"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        VerticalAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <!-- Old value -->
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{x:Bind OldRaw}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="#FF8AABAB"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"/>
+
+                                                <!-- Arrow -->
+                                                <TextBlock Grid.Column="3"
+                                                           Text="→"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="#FF3A5858"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+
+                                                <!-- New value -->
+                                                <TextBlock Grid.Column="4"
+                                                           Text="{x:Bind NewRaw}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="#FFE0F0F0"
+                                                           VerticalAlignment="Center"/>
+
+                                                <!-- Delta -->
+                                                <TextBlock Grid.Column="5"
+                                                           Text="{x:Bind DeltaDisplay}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{x:Bind DeltaSign, Converter={StaticResource DeltaSignToColorConverter}}"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"/>
+
+                                                <!-- Delta % -->
+                                                <TextBlock Grid.Column="6"
+                                                           Text="{x:Bind DeltaPercentDisplay}"
+                                                           FontFamily="Consolas" FontSize="10"
+                                                           Foreground="#FF607070"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                            </StackPanel>
                         </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Grid>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
         </Border>
     </Grid>
 </Page>

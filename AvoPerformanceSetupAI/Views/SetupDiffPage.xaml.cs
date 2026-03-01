@@ -5,7 +5,7 @@ namespace AvoPerformanceSetupAI.Views;
 
 public sealed partial class SetupDiffPage : Page
 {
-    public SetupDiffViewModel ViewModel { get; } = new SetupDiffViewModel();
+    public SetupDiffViewModel ViewModel { get; } = SetupDiffViewModel.Shared;
 
     public SetupDiffPage()
     {

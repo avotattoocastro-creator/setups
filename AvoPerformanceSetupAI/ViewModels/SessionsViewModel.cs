@@ -54,6 +54,21 @@ public partial class SessionsViewModel : ObservableObject
     private string? _backupPath;
     private const string BackupExtension = ".bak";
 
+    // ── Base INI text (captured on Load, used for diff after Apply) ───────────
+    private string _baseIniText = string.Empty;
+
+    // ── Apply state ──────────────────────────────────────────────────────────
+    /// <summary>True while an Apply operation is in progress — disables the Apply button.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
+    private bool _isApplying;
+
+    /// <summary>Label shown after a successful Apply, e.g. "base.ini → versioned__AI__v001.ini".</summary>
+    [ObservableProperty] private string _appliedFileLabel = string.Empty;
+
+    /// <summary>Surfaced for XAML CanExecute binding — mirrors the private <c>CanApplyProposal()</c>.</summary>
+    public bool CanApplyProposalPublic => CanApplyProposal();
+
     // ── Known simulator process names ────────────────────────────────────────
     private static readonly string[] SimProcessNames =
         ["acs", "AC2-Win64-Shipping", "AssettoCorsaCompetizione", "ACCS", "acc"];
@@ -265,6 +280,8 @@ public partial class SessionsViewModel : ObservableObject
     partial void OnCarIdChanged(string value)   => _ = LoadTracksAsync(value);
     partial void OnTrackIdChanged(string value) => _ = LoadSetupFilesAsync(value);
 
+    partial void OnIsApplyingChanged(bool value) => ApplyProposalCommand.NotifyCanExecuteChanged();
+
     partial void OnSelectedSetupFileChanged(string? value)
     {
         _ = LoadProposalsFromFileAsync();
@@ -423,9 +440,15 @@ public partial class SessionsViewModel : ObservableObject
         {
             _cachedEntries  = null;
             CurrentUniverse = null;
+            _baseIniText    = string.Empty;
             AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
         }
+
+        // Persist raw text so ApplyProposalAsync can compute the base→proposed diff.
+        _baseIniText = iniText;
+        AppLogger.Instance.Info($"Loaded base file: {SelectedSetupFile}");
+        AddLog($"Loaded base file: {SelectedSetupFile}");
 
         try
         {
@@ -904,11 +927,29 @@ public partial class SessionsViewModel : ObservableObject
         System.Diagnostics.Debug.WriteLine("[SessionsVM] APPLY CLICKED");
         AddLog("APPLY CLICKED");
 
-        // Read current INI via provider (works local or remote)
-        string iniText;
+        IsApplying = true;
+        ApplyProposalCommand.NotifyCanExecuteChanged();
+
         try
         {
-            iniText = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile!);
+            await DoApplyProposalAsync();
+        }
+        finally
+        {
+            IsApplying = false;
+            ApplyProposalCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private async Task DoApplyProposalAsync()
+    {
+        // Re-read the current base INI so the diff is always accurate, even if
+        // _baseIniText was set from a previous load.
+        string baseIniText;
+        try
+        {
+            baseIniText  = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile!);
+            _baseIniText = baseIniText;
         }
         catch (Exception ex)
         {
@@ -919,9 +960,7 @@ public partial class SessionsViewModel : ObservableObject
             return;
         }
 
-        // Safety filter: only apply proposals whose (Section, Parameter) exists in the loaded universe.
-        // This prevents "no encontrado" errors caused by AI proposals with hardcoded parameter names
-        // that don't match the actual keys in this INI.
+        // Safety filter: only apply proposals whose (Section, Parameter) exists in the universe.
         var universe = _currentUniverse;
         var proposalsToApply = universe is null
             ? LastProposals.ToList()
@@ -935,18 +974,16 @@ public partial class SessionsViewModel : ObservableObject
                 return false;
             }).ToList();
 
-        // Apply proposals in-memory
-        var lines = SetupIniParser.NormalizeText(iniText)
+        // Apply changes in-memory to produce the modified text (used in both paths).
+        var lines = SetupIniParser.NormalizeText(baseIniText)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
             .ToList();
         foreach (var proposal in proposalsToApply)
         {
             bool applied = false;
-            var currentSection = string.Empty;
+            var  currentSection = string.Empty;
 
             // Format A (AC per-section): [PRESSURE_LF]\nVALUE=1.70
-            // The parser sets Section=Key=sectionName for these entries, but the actual
-            // INI key is always "VALUE". Detect by checking Section == Parameter.
             bool isFormatA = proposal.Section.Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase);
             var  iniKey    = isFormatA ? "VALUE" : proposal.Parameter;
             var  newLine   = $"{iniKey}={proposal.To}";
@@ -978,51 +1015,81 @@ public partial class SessionsViewModel : ObservableObject
                     $"  Parámetro '[{proposal.Section}] {proposal.Parameter}' no encontrado en el archivo.");
         }
 
-        var modifiedText = string.Join("\n", lines);
+        var modifiedText  = string.Join("\n", lines);
         var versionedName = NextVersionedFileName(SelectedSetupFile!);
 
-        // Save versioned file (local: writes to circuit folder; remote: sends to Agent)
         try
         {
             string savedPath;
+
             if (IsRemoteMode)
             {
-                var postUrl = $"{SetupSettings.Instance.AgentBaseUrl}/api/reference/setups/save";
-                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: sending POST {postUrl}");
-                AddLog($"APPLY REMOTE: sending POST {postUrl}");
+                // ── Remote: try the atomic /apply endpoint, fall back to /save ──
+                var applyUrl = $"{SetupSettings.Instance.AgentBaseUrl}/api/reference/setup/apply";
+                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: POST {applyUrl}");
+                AddLog($"APPLY REMOTE: POST {applyUrl}");
 
-                savedPath = await CreateSaver().SaveAsync(CarId, TrackId, versionedName, modifiedText);
+                var applyReq = new ApplySetupRequestDto
+                {
+                    Car                 = CarId,
+                    Track               = TrackId,
+                    BaseFile            = SelectedSetupFile!,
+                    CreateVersionedCopy = true,
+                    Reason              = "AI Proposal",
+                    Changes             = proposalsToApply
+                        .Select(p =>
+                        {
+                            bool fmtA = p.Section.Equals(p.Parameter, StringComparison.OrdinalIgnoreCase);
+                            return new ApplySetupChangeDto
+                            {
+                                Section = p.Section,
+                                Key     = fmtA ? "VALUE" : p.Parameter,
+                                Value   = p.To,
+                            };
+                        })
+                        .ToList(),
+                };
 
-                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: OK saved as {versionedName}");
-                AddLog($"APPLY REMOTE: OK saved as {versionedName}");
-                AppLogger.Instance.Ai($"Propuesta de IA aplicada y guardada en PC simulador: {savedPath}");
+                (savedPath, versionedName) = await TryApplyRemoteAsync(
+                    applyReq, versionedName, modifiedText);
             }
             else
             {
-                // Local: write the new versioned file (original is untouched — no overwrite/backup needed)
+                // ── Local: write the versioned file ─────────────────────────────
                 var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
                 Directory.CreateDirectory(destFolder);
                 var filePath = Path.Combine(destFolder, versionedName);
                 await File.WriteAllTextAsync(filePath, modifiedText);
                 savedPath = filePath;
-                AppLogger.Instance.Ai($"Propuesta de IA aplicada al archivo de setup.");
+                AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
             }
 
-            StatusText = "● PROPOSAL APPLIED";
+            StatusText       = "● PROPOSAL APPLIED";
+            AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
             AppLogger.Instance.Info($"Setup guardado como: {versionedName}  →  {savedPath}");
+            AddLog($"Applied → {versionedName}", "AI");
 
-            // Refresh file list so the new versioned file appears, then select it.
+            // Capture base label before SelectedSetupFile changes.
+            var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
+
+            // Refresh file list, select the new versioned file.
             await LoadSetupFilesAsync(TrackId);
             SelectedSetupFile = versionedName;
 
-            // Reload proposals from the newly selected versioned file so ParsedParameters
-            // (Setup Diff) reflects the applied changes.
+            // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
+            SetupDiffViewModel.Shared.Load(
+                baseText:      baseIniText,
+                proposedText:  modifiedText,
+                baseLabel:     baseLabel,
+                proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
+
+            // Reload proposals from the newly selected versioned file.
             await LoadProposalsFromFileAsync();
         }
         catch (Exception ex)
         {
-            var inner = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
-            var failMsg = $"APPLY REMOTE: ERROR [{ex.GetType().Name}] {ex.Message}{inner}";
+            var inner   = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
+            var failMsg = $"APPLY ERROR [{ex.GetType().Name}] {ex.Message}{inner}";
             System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
             AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
@@ -1030,7 +1097,53 @@ public partial class SessionsViewModel : ObservableObject
         }
     }
 
-    private bool CanApplyProposal() => !string.IsNullOrEmpty(SelectedSetupFile) && LastProposals.Count > 0;
+    /// <summary>
+    /// Calls POST /api/reference/setup/apply. If the agent returns 404 (endpoint not yet
+    /// implemented), falls back silently to the legacy /save endpoint.
+    /// Returns (savedPath, finalVersionedName).
+    /// </summary>
+    private async Task<(string savedPath, string versionedName)> TryApplyRemoteAsync(
+        ApplySetupRequestDto applyReq, string localVersionedName, string modifiedText)
+    {
+        try
+        {
+            var result = await GetOrCreateAgentClient().ApplySetupAsync(applyReq);
+
+            if (!result.Success)
+                throw new AgentException(
+                    string.IsNullOrEmpty(result.Error)
+                        ? "El Agent no pudo aplicar la propuesta."
+                        : result.Error!);
+
+            // Prefer the name the Agent chose (it knows existing versioned files).
+            var finalName = !string.IsNullOrEmpty(result.SavedFile)
+                ? result.SavedFile
+                : localVersionedName;
+
+            System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: OK → {finalName}");
+            AddLog($"APPLY REMOTE: OK → {finalName}");
+            AppLogger.Instance.Ai($"Propuesta de IA aplicada por el Agent: {result.Path}");
+
+            return (result.Path, finalName);
+        }
+        catch (AgentException aex) when (
+            aex.HttpStatus == System.Net.HttpStatusCode.NotFound)
+        {
+            // Agent does not yet implement /apply — fall back to /save.
+            AppLogger.Instance.Warn(
+                "Endpoint /api/reference/setup/apply no disponible. Usando /save como fallback.");
+            AddLog("APPLY fallback → /api/reference/setups/save", "WRN");
+
+            var savedPath = await CreateSaver().SaveAsync(
+                applyReq.Car, applyReq.Track, localVersionedName, modifiedText);
+            return (savedPath, localVersionedName);
+        }
+    }
+
+    private bool CanApplyProposal() =>
+        !IsApplying &&
+        !string.IsNullOrEmpty(SelectedSetupFile) &&
+        LastProposals.Count > 0;
 
     /// <summary>
     /// Restaura el backup creado por ApplyProposal, revertiendo el archivo .ini al estado anterior.

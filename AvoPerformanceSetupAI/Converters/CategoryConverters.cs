@@ -138,6 +138,50 @@ public sealed class DiffKindToColorConverter : IValueConverter
 }
 
 /// <summary>
+/// Maps a <c>DeltaSign</c> integer (+1, -1, 0) to the appropriate foreground
+/// <see cref="SolidColorBrush"/> for +/- diff badges.
+/// +1 → green, -1 → red, 0 → neutral teal.
+/// </summary>
+public sealed class DeltaSignToColorConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return value is int sign
+            ? sign switch
+            {
+                 1 => new SolidColorBrush(Windows.UI.Color.FromArgb(255,   0, 212, 100)), // green ▲
+                -1 => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 240,  80,  80)), // red ▼
+                _  => new SolidColorBrush(Windows.UI.Color.FromArgb(255,   0, 180, 180)), // teal ~
+            }
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 138, 171, 171));
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
+
+/// <summary>
+/// Maps a <c>DeltaSign</c> integer to the appropriate badge background brush.
+/// </summary>
+public sealed class DeltaSignToBackgroundConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return value is int sign
+            ? sign switch
+            {
+                 1 => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  10,  35,  15)), // dark green
+                -1 => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  35,  10,  10)), // dark red
+                _  => new SolidColorBrush(Windows.UI.Color.FromArgb(255,  10,  28,  28)), // dark teal
+            }
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255,  20,  30,  30));
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
+
+/// <summary>
 /// Maps an AC connection status string to the appropriate border
 /// <see cref="SolidColorBrush"/> for the status badge.
 /// </summary>

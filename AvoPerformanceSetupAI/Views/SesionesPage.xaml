@@ -254,6 +254,12 @@
                         Style="{StaticResource SecondaryActionButton}"
                         HorizontalAlignment="Stretch"
                         Command="{Binding RollbackCommand}"/>
+                <!-- Applied indicator — shows file applied after proposals are accepted -->
+                <TextBlock Text="{Binding AppliedFileLabel}"
+                           Foreground="#FF00D4B4"
+                           FontFamily="Consolas"
+                           FontSize="10"
+                           TextWrapping="Wrap"/>
             </StackPanel>
 
         </StackPanel>

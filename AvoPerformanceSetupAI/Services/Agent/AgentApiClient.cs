@@ -18,6 +18,7 @@ public sealed class AgentApiClient : IDisposable
     private static readonly TimeSpan PingTimeout   = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan BrowseTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan SaveTimeout   = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan ApplyTimeout  = TimeSpan.FromSeconds(30);
 
     // Retry delays for reference-browsing endpoints (between attempts 1→2, 2→3, 3→4)
     private static readonly TimeSpan[] BrowseRetryDelays =
@@ -109,6 +110,14 @@ public sealed class AgentApiClient : IDisposable
             SetupText = setupText,
             Overwrite = overwrite,
         });
+
+    /// <summary>
+    /// POST /api/reference/setup/apply — sends a list of INI key changes to the Agent.
+    /// The Agent applies them to <paramref name="request"/>.BaseFile and saves a versioned copy.
+    /// Returns the saved file name on success.
+    /// </summary>
+    public Task<ApplySetupResult> ApplySetupAsync(ApplySetupRequestDto request)
+        => PostWithTimeoutAsync<ApplySetupResult>("/api/reference/setup/apply", request, ApplyTimeout);
 
     // ── Core HTTP helpers ─────────────────────────────────────────────────────
 
@@ -305,6 +314,11 @@ public sealed class AgentApiClient : IDisposable
 
     private async Task<T> PostAsync<T>(string path, object? body)
     {
+        return await PostWithTimeoutAsync<T>(path, body, SaveTimeout);
+    }
+
+    private async Task<T> PostWithTimeoutAsync<T>(string path, object? body, TimeSpan timeout)
+    {
         try
         {
             using var req  = body is null
@@ -313,7 +327,7 @@ public sealed class AgentApiClient : IDisposable
                 : new HttpRequestMessage(HttpMethod.Post, _baseUrl + path)
                   { Content = JsonContent.Create(body, options: JsonOpts) };
 
-            var res = await SendWithTimeoutAsync(req, SaveTimeout);
+            var res = await SendWithTimeoutAsync(req, timeout);
             await EnsureSuccessAsync(res);
             var result = await res.Content.ReadFromJsonAsync<T>(JsonOpts);
             return result ?? throw new AgentException("Empty response from agent.");
@@ -328,9 +342,11 @@ public sealed class AgentApiClient : IDisposable
         var body = await res.Content.ReadAsStringAsync();
         throw res.StatusCode switch
         {
-            System.Net.HttpStatusCode.Unauthorized => new AgentException("Token inválido (401)."),
-            System.Net.HttpStatusCode.NotFound     => new AgentException("Endpoint no encontrado (404)."),
-            _ => new AgentException($"Error HTTP {(int)res.StatusCode}: {body}")
+            System.Net.HttpStatusCode.Unauthorized =>
+                new AgentException("Token inválido (401).", System.Net.HttpStatusCode.Unauthorized),
+            System.Net.HttpStatusCode.NotFound     =>
+                new AgentException("Endpoint no encontrado (404).", System.Net.HttpStatusCode.NotFound),
+            _ => new AgentException($"Error HTTP {(int)res.StatusCode}: {body}", res.StatusCode)
         };
     }
 
@@ -340,6 +356,11 @@ public sealed class AgentApiClient : IDisposable
 /// <summary>Typed exception thrown by <see cref="AgentApiClient"/> on every error path.</summary>
 public sealed class AgentException : Exception
 {
+    /// <summary>HTTP status code, or <see langword="null"/> when the error is not HTTP-level.</summary>
+    public System.Net.HttpStatusCode? HttpStatus { get; }
+
     public AgentException(string message) : base(message) { }
     public AgentException(string message, Exception inner) : base(message, inner) { }
+    public AgentException(string message, System.Net.HttpStatusCode status) : base(message)
+        => HttpStatus = status;
 }

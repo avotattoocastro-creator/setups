@@ -40,6 +40,40 @@ public sealed class SaveResult
     public string Error   { get; set; } = string.Empty;
 }
 
+// ── POST /api/reference/setup/apply ──────────────────────────────────────────
+
+/// <summary>One INI change in an <see cref="ApplySetupRequestDto"/>.</summary>
+public sealed class ApplySetupChangeDto
+{
+    public string Section { get; set; } = string.Empty;
+    public string Key     { get; set; } = string.Empty;
+    public string Value   { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Body for POST /api/reference/setup/apply — applies a list of INI key changes
+/// to the specified base file and (optionally) saves a versioned copy.
+/// </summary>
+public sealed class ApplySetupRequestDto
+{
+    public string                    Car                 { get; set; } = string.Empty;
+    public string                    Track               { get; set; } = string.Empty;
+    public string                    BaseFile            { get; set; } = string.Empty;
+    public List<ApplySetupChangeDto> Changes             { get; set; } = [];
+    public bool                      CreateVersionedCopy { get; set; } = true;
+    public string?                   Reason              { get; set; }
+}
+
+/// <summary>Response from POST /api/reference/setup/apply.</summary>
+public sealed class ApplySetupResult
+{
+    public bool    Success   { get; set; }
+    /// <summary>File name of the saved (versioned) setup, e.g. "Supra MKIV Race mid__AI__v003.ini".</summary>
+    public string  SavedFile { get; set; } = string.Empty;
+    public string  Path      { get; set; } = string.Empty;
+    public string? Error     { get; set; }
+}
+
 /// <summary>
 /// A single structured log entry streamed by the Agent over WebSocket
 /// (<c>ws://HOST:PORT/ws/logs</c>).
