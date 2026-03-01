@@ -121,7 +121,7 @@ public partial class SessionsViewModel : ObservableObject
         if (SetupSettings.Instance.Mode == AppMode.Remote)
             return new RemoteSetupLibraryProvider(GetOrCreateAgentClient());
 
-        return new LocalSetupLibraryProvider((Application.Current as App)!.MainWindow);
+        return new LocalSetupLibraryProvider((Application.Current as App)!.MainWindow!);
     }
 
     /// <summary>
