@@ -18,8 +18,23 @@ public enum SetupCategory
 }
 
 /// <summary>A setup key extended with its <see cref="SetupCategory"/> classification.</summary>
-public sealed class CategorizedKeyInfo : SetupKeyInfo
+public sealed class CategorizedKeyInfo
 {
+    /// <summary>Section name from the INI file.</summary>
+    public required string Section { get; init; }
+
+    /// <summary>Key name from the INI file.</summary>
+    public required string Key { get; init; }
+
+    /// <summary>Raw string value from the INI file.</summary>
+    public required string RawValue { get; init; }
+
+    /// <summary>Parsed numeric value, if applicable.</summary>
+    public double? NumericValue { get; init; }
+
+    /// <summary>Whether the value could be parsed as numeric.</summary>
+    public bool IsNumeric { get; init; }
+
     /// <summary>Category assigned by <see cref="SetupParamClassifier.Classify"/>.</summary>
     public SetupCategory Category { get; init; }
 
