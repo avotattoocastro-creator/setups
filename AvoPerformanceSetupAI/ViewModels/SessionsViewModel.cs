@@ -944,6 +944,13 @@ public partial class SessionsViewModel : ObservableObject
             bool applied = false;
             var currentSection = string.Empty;
 
+            // Format A (AC per-section): [PRESSURE_LF]\nVALUE=1.70
+            // The parser sets Section=Key=sectionName for these entries, but the actual
+            // INI key is always "VALUE". Detect by checking Section == Parameter.
+            bool isFormatA = proposal.Section.Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase);
+            var  iniKey    = isFormatA ? "VALUE" : proposal.Parameter;
+            var  newLine   = $"{iniKey}={proposal.To}";
+
             for (int i = 0; i < lines.Count; i++)
             {
                 var trimmed = lines[i].Trim();
@@ -956,9 +963,9 @@ public partial class SessionsViewModel : ObservableObject
                 var eqIdx = lines[i].IndexOf('=');
                 if (eqIdx > 0 &&
                     currentSection.Equals(proposal.Section, StringComparison.OrdinalIgnoreCase) &&
-                    lines[i][..eqIdx].Trim().Equals(proposal.Parameter, StringComparison.OrdinalIgnoreCase))
+                    lines[i][..eqIdx].Trim().Equals(iniKey, StringComparison.OrdinalIgnoreCase))
                 {
-                    lines[i] = $"{proposal.Parameter}={proposal.To}";
+                    lines[i] = newLine;
                     AppLogger.Instance.Data(
                         $"  [{proposal.Section}] {proposal.Parameter}: {proposal.From} → {proposal.To}  (Δ {proposal.Delta})");
                     applied = true;
