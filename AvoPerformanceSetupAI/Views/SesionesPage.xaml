@@ -246,7 +246,8 @@
 
             <!-- Proposal Action Buttons -->
             <StackPanel Spacing="8">
-                <Button Content="✔ Apply Proposal"
+                <Button Content="{Binding ApplyButtonLabel}"
+                        ToolTipService.ToolTip="{Binding ApplyButtonTooltip}"
                         Style="{StaticResource AccentActionButton}"
                         HorizontalAlignment="Stretch"
                         Command="{Binding ApplyProposalCommand}"/>

@@ -38,6 +38,28 @@ public partial class SessionsViewModel : ObservableObject
     public bool IsRemoteMode => SetupSettings.Instance.Mode == AppMode.Remote;
 
     /// <summary>
+    /// True when the current session mode is "Hotlap" (offline/save-only).
+    /// In this mode the apply button acts as a pure save operation and
+    /// <c>appliedOk == false</c> is never surfaced as a warning.
+    /// </summary>
+    public bool IsHotlapMode =>
+        string.Equals(Mode, "Hotlap", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Label shown on the Apply/Save button.
+    /// Changes reactively when <see cref="Mode"/> changes.
+    /// </summary>
+    public string ApplyButtonLabel => IsHotlapMode ? "💾 Save Proposal" : "⚡ Apply Live";
+
+    /// <summary>
+    /// Tooltip shown under the Apply/Save button.
+    /// Changes reactively when <see cref="Mode"/> changes.
+    /// </summary>
+    public string ApplyButtonTooltip => IsHotlapMode
+        ? "Saves a versioned setup file (offline)."
+        : "Applies changes live (requires AC running) and saves a versioned file.";
+
+    /// <summary>
     /// Short connection status badge text for the Telemetry page header.
     /// "REMOTE CONNECTED" / empty.
     /// </summary>
@@ -279,6 +301,13 @@ public partial class SessionsViewModel : ObservableObject
 
     partial void OnCarIdChanged(string value)   => _ = LoadTracksAsync(value);
     partial void OnTrackIdChanged(string value) => _ = LoadSetupFilesAsync(value);
+
+    partial void OnModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsHotlapMode));
+        OnPropertyChanged(nameof(ApplyButtonLabel));
+        OnPropertyChanged(nameof(ApplyButtonTooltip));
+    }
 
     partial void OnIsApplyingChanged(bool value) => ApplyProposalCommand.NotifyCanExecuteChanged();
 
@@ -1073,10 +1102,10 @@ public partial class SessionsViewModel : ObservableObject
             }
 
             // ── Status evaluation (3-state) ──────────────────────────────────
-            // 1. appliedOk==false (save OK, live apply skipped) → yellow warning
-            // 2. appliedOk==true                                → green success
-            // 3. savedOk==false or HTTP error                   → red error (caught in catch block)
-            if (!appliedOk)
+            // Hotlap mode: save-only — savedOk==true is always green regardless of appliedOk.
+            // Live mode:   savedOk==true && appliedOk==false → yellow warning.
+            // Both modes:  savedOk==false or HTTP error      → red (caught in catch block).
+            if (!appliedOk && !IsHotlapMode)
             {
                 var reason    = string.IsNullOrEmpty(appliedReason)
                     ? "Simulador no detectado"

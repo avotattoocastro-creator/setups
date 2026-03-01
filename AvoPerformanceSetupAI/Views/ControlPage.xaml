@@ -122,7 +122,8 @@
                                Foreground="#FF00D4B4" FontFamily="Consolas" FontSize="13"
                                TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Content="✔ Apply Proposal"
+                        <Button Content="{Binding ApplyButtonLabel}"
+                                ToolTipService.ToolTip="{Binding ApplyButtonTooltip}"
                                 Style="{StaticResource AccentActionButton}"
                                 Command="{Binding ApplyProposalCommand}"/>
                         <Button Content="↩ Rollback"
