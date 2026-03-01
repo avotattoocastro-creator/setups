@@ -67,11 +67,45 @@ public sealed class ApplySetupRequestDto
 /// <summary>Response from POST /api/reference/setup/apply.</summary>
 public sealed class ApplySetupResult
 {
-    public bool    Success   { get; set; }
+    // ── New Agent response shape ───────────────────────────────────────────────
+
+    /// <summary>
+    /// <see langword="true"/> when the versioned copy was written to disk successfully.
+    /// This is the primary success indicator — the client should treat the operation
+    /// as a success whenever <see cref="SavedOk"/> is <see langword="true"/>.
+    /// </summary>
+    public bool SavedOk { get; set; }
+
+    /// <summary>
+    /// <see langword="true"/> when the changes were also applied to the simulator
+    /// process in real time. May be <see langword="false"/> even on a successful save
+    /// (e.g. simulator not running). <em>Not</em> an error condition.
+    /// </summary>
+    public bool AppliedOk { get; set; }
+
+    /// <summary>
+    /// Human-readable explanation when <see cref="AppliedOk"/> is <see langword="false"/>,
+    /// e.g. "Simulator not detected". <see langword="null"/> when <see cref="AppliedOk"/>
+    /// is <see langword="true"/>.
+    /// </summary>
+    public string? Reason { get; set; }
+
     /// <summary>File name of the saved (versioned) setup, e.g. "Supra MKIV Race mid__AI__v003.ini".</summary>
     public string  SavedFile { get; set; } = string.Empty;
-    public string  Path      { get; set; } = string.Empty;
-    public string? Error     { get; set; }
+
+    public string  Path { get; set; } = string.Empty;
+
+    // ── Backward-compat aliases (old Agent returned "success"/"error") ────────
+
+    /// <summary>
+    /// Alias for <see cref="SavedOk"/>. Old Agent versions return a <c>"success"</c>
+    /// JSON property; new Agent versions return <c>"savedOk"</c>. Setting either
+    /// updates the same underlying state.
+    /// </summary>
+    public bool    Success { get => SavedOk; set => SavedOk = value; }
+
+    /// <summary>Error message from old Agent response shape. Mapped as the <see cref="Reason"/>.</summary>
+    public string? Error   { get => Reason; set => Reason = value; }
 }
 
 /// <summary>

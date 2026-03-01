@@ -1021,6 +1021,8 @@ public partial class SessionsViewModel : ObservableObject
         try
         {
             string savedPath;
+            bool   appliedOk     = true;
+            string? appliedReason = null;
 
             if (IsRemoteMode)
             {
@@ -1050,8 +1052,12 @@ public partial class SessionsViewModel : ObservableObject
                         .ToList(),
                 };
 
-                (savedPath, versionedName) = await TryApplyRemoteAsync(
+                var applyOutcome = await TryApplyRemoteAsync(
                     applyReq, versionedName, modifiedText);
+                savedPath     = applyOutcome.savedPath;
+                versionedName = applyOutcome.versionedName;
+                appliedOk     = applyOutcome.appliedOk;
+                appliedReason = applyOutcome.appliedReason;
             }
             else
             {
@@ -1060,11 +1066,30 @@ public partial class SessionsViewModel : ObservableObject
                 Directory.CreateDirectory(destFolder);
                 var filePath = Path.Combine(destFolder, versionedName);
                 await File.WriteAllTextAsync(filePath, modifiedText);
-                savedPath = filePath;
+                savedPath    = filePath;
+                appliedOk    = true;
+                appliedReason = null;
                 AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
             }
 
-            StatusText       = "● PROPOSAL APPLIED";
+            // ── Status evaluation (3-state) ──────────────────────────────────
+            // 1. appliedOk==false (save OK, live apply skipped) → yellow warning
+            // 2. appliedOk==true                                → green success
+            // 3. savedOk==false or HTTP error                   → red error (caught in catch block)
+            if (!appliedOk)
+            {
+                var reason    = string.IsNullOrEmpty(appliedReason)
+                    ? "Simulador no detectado"
+                    : appliedReason;
+                StatusText = "⚠ SAVED – NOT APPLIED LIVE";
+                AppLogger.Instance.Warn($"Setup guardado pero no aplicado en vivo: {reason}");
+                AddLog($"SAVED – NOT APPLIED LIVE: {reason}", "WRN");
+            }
+            else
+            {
+                StatusText = "● PROPOSAL APPLIED";
+            }
+
             AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
             AppLogger.Instance.Info($"Setup guardado como: {versionedName}  →  {savedPath}");
             AddLog($"Applied → {versionedName}", "AI");
@@ -1100,20 +1125,27 @@ public partial class SessionsViewModel : ObservableObject
     /// <summary>
     /// Calls POST /api/reference/setup/apply. If the agent returns 404 (endpoint not yet
     /// implemented), falls back silently to the legacy /save endpoint.
-    /// Returns (savedPath, finalVersionedName).
+    /// Returns a named tuple with (savedPath, versionedName, appliedOk, appliedReason).
+    /// <para>
+    /// <c>appliedOk</c> is <see langword="false"/> when the Agent saved the file but could not
+    /// apply it live (e.g. simulator not running) — this is NOT an error condition.
+    /// </para>
+    /// Throws <see cref="AgentException"/> only when <c>savedOk == false</c> or HTTP fails.
     /// </summary>
-    private async Task<(string savedPath, string versionedName)> TryApplyRemoteAsync(
-        ApplySetupRequestDto applyReq, string localVersionedName, string modifiedText)
+    private async Task<(string savedPath, string versionedName, bool appliedOk, string? appliedReason)>
+        TryApplyRemoteAsync(
+            ApplySetupRequestDto applyReq, string localVersionedName, string modifiedText)
     {
         try
         {
             var result = await GetOrCreateAgentClient().ApplySetupAsync(applyReq);
 
-            if (!result.Success)
+            // savedOk==false (or old-agent success==false) → true error
+            if (!result.SavedOk)
                 throw new AgentException(
-                    string.IsNullOrEmpty(result.Error)
-                        ? "El Agent no pudo aplicar la propuesta."
-                        : result.Error!);
+                    string.IsNullOrEmpty(result.Reason)
+                        ? "El Agent no pudo guardar la propuesta."
+                        : result.Reason!);
 
             // Prefer the name the Agent chose (it knows existing versioned files).
             var finalName = !string.IsNullOrEmpty(result.SavedFile)
@@ -1122,9 +1154,10 @@ public partial class SessionsViewModel : ObservableObject
 
             System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: OK → {finalName}");
             AddLog($"APPLY REMOTE: OK → {finalName}");
-            AppLogger.Instance.Ai($"Propuesta de IA aplicada por el Agent: {result.Path}");
+            AppLogger.Instance.Ai($"Propuesta de IA guardada por el Agent: {result.Path}");
 
-            return (result.Path, finalName);
+            // Return appliedOk/reason so caller can show an appropriate warning.
+            return (result.Path, finalName, result.AppliedOk, result.Reason);
         }
         catch (AgentException aex) when (
             aex.HttpStatus == System.Net.HttpStatusCode.NotFound)
@@ -1136,7 +1169,8 @@ public partial class SessionsViewModel : ObservableObject
 
             var savedPath = await CreateSaver().SaveAsync(
                 applyReq.Car, applyReq.Track, localVersionedName, modifiedText);
-            return (savedPath, localVersionedName);
+            // Fallback save has no live-apply concept, so appliedOk=true by convention.
+            return (savedPath, localVersionedName, appliedOk: true, appliedReason: null);
         }
     }
 
