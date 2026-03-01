@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
@@ -140,7 +141,43 @@ public partial class SessionsViewModel : ObservableObject
     private List<AvoPerformanceSetupAI.Models.IniEntry>? _cachedEntries;
 
     public ObservableCollection<string> SetupSources { get; } = new() { "Local File", "Server", "Git Repo" };
-    public ObservableCollection<string> Modes { get; } = new() { "Hotlap", "Race", "Qualify" };
+    public ObservableCollection<string> Modes { get; } = new() { "Hotlap", "Race", "Qualify", "Simulation" };
+
+    // ── Simulation plan engine ────────────────────────────────────────────────
+
+    /// <summary>IDs blocked from re-selection within the last <see cref="RecentHardBlock"/> picks.</summary>
+    private const int RecentHardBlock = 10;
+
+    /// <summary>Capacity of the rolling recent-keys window.</summary>
+    private const int RecentWindowSize = 30;
+
+    /// <summary>
+    /// Rolling FIFO of recently proposed "SECTION.KEY" ids (anti-repeat).
+    /// Only accessed from the UI thread (property/command handlers), so no locking needed.
+    /// </summary>
+    private readonly Queue<string> _recentProposalKeys = new(RecentWindowSize);
+
+    /// <summary>
+    /// Round-robin cursor used when no explicit signal drives category selection.
+    /// Only accessed from the UI thread.
+    /// </summary>
+    private int _simCatIndex;
+
+    /// <summary>
+    /// Categories cycled in round-robin order when no telemetry signal is available.
+    /// Ordered by typical lap-time impact so diversity stays meaningful.
+    /// </summary>
+    private static readonly SetupCategory[] SimRoundRobinCats =
+    [
+        SetupCategory.Tyres,
+        SetupCategory.Alignment,
+        SetupCategory.Aero,
+        SetupCategory.Suspension,
+        SetupCategory.Drivetrain,
+        SetupCategory.Electronics,
+        SetupCategory.Brakes,
+        SetupCategory.Gearing,
+    ];
 
     public SessionsViewModel()
     {
@@ -427,6 +464,13 @@ public partial class SessionsViewModel : ObservableObject
     {
         var allEntries = entries as List<IniEntry> ?? entries.ToList();
 
+        // ── Route Simulation mode to the 3-step plan engine ──────────────────
+        if (string.Equals(Mode, "Simulation", StringComparison.OrdinalIgnoreCase))
+        {
+            BuildSimulationPlan(allEntries);
+            return;
+        }
+
         // All numerically tunable entries (non-zero value, not a selector key).
         var tunable = allEntries
             .Where(e =>
@@ -529,6 +573,191 @@ public partial class SessionsViewModel : ObservableObject
         if (tunable.Count == 0)
             AppLogger.Instance.Warn(
                 "El archivo de setup no contiene parámetros numéricos reconocibles.");
+    }
+
+    // ── Simulation 3-step plan ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generates a 3-step simulation plan:
+    /// <list type="number">
+    ///   <item><b>Step 1 – Primary change</b>: highest-weight key from
+    ///     Aero / Tyres / Alignment (wing · pressure · camber · toe · arb),
+    ///     not blocked by the recent queue.</item>
+    ///   <item><b>Step 2 – Fine-tune</b>: second-best key from the <i>same</i>
+    ///     category as Step 1, not recent.</item>
+    ///   <item><b>Step 3 – Stability</b>: best available key from
+    ///     Brakes / Electronics / Suspension, not recent.</item>
+    /// </list>
+    /// Falls back to round-robin category selection when no high-impact key is found
+    /// for Step 1. All chosen keys are pushed to <see cref="_recentProposalKeys"/>.
+    /// </summary>
+    private void BuildSimulationPlan(List<IniEntry> allEntries)
+    {
+        const string modeName = "Simulation";
+
+        // Hard-block set: last RecentHardBlock keys.
+        var hardBlocked = _recentProposalKeys
+            .Skip(Math.Max(0, _recentProposalKeys.Count - RecentHardBlock))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        AppLogger.Instance.Data(
+            $"AI mode={modeName} recentBlock={RecentHardBlock} recentSoft={RecentWindowSize} " +
+            $"recentKeys=[{string.Join(", ", _recentProposalKeys.TakeLast(5))}]");
+
+        // Build weighted tunable list (same filter as BuildProposals).
+        var weighted = allEntries
+            .Where(e =>
+                !NonTunableKeys.Contains(e.Key) &&
+                double.TryParse(e.Value,
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var v) && v != 0.0)
+            .Select(e =>
+            {
+                var cat    = SetupParamClassifier.Classify(e.Section, e.Key);
+                var weight = SetupParamClassifier.ImpactWeight(cat, e.Key);
+                return (Entry: e, Cat: cat, Weight: weight, Id: $"{e.Section}.{e.Key}");
+            })
+            .OrderByDescending(t => t.Weight)
+            .ToList();
+
+        if (weighted.Count == 0)
+        {
+            AppLogger.Instance.Warn("Simulation plan: no tunable parameters found.");
+            return;
+        }
+
+        // ── Step 1: high-impact primary key ──────────────────────────────────
+        // Preferred categories for the primary change.
+        var highImpactCats = new HashSet<SetupCategory>
+        {
+            SetupCategory.Aero,
+            SetupCategory.Tyres,
+            SetupCategory.Alignment,
+        };
+        // High-impact keyword check (section-agnostic).
+        static bool IsHighImpactKey(string key)
+        {
+            var k = key.ToUpperInvariant();
+            return k.Contains("WING")     || k.Contains("SPLITTER")  ||
+                   k.Contains("PRESSURE") || k.Contains("CAMBER")    ||
+                   k.Contains("TOE")      || k.Contains("CASTER")    ||
+                   k.Contains("ARB")      || k.Contains("ANTIROLL");
+        }
+
+        // First look for an unblocked high-impact key in the preferred categories.
+        var step1Candidate = weighted
+            .Where(t => highImpactCats.Contains(t.Cat) &&
+                        IsHighImpactKey(t.Entry.Key) &&
+                        !hardBlocked.Contains(t.Id))
+            .FirstOrDefault();
+
+        // If nothing found, widen to any unblocked key in preferred categories.
+        if (step1Candidate == default)
+            step1Candidate = weighted
+                .Where(t => highImpactCats.Contains(t.Cat) && !hardBlocked.Contains(t.Id))
+                .FirstOrDefault();
+
+        // Still nothing — fall back to round-robin over all categories.
+        SetupCategory step1Cat;
+        if (step1Candidate == default)
+        {
+            step1Cat        = SimRoundRobinCats[_simCatIndex % SimRoundRobinCats.Length];
+            _simCatIndex++;
+            step1Candidate  = weighted
+                .Where(t => t.Cat == step1Cat && !hardBlocked.Contains(t.Id))
+                .FirstOrDefault();
+            AppLogger.Instance.Data($"AI step1 fallback to round-robin category={step1Cat}");
+        }
+
+        if (step1Candidate == default)
+        {
+            AppLogger.Instance.Warn("Simulation plan: no unblocked candidate for Step 1.");
+            return;
+        }
+
+        step1Cat = step1Candidate.Cat;
+        AppLogger.Instance.Data(
+            $"AI picked step1: category={step1Cat} key={step1Candidate.Id} weight={step1Candidate.Weight:F2}");
+
+        // ── Step 2: fine-tune — same category, different key, unblocked ───────
+        var step2Candidate = weighted
+            .Where(t => t.Cat == step1Cat &&
+                        t.Id  != step1Candidate.Id &&
+                        !hardBlocked.Contains(t.Id))
+            .FirstOrDefault();
+
+        if (step2Candidate == default)
+            AppLogger.Instance.Data($"AI step2: no second candidate in category={step1Cat}, skipping.");
+        else
+            AppLogger.Instance.Data(
+                $"AI picked step2: category={step2Candidate.Cat} key={step2Candidate.Id} weight={step2Candidate.Weight:F2}");
+
+        // ── Step 3: stability — Brakes / Electronics / Suspension ─────────────
+        var stabilityCats = new HashSet<SetupCategory>
+        {
+            SetupCategory.Brakes,
+            SetupCategory.Electronics,
+            SetupCategory.Suspension,
+        };
+
+        var step3Candidate = weighted
+            .Where(t => stabilityCats.Contains(t.Cat) &&
+                        t.Id != step1Candidate.Id &&
+                        (step2Candidate == default || t.Id != step2Candidate.Id) &&
+                        !hardBlocked.Contains(t.Id))
+            .FirstOrDefault();
+
+        if (step3Candidate == default)
+            AppLogger.Instance.Data("AI step3: no stability candidate found, skipping.");
+        else
+            AppLogger.Instance.Data(
+                $"AI picked step3: category={step3Candidate.Cat} key={step3Candidate.Id} weight={step3Candidate.Weight:F2}");
+
+        // ── Emit proposals + log plan ─────────────────────────────────────────
+        var steps = new[]
+        {
+            (step1Candidate, "Step 1 – Primary change (high impact)"),
+            (step2Candidate, "Step 2 – Fine-tune (same category)"),
+            (step3Candidate, "Step 3 – Stability / safety"),
+        };
+
+        var planIds = new StringBuilder();
+        foreach (var (candidate, rationale) in steps)
+        {
+            if (candidate == default) continue;
+
+            if (!double.TryParse(candidate.Entry.Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var current))
+                continue;
+
+            var step     = SetupParamClassifier.SafeStep(candidate.Cat, candidate.Entry.Key, current);
+            var proposed = Math.Round(current - step, 4);
+            var deltaStr = $"-{step.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+            LastProposals.Add(new Proposal
+            {
+                Section   = candidate.Entry.Section,
+                Parameter = candidate.Entry.Key,
+                From      = candidate.Entry.Value,
+                To        = proposed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Delta     = deltaStr,
+                Reason    = rationale,
+            });
+
+            // Track in recent queue (FIFO, capped at RecentWindowSize).
+            if (_recentProposalKeys.Count >= RecentWindowSize)
+                _recentProposalKeys.Dequeue();
+            _recentProposalKeys.Enqueue(candidate.Id);
+
+            planIds.Append($"{candidate.Id}({candidate.Cat}) ");
+        }
+
+        var planLog = $"AI final plan [{modeName}]: {planIds.ToString().TrimEnd()}";
+        AppLogger.Instance.Ai(planLog);
+        AddLog(planLog, "AI");
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
