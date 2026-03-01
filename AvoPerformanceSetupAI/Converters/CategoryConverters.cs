@@ -181,6 +181,31 @@ public sealed class DeltaSignToBackgroundConverter : IValueConverter
         throw new NotImplementedException();
 }
 
+/// <summary>Converts a <see cref="bool"/> to "Yes" / "No" string.</summary>
+public sealed class BoolToYesNoConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value is true ? "Yes" : "No";
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
+
+/// <summary>
+/// Returns <see cref="Microsoft.UI.Xaml.Visibility.Collapsed"/> when the value is
+/// <see langword="null"/> or an empty string, otherwise <see cref="Microsoft.UI.Xaml.Visibility.Visible"/>.
+/// </summary>
+public sealed class NullToCollapsedConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (value is null || (value is string s && string.IsNullOrEmpty(s)))
+            ? Microsoft.UI.Xaml.Visibility.Collapsed
+            : Microsoft.UI.Xaml.Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
+
 /// <summary>
 /// Maps an AC connection status string to the appropriate border
 /// <see cref="SolidColorBrush"/> for the status badge.

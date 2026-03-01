@@ -70,6 +70,10 @@
             <TabViewItem x:Name="TabSetupDiff" Header="🔀 Setup Diff" IsClosable="False">
                 <views:SetupDiffPage />
             </TabViewItem>
+
+            <TabViewItem x:Name="TabIa" Header="🤖 IA" IsClosable="False">
+                <views:IaPage />
+            </TabViewItem>
         </TabView>
 
         <!-- Startup splash overlay: last child so it renders above everything -->

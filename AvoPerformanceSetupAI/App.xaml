@@ -38,6 +38,8 @@
             <converters:MultiplyConverter        x:Key="Mul"/>
             <converters:ScaleThicknessConverter  x:Key="ScaleTh"/>
             <converters:ScaleCornerRadiusConverter x:Key="ScaleCr"/>
+            <converters:BoolToYesNoConverter     x:Key="BoolToYesNoConverter"/>
+            <converters:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
 
             <!-- Teal accent palette -->
             <Color x:Key="TealColor">#FF00B4B4</Color>

@@ -109,6 +109,22 @@ public sealed class ApplySetupResult
 }
 
 /// <summary>
+/// Live state reported by GET /api/admin/state.
+/// Used to decide whether Live Apply is available.
+/// </summary>
+public sealed class AgentAdminState
+{
+    /// <summary>True when Assetto Corsa is detected as running.</summary>
+    public bool   AcRunning               { get; set; }
+
+    /// <summary>True when the Agent has a valid shared-memory connection to AC.</summary>
+    public bool   SharedMemoryConnected   { get; set; }
+
+    /// <summary>The car folder name currently active in the simulator, e.g. "ks_porsche_911_gt3_r".</summary>
+    public string ActiveCarId             { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// A single structured log entry streamed by the Agent over WebSocket
 /// (<c>ws://HOST:PORT/ws/logs</c>).
 /// </summary>

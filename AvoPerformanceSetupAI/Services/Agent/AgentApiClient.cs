@@ -62,6 +62,26 @@ public sealed class AgentApiClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// GET /api/admin/state — returns the current simulator state.
+    /// Returns <see langword="null"/> when the endpoint is not reachable or
+    /// not yet implemented by the Agent (404).
+    /// </summary>
+    public async Task<AgentAdminState?> GetAdminStateAsync()
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/api/admin/state");
+            using var res = await SendWithTimeoutAsync(req, PingTimeout);
+            if (!res.IsSuccessStatusCode) return null;
+            return await res.Content.ReadFromJsonAsync<AgentAdminState>(JsonOpts);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     // ── Reference library ─────────────────────────────────────────────────────
 
     /// <summary>GET /api/reference/root — returns the configured root folder path.</summary>

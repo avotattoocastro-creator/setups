@@ -34,6 +34,62 @@ public partial class SessionsViewModel : ObservableObject
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isConnected;
 
+    // ── Agent live state (polled every 1 s in Remote mode) ───────────────────
+    /// <summary>True when the Agent last reported AC as running.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
+    [NotifyPropertyChangedFor(nameof(LiveApplyBlockedReason))]
+    [NotifyPropertyChangedFor(nameof(ApplyButtonTooltip))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyProposalCommand))]
+    private bool _isAcRunning;
+
+    /// <summary>True when the Agent has a valid shared-memory connection.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
+    [NotifyPropertyChangedFor(nameof(LiveApplyBlockedReason))]
+    [NotifyPropertyChangedFor(nameof(ApplyButtonTooltip))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyProposalCommand))]
+    private bool _isSharedMemoryConnected;
+
+    /// <summary>Car folder name currently active in the simulator.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
+    [NotifyPropertyChangedFor(nameof(LiveApplyBlockedReason))]
+    [NotifyPropertyChangedFor(nameof(ApplyButtonTooltip))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyProposalCommand))]
+    private string _activeCarId = string.Empty;
+
+    /// <summary>True when the Agent responded to the last state poll.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
+    [NotifyPropertyChangedFor(nameof(LiveApplyBlockedReason))]
+    [NotifyPropertyChangedFor(nameof(ApplyButtonTooltip))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyProposalCommand))]
+    private bool _isAgentReachable;
+
+    /// <summary>
+    /// Human-readable reason why Live Apply is currently blocked, or null if not blocked.
+    /// Shown as a tooltip on the disabled Apply button.
+    /// </summary>
+    public string? LiveApplyBlockedReason
+    {
+        get
+        {
+            if (IsHotlapMode) return null;
+            if (!IsAgentReachable)          return "Agent not reachable — check connection settings.";
+            if (!IsAcRunning)               return "Assetto Corsa is not running.";
+            if (!IsSharedMemoryConnected)   return "Shared memory not connected.";
+            if (!string.IsNullOrEmpty(CarId) &&
+                !string.IsNullOrEmpty(ActiveCarId) &&
+                !ActiveCarId.Equals(CarId, StringComparison.OrdinalIgnoreCase))
+                return $"Car mismatch: selected '{CarId}' but AC has '{ActiveCarId}'.";
+            return null;
+        }
+    }
+
+    // 1-second background timer for agent state polling
+    private System.Threading.Timer? _agentPollTimer;
+
     /// <summary>True when the app is configured for Remote Agent mode.</summary>
     public bool IsRemoteMode => SetupSettings.Instance.Mode == AppMode.Remote;
 
@@ -53,11 +109,19 @@ public partial class SessionsViewModel : ObservableObject
 
     /// <summary>
     /// Tooltip shown under the Apply/Save button.
-    /// Changes reactively when <see cref="Mode"/> changes.
+    /// Shows the live-apply blocked reason in Live mode, or a generic description.
     /// </summary>
-    public string ApplyButtonTooltip => IsHotlapMode
-        ? "Saves a versioned setup file (offline)."
-        : "Applies changes live (requires AC running) and saves a versioned file.";
+    public string ApplyButtonTooltip
+    {
+        get
+        {
+            if (IsHotlapMode) return "Saves a versioned setup file (offline).";
+            var reason = LiveApplyBlockedReason;
+            return reason is not null
+                ? $"Live Apply unavailable: {reason}"
+                : "Applies changes live to the running simulator and saves a versioned file.";
+        }
+    }
 
     /// <summary>
     /// Short connection status badge text for the Telemetry page header.
@@ -204,6 +268,43 @@ public partial class SessionsViewModel : ObservableObject
     public ObservableCollection<string> SetupSources { get; } = new() { "Local File", "Server", "Git Repo" };
     public ObservableCollection<string> Modes { get; } = new() { "Hotlap", "Race", "Qualify", "Simulation" };
 
+    // ── AI settings ───────────────────────────────────────────────────────────
+
+    /// <summary>Engine types the user can select in the IA tab.</summary>
+    public IReadOnlyList<string> EngineTypes { get; } =
+        new[] { "Heuristic", "ML", "Adaptive" };
+
+    /// <summary>Whether AI proposal generation is enabled. Persisted to settings.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
+    private bool _isAiEnabled = true;
+
+    /// <summary>AI engine type selected by the user, e.g. "Heuristic".</summary>
+    [ObservableProperty]
+    private string _aiEngineType = "Heuristic";
+
+    /// <summary>Timestamp of the last RUN execution, or null.</summary>
+    [ObservableProperty]
+    private DateTime? _lastAiRunAt;
+
+    /// <summary>Human-readable last-run timestamp.</summary>
+    public string LastAiRunText =>
+        _lastAiRunAt is null ? "—" : _lastAiRunAt.Value.ToString("HH:mm:ss");
+
+    /// <summary>
+    /// Driver vs Setup discrimination result updated after each RUN.
+    /// Uses the explanation string from <see cref="AvoPerformanceSetupAI.Telemetry.DriverVsSetupDiscriminator"/>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DriverVsSetupText))]
+    private AvoPerformanceSetupAI.Telemetry.RootCauseResult _lastRootCauseResult;
+
+    /// <summary>Human-readable driver vs setup result for the IA tab.</summary>
+    public string DriverVsSetupText =>
+        _lastRootCauseResult.Cause == AvoPerformanceSetupAI.Telemetry.RootCauseType.Unknown
+            ? "—"
+            : _lastRootCauseResult.Explanation ?? _lastRootCauseResult.Cause.ToString();
+
     // ── Simulation plan engine ────────────────────────────────────────────────
 
     /// <summary>IDs blocked from re-selection within the last <see cref="RecentHardBlock"/> picks.</summary>
@@ -259,9 +360,51 @@ public partial class SessionsViewModel : ObservableObject
         if (!string.IsNullOrEmpty(SetupSettings.Instance.RootFolder))
             _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
 
+        // Start 1-second Agent state polling when in Remote mode.
+        if (SetupSettings.Instance.Mode == AppMode.Remote)
+            StartAgentPolling();
+
+        // Load persisted AI settings.
+        LoadAiSettings();
+
         AppLogger.Instance.Data($"Sesión inicializada — Modo: {Mode}");
         AppLogger.Instance.Ai($"Motor IA listo — {BrainInfo}");
         AppLogger.Instance.Info($"Nivel de riesgo actual: {RiskLevel}");
+    }
+
+    // ── AI settings persistence ───────────────────────────────────────────────
+
+    private const string AiEnabledKey    = "AiEnabled";
+    private const string AiEngineTypeKey = "AiEngineType";
+
+    private void LoadAiSettings()
+    {
+        try
+        {
+            var local = Windows.Storage.ApplicationData.Current.LocalSettings;
+            _isAiEnabled    = local.Values[AiEnabledKey]    is bool b  ? b  : true;
+            _aiEngineType   = local.Values[AiEngineTypeKey] as string  ?? "Heuristic";
+        }
+        catch { /* unpackaged or first-run — keep defaults */ }
+    }
+
+    partial void OnIsAiEnabledChanged(bool value)
+    {
+        try
+        {
+            Windows.Storage.ApplicationData.Current.LocalSettings.Values[AiEnabledKey] = value;
+        }
+        catch { }
+        StartCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnAiEngineTypeChanged(string value)
+    {
+        try
+        {
+            Windows.Storage.ApplicationData.Current.LocalSettings.Values[AiEngineTypeKey] = value;
+        }
+        catch { }
     }
 
     // ── Provider factory ──────────────────────────────────────────────────────
@@ -320,6 +463,11 @@ public partial class SessionsViewModel : ObservableObject
             case nameof(SetupSettings.Mode):
                 OnPropertyChanged(nameof(IsRemoteMode));
                 _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
+                // Start or stop agent polling when app mode changes.
+                if (SetupSettings.Instance.Mode == AppMode.Remote)
+                    StartAgentPolling();
+                else
+                    StopAgentPolling();
                 break;
             case nameof(SetupSettings.RemoteHost):
             case nameof(SetupSettings.RemotePort):
@@ -329,6 +477,77 @@ public partial class SessionsViewModel : ObservableObject
                     _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
                 break;
         }
+    }
+
+    // ── Agent state polling ───────────────────────────────────────────────────
+
+    private void StartAgentPolling()
+    {
+        _agentPollTimer?.Dispose();
+        _agentPollTimer = new System.Threading.Timer(
+            _ => _ = PollAgentStateAsync(),
+            null,
+            dueTime: TimeSpan.Zero,
+            period: TimeSpan.FromSeconds(1));
+    }
+
+    private void StopAgentPolling()
+    {
+        _agentPollTimer?.Dispose();
+        _agentPollTimer = null;
+        // Reset state to show unavailable when polling stops.
+        IsAgentReachable        = false;
+        IsAcRunning             = false;
+        IsSharedMemoryConnected = false;
+        ActiveCarId             = string.Empty;
+    }
+
+    private async Task PollAgentStateAsync()
+    {
+        try
+        {
+            var state = await GetOrCreateAgentClient().GetAdminStateAsync();
+            // All UI-bound properties must be updated on the UI thread.
+            DispatchToUiThread(() =>
+            {
+                if (state is null)
+                {
+                    IsAgentReachable        = false;
+                    IsAcRunning             = false;
+                    IsSharedMemoryConnected = false;
+                    ActiveCarId             = string.Empty;
+                }
+                else
+                {
+                    IsAgentReachable        = true;
+                    IsAcRunning             = state.AcRunning;
+                    IsSharedMemoryConnected = state.SharedMemoryConnected;
+                    ActiveCarId             = state.ActiveCarId ?? string.Empty;
+                }
+            });
+        }
+        catch
+        {
+            // Polling must never crash the app — swallow all errors.
+        }
+    }
+
+    // ── UI dispatch helper ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Dispatches <paramref name="action"/> to the Windows App SDK dispatcher
+    /// (UI thread).  Falls back to a direct call when no dispatcher is available
+    /// (e.g. during unit tests).
+    /// </summary>
+    private static void DispatchToUiThread(Action action)
+    {
+        var dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        if (dispatcher is null)
+        {
+            action();
+            return;
+        }
+        dispatcher.TryEnqueue(() => action());
     }
 
     // ── Cascading property changes ────────────────────────────────────────────
@@ -893,6 +1112,8 @@ public partial class SessionsViewModel : ObservableObject
             LastProposals.Clear();
             BuildProposals(_cachedEntries);
             _hasProposalFromRun = true;
+            LastAiRunAt = DateTime.Now;
+            OnPropertyChanged(nameof(LastAiRunText));
             AppLogger.Instance.Ai($"Propuesta(s) generada(s) — {LastProposals.Count} cambio(s).");
             AddLog($"RUN → {LastProposals.Count} proposal(s) generated", "AI");
         }
@@ -904,7 +1125,7 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanStart() => !IsRunning && _currentUniverse is not null;
+    private bool CanStart() => !IsRunning && _currentUniverse is not null && IsAiEnabled;
 
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
@@ -919,6 +1140,14 @@ public partial class SessionsViewModel : ObservableObject
     }
 
     private bool CanStop() => IsRunning;
+
+    /// <summary>Clears the current proposal list (available from the IA tab).</summary>
+    [RelayCommand]
+    private void ClearProposal()
+    {
+        LastProposals.Clear();
+        _hasProposalFromRun = false;
+    }
 
     [RelayCommand(CanExecute = nameof(CanApply))]
     private async Task ApplyAsync()
@@ -1276,10 +1505,17 @@ public partial class SessionsViewModel : ObservableObject
         }
     }
 
-    private bool CanApplyProposal() =>
-        !IsApplying &&
-        !string.IsNullOrEmpty(SelectedSetupFile) &&
-        LastProposals.Count > 0;
+    private bool CanApplyProposal()
+    {
+        if (IsApplying || string.IsNullOrEmpty(SelectedSetupFile) || LastProposals.Count == 0)
+            return false;
+
+        // In Live mode, enforce all preconditions (agent reachable, AC running, shared memory, matching car).
+        if (!IsHotlapMode)
+            return LiveApplyBlockedReason is null;
+
+        return true;
+    }
 
     /// <summary>
     /// Restaura el backup creado por ApplyProposal, revertiendo el archivo .ini al estado anterior.
