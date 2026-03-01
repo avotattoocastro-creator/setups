@@ -16,6 +16,8 @@ namespace AvoPerformanceSetupAI.Services.Initialization;
 /// </summary>
 public static class InitOrchestrator
 {
+    private const int UiWarmupDelayMs  = 80;  // yields to let the frame render before heavy work
+    private const int ReadyDisplayMs   = 200; // brief pause at 100 % so the user sees "¡Listo!"
     public static async Task RunAsync(
         InitProgress progress,
         DispatcherQueue dispatcher,
@@ -35,7 +37,7 @@ public static class InitOrchestrator
 
         // ── Stage 1: UI warmup ─────────────────────────────────────────────────
         Set(5, "Cargando interfaz...", "Preparando componentes de UI");
-        await Task.Delay(80, ct);
+        await Task.Delay(UiWarmupDelayMs, ct);
 
         // ── Stage 2: Settings ──────────────────────────────────────────────────
         Set(15, "Cargando ajustes...", "Leyendo configuración guardada");
@@ -57,7 +59,8 @@ public static class InitOrchestrator
 
         // ── Stage 5: ML / RL model warmup (placeholder) ───────────────────────
         Set(70, "Cargando modelos ML/RL...", "Modelos predictivos y de calibración");
-        await Task.Delay(60, ct); // models are loaded on-demand; yield keeps stage visible
+        // Models are loaded on-demand; this stage represents the future async
+        // loading hook.  No blocking work here — just update progress and move on.
         Complete(() => { progress.StepModelsDone = true; });
 
         // ── Stage 6: TelemetryService base init ────────────────────────────────
@@ -73,7 +76,7 @@ public static class InitOrchestrator
             progress.Detail          = string.Empty;
             progress.IsIndeterminate = false;
         });
-        await Task.Delay(200, ct);
+        await Task.Delay(ReadyDisplayMs, ct);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

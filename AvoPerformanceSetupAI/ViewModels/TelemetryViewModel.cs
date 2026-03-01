@@ -299,7 +299,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// Changes are persisted to <see cref="SetupSettings.RaceViewEnabled"/>.
     /// </summary>
     [ObservableProperty]
-    private bool _isRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
+    private bool _isRaceViewActive;
 
     partial void OnIsRaceViewActiveChanged(bool value)
     {
@@ -628,6 +628,9 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
 
         // Keep IsMultiEmptyState in sync whenever CombinedProposals changes
         CombinedProposals.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsMultiEmptyState));
+
+        // Read the persisted Race View state after SetupSettings is fully initialised.
+        _isRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
     }
 
     /// <summary>

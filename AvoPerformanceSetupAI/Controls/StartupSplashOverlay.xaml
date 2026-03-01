@@ -192,7 +192,7 @@
                               FontFamily="Segoe MDL2 Assets"
                               FontSize="16"
                               Foreground="#FF00B4B4"/>
-                    <TextBlock Text="Telemetr&#237;a"
+                    <TextBlock Text="Telemetría"
                                FontFamily="Consolas" FontSize="14"
                                Foreground="#CCFFFFFF" VerticalAlignment="Center"/>
                 </StackPanel>

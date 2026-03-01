@@ -1,7 +1,9 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Windows.Storage.Pickers;
+using Windows.System;
 using AvoPerformanceSetupAI.ViewModels;
 
 namespace AvoPerformanceSetupAI.Views;
@@ -34,12 +36,48 @@ public sealed partial class TelemetryPage : Page
 
         // Apply the persisted initial state (no animation on first load).
         Loaded += (_, _) => ApplyRaceViewState(animated: false);
+
+        // TAB key → show HUD quick overlay (handled before focus navigation).
+        var tabKey = new KeyboardAccelerator { Key = VirtualKey.Tab };
+        tabKey.Invoked += OnTabHudInvoked;
+        KeyboardAccelerators.Add(tabKey);
     }
+
+    // ── Race View helpers ─────────────────────────────────────────────────────
 
     private void ApplyRaceViewState(bool animated)
     {
         var state = ViewModel.IsRaceViewActive ? "RaceViewMode" : "NormalMode";
         VisualStateManager.GoToState(this, state, animated);
+    }
+
+    // ── HUD Quick Overlay ─────────────────────────────────────────────────────
+
+    private void OnTabHudInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;  // prevent default focus-navigation behaviour
+        ShowHud();
+    }
+
+    private void ShowHud()
+    {
+        var vm = ViewModel;
+
+        var line1 = $"{vm.StatusText}  •  {vm.ConnectionStatusText}";
+
+        var line2 = $"DELTA: {vm.LapDelta}  Vuelta: {vm.LapTimeReal}  Ideal: {vm.LapTimeIdeal}";
+
+        var line3 = vm.Channels.Count > 4
+            ? $"{vm.Channels[0].RealDisplay} km/h  •  G {vm.Channels[2].RealDisplay}  •  {vm.Channels[1].RealDisplay} rpm"
+            : string.Empty;
+
+        var line4 = vm.Proposals.Count > 0
+            ? $"▶ [{vm.Proposals[0].Section}] {vm.Proposals[0].Parameter} {vm.Proposals[0].Delta}  {vm.Proposals[0].Reason}"
+            : "Sin propuestas activas";
+
+        var line5 = $"FASE: {vm.CurrentPhase}  •  Curva: {vm.LastCornerDirection} {vm.LastCornerDurationText}";
+
+        _ = HudOverlay.ShowAsync(line1, line2, line3, line4, line5);
     }
 
     private void AutoScroll(ScrollViewer sv) =>

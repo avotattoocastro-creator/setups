@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:AvoPerformanceSetupAI.Models"
     xmlns:converters="using:AvoPerformanceSetupAI.Converters"
+    xmlns:controls="using:AvoPerformanceSetupAI.Controls"
     xmlns:local="using:AvoPerformanceSetupAI.Reference"
     xmlns:telemetry="using:AvoPerformanceSetupAI.Telemetry"
     xmlns:ml="using:AvoPerformanceSetupAI.ML"
@@ -1217,6 +1218,16 @@
             </TabViewItem>
 
         </TabView>
+
+        <!-- ── HUD Quick Overlay: TAB → show, auto-hides after 2 s ──────────── -->
+        <!-- Floats at top-center of the tab content area; ZIndex below Race View. -->
+        <controls:HudOverlay x:Name="HudOverlay"
+                             Grid.Row="2"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Top"
+                             Margin="0,12,0,0"
+                             Canvas.ZIndex="8"
+                             Visibility="Collapsed"/>
 
         <!-- ── Race View overlay ──────────────────────────────────────────── -->
         <!-- Spans all rows; appears on top of everything when RaceViewMode.   -->
