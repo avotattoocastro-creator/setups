@@ -118,10 +118,24 @@ public sealed class AcStatusToBackgroundConverter : IValueConverter
 }
 
 /// <summary>
-/// Maps an AC connection status string to the appropriate border-brush
-/// <see cref="SolidColorBrush"/> for the status badge border.
+/// Maps a <see cref="SetupDiffKind"/> to the appropriate foreground
+/// <see cref="SolidColorBrush"/> for diff table rows.
 /// </summary>
-public sealed class AcStatusToBorderConverter : IValueConverter
+public sealed class DiffKindToColorConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return (SetupDiffKind)value switch
+        {
+            SetupDiffKind.Added   => new SolidColorBrush(Windows.UI.Color.FromArgb(255,   0, 214, 100)),  // green
+            SetupDiffKind.Removed => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 240,  80,  80)),  // red
+            _                     => new SolidColorBrush(Windows.UI.Color.FromArgb(255,   0, 212, 180)),  // teal (Changed)
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotImplementedException();
+}
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {

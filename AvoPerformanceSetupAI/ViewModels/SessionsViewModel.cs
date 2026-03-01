@@ -70,6 +70,13 @@ public partial class SessionsViewModel : ObservableObject
     // ── Collections ───────────────────────────────────────────────────────────
     public ObservableCollection<SetupIteration> Iterations { get; } = new();
     public ObservableCollection<Proposal> LastProposals { get; } = new();
+
+    /// <summary>
+    /// All numeric tunable parameters from the currently loaded setup file,
+    /// classified by <c>SetupParameterClassifier</c>.
+    /// Consumed by the Setup Diff feature.
+    /// </summary>
+    public ObservableCollection<SetupParameter> ParsedParameters { get; } = new();
     public ObservableCollection<string> SetupSources { get; } = new() { "Local File", "Server", "Git Repo" };
     public ObservableCollection<string> Modes { get; } = new() { "Hotlap", "Race", "Qualify" };
 
@@ -116,6 +123,12 @@ public partial class SessionsViewModel : ObservableObject
 
         return new LocalSetupLibraryProvider((Application.Current as App)!.MainWindow);
     }
+
+    /// <summary>
+    /// Public accessor so adjacent ViewModels (e.g. SetupDiffViewModel) can load
+    /// setup files using the same provider strategy (Local / Remote) as the sessions page.
+    /// </summary>
+    internal ISetupLibraryProvider CreateProviderPublic() => CreateProvider();
 
     private ISetupSaver CreateSaver()
     {
@@ -332,6 +345,16 @@ public partial class SessionsViewModel : ObservableObject
         {
             foreach (var e in allEntries.Take(20))
                 AppLogger.Instance.Data($"  candidate: [{e.Section}] {e.Key}={e.Value}");
+        }
+
+        // ── Build and classify SetupParameter list ────────────────────────────
+        ParsedParameters.Clear();
+        foreach (var e in tunable)
+        {
+            var sp = SetupParameter.FromIniEntry(e);
+            if (sp is null) continue;
+            SetupParameterClassifier.Classify(sp);
+            ParsedParameters.Add(sp);
         }
 
         var sample = tunable

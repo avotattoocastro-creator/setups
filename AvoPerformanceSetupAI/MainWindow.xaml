@@ -66,6 +66,10 @@
             <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
                 <views:TerminalPage />
             </TabViewItem>
+
+            <TabViewItem x:Name="TabSetupDiff" Header="🔀 Setup Diff" IsClosable="False">
+                <views:SetupDiffPage />
+            </TabViewItem>
         </TabView>
 
         <!-- Startup splash overlay: last child so it renders above everything -->
