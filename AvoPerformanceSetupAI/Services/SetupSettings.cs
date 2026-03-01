@@ -18,6 +18,7 @@ public sealed partial class SetupSettings : ObservableObject
     private const string KeyBrandWatermarkEnabled = "BrandWatermarkEnabled";
     private const string KeyBrandWatermarkOpacity = "BrandWatermarkOpacity";
     private const string KeyShowSplashScreen      = "ShowSplashScreen";
+    private const string KeyRaceViewEnabled       = "RaceViewEnabled";
 
     private readonly bool _hasPackageIdentity;
 
@@ -41,6 +42,9 @@ public sealed partial class SetupSettings : ObservableObject
     [ObservableProperty]
     private bool _showSplashScreen = true;
 
+    [ObservableProperty]
+    private bool _raceViewEnabled = false;
+
     private SetupSettings()
     {
         try
@@ -56,6 +60,7 @@ public sealed partial class SetupSettings : ObservableObject
             _brandWatermarkEnabled = local.Values[KeyBrandWatermarkEnabled] is bool bwm ? bwm : true;
             _brandWatermarkOpacity = local.Values[KeyBrandWatermarkOpacity] is double bwo ? bwo : 0.06;
             _showSplashScreen      = local.Values[KeyShowSplashScreen]      is bool sss ? sss : true;
+            _raceViewEnabled       = local.Values[KeyRaceViewEnabled]       is bool rve ? rve : false;
         }
         catch (InvalidOperationException)
         {
@@ -67,6 +72,7 @@ public sealed partial class SetupSettings : ObservableObject
             _brandWatermarkEnabled = true;
             _brandWatermarkOpacity = 0.06;
             _showSplashScreen      = true;
+            _raceViewEnabled       = false;
         }
     }
 
@@ -112,5 +118,11 @@ public sealed partial class SetupSettings : ObservableObject
     {
         if (_hasPackageIdentity)
             ApplicationData.Current.LocalSettings.Values[KeyShowSplashScreen] = value;
+    }
+
+    partial void OnRaceViewEnabledChanged(bool value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyRaceViewEnabled] = value;
     }
 }

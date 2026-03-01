@@ -23,7 +23,23 @@ public sealed partial class TelemetryPage : Page
         ViewModel.SetupLogs.CollectionChanged    += (_, _) => AutoScroll(SetupScrollViewer);
         ViewModel.CornerLogs.CollectionChanged   += (_, _) => AutoScroll(CornerScrollViewer);
 
+        // Switch between NormalMode and RaceViewMode when IsRaceViewActive changes.
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TelemetryViewModel.IsRaceViewActive))
+                ApplyRaceViewState(animated: true);
+        };
+
         Unloaded += (_, _) => ViewModel.Dispose();
+
+        // Apply the persisted initial state (no animation on first load).
+        Loaded += (_, _) => ApplyRaceViewState(animated: false);
+    }
+
+    private void ApplyRaceViewState(bool animated)
+    {
+        var state = ViewModel.IsRaceViewActive ? "RaceViewMode" : "NormalMode";
+        VisualStateManager.GoToState(this, state, animated);
     }
 
     private void AutoScroll(ScrollViewer sv) =>

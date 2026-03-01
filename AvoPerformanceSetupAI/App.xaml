@@ -20,6 +20,14 @@
             <x:Double x:Key="FontBaseBigMetric">28</x:Double>
             <x:Double x:Key="FontBaseScore">42</x:Double>
 
+            <!-- ── Race View font sizes (larger, for 1–1.5 m reading distance) ── -->
+            <x:Double x:Key="FontRaceSpeed">64</x:Double>
+            <x:Double x:Key="FontRaceGear">54</x:Double>
+            <x:Double x:Key="FontRaceRpm">40</x:Double>
+            <x:Double x:Key="FontRaceDelta">38</x:Double>
+            <x:Double x:Key="FontRaceInput">34</x:Double>
+            <x:Double x:Key="FontRaceLabel">18</x:Double>
+
             <!-- ── Card sizing base values ── -->
             <x:Double x:Key="CardCornerRadiusBase">10</x:Double>
             <x:Double x:Key="CardPaddingBase">16</x:Double>

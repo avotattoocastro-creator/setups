@@ -144,6 +144,20 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
+
+            <!-- Race View -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Modo Carrera (Race View)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Muestra una vista simplificada con las métricas clave en tamaño grande, optimizada para leer mientras conduces a 1–1.5 metros de la pantalla."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <ToggleSwitch x:Name="RaceViewToggle"
+                                  Header="Activar Modo Carrera"
+                                  Toggled="RaceViewToggle_Toggled"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Page>

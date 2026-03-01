@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.UI.Progress;
 
 namespace AvoPerformanceSetupAI.Controls;
 
@@ -8,6 +10,7 @@ public sealed partial class StartupSplashOverlay : UserControl
 {
     private const int MinVisibleMs = 2500;
     private DateTime _shownAt = DateTime.MinValue;
+    private InitProgress? _progress;
 
     // ── IsOpen ───────────────────────────────────────────────────────────────
 
@@ -51,7 +54,86 @@ public sealed partial class StartupSplashOverlay : UserControl
     private static void OnStatusTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var ctrl = (StartupSplashOverlay)d;
-        ctrl.StatusTextBlock.Text = (string)(e.NewValue ?? string.Empty);
+        // When Progress is active, Progress.Detail drives StatusTextBlock; ignore StatusText.
+        if (ctrl._progress is null)
+            ctrl.StatusTextBlock.Text = (string)(e.NewValue ?? string.Empty);
+    }
+
+    // ── Progress ──────────────────────────────────────────────────────────────
+
+    public static readonly DependencyProperty ProgressProperty =
+        DependencyProperty.Register(
+            nameof(Progress), typeof(InitProgress), typeof(StartupSplashOverlay),
+            new PropertyMetadata(null, OnProgressChanged));
+
+    public InitProgress? Progress
+    {
+        get => (InitProgress?)GetValue(ProgressProperty);
+        set => SetValue(ProgressProperty, value);
+    }
+
+    private static void OnProgressChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var ctrl = (StartupSplashOverlay)d;
+
+        if (e.OldValue is InitProgress old)
+            old.PropertyChanged -= ctrl.OnProgressPropertyChanged;
+
+        ctrl._progress = e.NewValue as InitProgress;
+
+        if (ctrl._progress is not null)
+        {
+            ctrl._progress.PropertyChanged += ctrl.OnProgressPropertyChanged;
+            ctrl.ChecklistPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ctrl.ChecklistPanel.Visibility = Visibility.Collapsed;
+        }
+
+        ctrl.ApplyProgress();
+    }
+
+    private void OnProgressPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (DispatcherQueue.HasThreadAccess)
+            ApplyProgress();
+        else
+            DispatcherQueue.TryEnqueue(ApplyProgress);
+    }
+
+    private void ApplyProgress()
+    {
+        if (_progress is not { } p)
+        {
+            // No progress object — show spinner and legacy StatusText
+            Ring.Visibility            = Visibility.Visible;
+            BusyProgressBar.Visibility = Visibility.Collapsed;
+            TitleTextBlock.Visibility  = Visibility.Collapsed;
+            return;
+        }
+
+        TitleTextBlock.Visibility  = Visibility.Visible;
+        TitleTextBlock.Text        = p.Title;
+        StatusTextBlock.Text       = p.Detail;
+        BusyProgressBar.Value      = p.Percent;
+
+        if (p.IsIndeterminate)
+        {
+            Ring.Visibility            = Visibility.Visible;
+            BusyProgressBar.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            Ring.Visibility            = Visibility.Collapsed;
+            BusyProgressBar.Visibility = Visibility.Visible;
+        }
+
+        // Update checklist rows: full opacity = done, dimmed = pending.
+        CheckRow1.Opacity = p.StepUiDone       ? 1.0 : 0.3;
+        CheckRow2.Opacity = p.StepSettingsDone  ? 1.0 : 0.3;
+        CheckRow3.Opacity = p.StepModelsDone    ? 1.0 : 0.3;
+        CheckRow4.Opacity = p.StepTelemetryDone ? 1.0 : 0.3;
     }
 
     // ── Constructor ──────────────────────────────────────────────────────────
@@ -65,6 +147,20 @@ public sealed partial class StartupSplashOverlay : UserControl
         // OnIsOpenChanged handles subsequent explicit IsOpen=true assignments.
         _shownAt = DateTime.UtcNow;
         Loaded += (_, _) => ContentEntranceStoryboard.Begin();
+    }
+
+    // ── ShowAsync ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Assigns <paramref name="progress"/>, opens the overlay and starts the
+    /// entrance animation.  The <see cref="IsOpen"/> setter records the
+    /// <c>_shownAt</c> timestamp used by <see cref="CloseAsync"/>.
+    /// </summary>
+    public Task ShowAsync(InitProgress progress)
+    {
+        Progress = progress;
+        IsOpen   = true;
+        return Task.CompletedTask;
     }
 
     // ── CloseAsync ───────────────────────────────────────────────────────────

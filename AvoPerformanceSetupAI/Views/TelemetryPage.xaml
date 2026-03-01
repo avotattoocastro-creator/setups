@@ -123,6 +123,26 @@
     </Page.Resources>
 
     <Grid x:Name="TelemetryRoot">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="ViewModeStates">
+                <!-- NormalMode: race overlay collapsed (default) -->
+                <VisualState x:Name="NormalMode"/>
+                <!-- RaceViewMode: show large-font overlay, fade in -->
+                <VisualState x:Name="RaceViewMode">
+                    <VisualState.Storyboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                Storyboard.TargetName="RaceViewOverlay"
+                                Storyboard.TargetProperty="Opacity"
+                                From="0" To="1" Duration="0:0:0.200"/>
+                        </Storyboard>
+                    </VisualState.Storyboard>
+                    <VisualState.Setters>
+                        <Setter Target="RaceViewOverlay.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -216,6 +236,13 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <ToggleButton Content="&#127950; Race View"
+                                  IsChecked="{x:Bind ViewModel.IsRaceViewActive, Mode=TwoWay}"
+                                  FontFamily="Consolas"
+                                  FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                  Padding="14,6" CornerRadius="6"
+                                  Background="#FF1A2020" Foreground="#FF00B4B4"
+                                  BorderBrush="#FF2E5050" BorderThickness="1"/>
                     <Button Content="&#9654; Iniciar"
                             Command="{x:Bind ViewModel.StartSimulationCommand}"
                             Background="#FF00B4B4" Foreground="White"
@@ -1190,6 +1217,206 @@
             </TabViewItem>
 
         </TabView>
+
+        <!-- ── Race View overlay ──────────────────────────────────────────── -->
+        <!-- Spans all rows; appears on top of everything when RaceViewMode.   -->
+        <!-- Designed for 1920×1080 readability at 1–1.5 m from the screen.  -->
+        <Grid x:Name="RaceViewOverlay"
+              Grid.RowSpan="3"
+              Background="#FF080E0E"
+              Visibility="Collapsed"
+              Canvas.ZIndex="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ── Row 0: Speed / Gear / RPM ─────────────────────────────── -->
+            <Grid Grid.Row="0"
+                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Speed -->
+                <StackPanel Grid.Column="0" Spacing="6" HorizontalAlignment="Center">
+                    <TextBlock Text="VEL"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Foreground="#FF8AABAB"
+                               HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.Channels[0].RealDisplay, Mode=OneWay}"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceSpeed}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FFFFFFFF"/>
+                        <TextBlock Text="km/h"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB"
+                                   VerticalAlignment="Bottom" Margin="0,0,0,12"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Column="1" Width="1" Background="#33FFFFFF"
+                        VerticalAlignment="Stretch" Margin="0,24"/>
+
+                <!-- Gear -->
+                <StackPanel Grid.Column="2" Spacing="6" HorizontalAlignment="Center" MinWidth="140">
+                    <TextBlock Text="MARCHA"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Foreground="#FF8AABAB"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{x:Bind ViewModel.Channels[2].RealDisplay, Mode=OneWay}"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceGear}, Converter={StaticResource Mul}}"
+                               FontWeight="Bold" Foreground="#FFFFFFFF"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <Border Grid.Column="3" Width="1" Background="#33FFFFFF"
+                        VerticalAlignment="Stretch" Margin="0,24"/>
+
+                <!-- RPM -->
+                <StackPanel Grid.Column="4" Spacing="6" HorizontalAlignment="Center">
+                    <TextBlock Text="RPM"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Foreground="#FF8AABAB"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{x:Bind ViewModel.Channels[1].RealDisplay, Mode=OneWay}"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceRpm}, Converter={StaticResource Mul}}"
+                               FontWeight="Bold" Foreground="#FFFFFFFF"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Horizontal divider between rows -->
+            <Border Grid.Row="1" Height="1" Background="#22FFFFFF"
+                    VerticalAlignment="Top" Margin="40,0"/>
+
+            <!-- ── Row 1: Delta / Throttle / Brake ───────────────────────── -->
+            <Grid Grid.Row="1"
+                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Delta vs Ideal -->
+                <StackPanel Grid.Column="0" Spacing="6" HorizontalAlignment="Center" MinWidth="200">
+                    <TextBlock Text="DELTA"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Foreground="#FF8AABAB"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{x:Bind ViewModel.LapDelta, Mode=OneWay}"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceDelta}, Converter={StaticResource Mul}}"
+                               FontWeight="Bold" Foreground="#FF00FF88"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <Border Grid.Column="1" Width="1" Background="#33FFFFFF"
+                        VerticalAlignment="Stretch" Margin="0,24"/>
+
+                <!-- Throttle -->
+                <StackPanel Grid.Column="2" Spacing="6" HorizontalAlignment="Center" MinWidth="200">
+                    <TextBlock Text="ACELERADOR"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Foreground="#FF8AABAB"
+                               HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.Channels[3].RealDisplay, Mode=OneWay}"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceInput}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FF00FF88"/>
+                        <TextBlock Text="%"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB"
+                                   VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Column="3" Width="1" Background="#33FFFFFF"
+                        VerticalAlignment="Stretch" Margin="0,24"/>
+
+                <!-- Brake -->
+                <StackPanel Grid.Column="4" Spacing="6" HorizontalAlignment="Center" MinWidth="200">
+                    <TextBlock Text="FRENO"
+                               FontFamily="Consolas"
+                               FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                               FontWeight="SemiBold" Foreground="#FF8AABAB"
+                               HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.Channels[4].RealDisplay, Mode=OneWay}"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceInput}, Converter={StaticResource Mul}}"
+                                   FontWeight="Bold" Foreground="#FFFF5050"/>
+                        <TextBlock Text="%"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB"
+                                   VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- ── Row 2: Phase + Lap time footer ────────────────────────── -->
+            <Border Grid.Row="2"
+                    BorderBrush="#22FFFFFF" BorderThickness="0,1,0,0"
+                    Padding="24,16">
+                <StackPanel Orientation="Horizontal" Spacing="48"
+                            HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="FASE"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind ViewModel.CurrentPhase, Mode=OneWay}"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                   FontWeight="SemiBold" Foreground="#FFFFFFFF"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="VUELTA"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind ViewModel.LapTimeReal, Mode=OneWay}"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                   FontWeight="SemiBold" Foreground="#FFFFFFFF"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="IDEAL"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontRaceLabel}, Converter={StaticResource Mul}}"
+                                   Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind ViewModel.LapTimeIdeal, Mode=OneWay}"
+                                   FontFamily="Consolas"
+                                   FontSize="{Binding Source={StaticResource FontBaseMetric}, Converter={StaticResource Mul}}"
+                                   FontWeight="SemiBold" Foreground="#FFFFFFFF"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+        </Grid>
 
     </Grid>
 

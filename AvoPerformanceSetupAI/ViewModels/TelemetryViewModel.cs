@@ -291,6 +291,21 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsEnduranceMode));
     }
 
+    // ── Race View mode ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When <see langword="true"/> the TelemetryPage switches to the large-font
+    /// Race View overlay, hiding the normal tab panel.
+    /// Changes are persisted to <see cref="SetupSettings.RaceViewEnabled"/>.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
+
+    partial void OnIsRaceViewActiveChanged(bool value)
+    {
+        SetupSettings.Instance.RaceViewEnabled = value;
+    }
+
     /// <summary>
     /// Convenience bool for the Sprint toggle button binding:
     /// <see langword="true"/> when <see cref="CurrentDrivingMode"/> is
@@ -650,6 +665,14 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         _fastTimer          = new DispatcherTimer();
         _fastTimer.Interval = TimeSpan.FromMilliseconds(50);
         _fastTimer.Tick    += OnFastTick;
+
+        // Keep IsRaceViewActive in sync when the user changes the setting from
+        // the Configuración page (fires on the UI thread via SetupSettings).
+        SetupSettings.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SetupSettings.RaceViewEnabled))
+                IsRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
+        };
     }
 
     /// <summary>Unsubscribes from <see cref="TelemetryService"/> events and releases resources.</summary>

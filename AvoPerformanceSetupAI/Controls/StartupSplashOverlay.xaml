@@ -60,26 +60,28 @@
     <Grid x:Name="RootOverlay">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="WindowSizeStates">
-                <!-- Small (<1400): Width=420, FontSize=18 (base values in XAML) -->
+                <!-- Small (<1400): Logo=420, Title=22 (base values below) -->
                 <VisualState x:Name="SmallState"/>
-                <!-- Normal (>=1400): Width=520, FontSize=20 -->
+                <!-- Normal (>=1400): Logo=520, Title=24 -->
                 <VisualState x:Name="NormalState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="1400"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="LogoImage.Width" Value="520"/>
-                        <Setter Target="StatusTextBlock.FontSize" Value="20"/>
+                        <Setter Target="TitleTextBlock.FontSize" Value="24"/>
+                        <Setter Target="BusyProgressBar.Width" Value="520"/>
                     </VisualState.Setters>
                 </VisualState>
-                <!-- Large (>=2200): Width=650, FontSize=22 -->
+                <!-- Large (>=2200): Logo=650, Title=26 -->
                 <VisualState x:Name="LargeState">
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="2200"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="LogoImage.Width" Value="650"/>
-                        <Setter Target="StatusTextBlock.FontSize" Value="22"/>
+                        <Setter Target="TitleTextBlock.FontSize" Value="26"/>
+                        <Setter Target="BusyProgressBar.Width" Value="620"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -96,30 +98,106 @@
         <StackPanel x:Name="ContentPanel"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Spacing="24"
+                    Spacing="18"
                     RenderTransformOrigin="0.5,0.5">
             <StackPanel.RenderTransform>
                 <CompositeTransform/>
             </StackPanel.RenderTransform>
 
+            <!-- Logo -->
             <Image x:Name="LogoImage"
                    Source="ms-appx:///Assets/Brand/avo_performance.png"
                    Width="420" MaxWidth="620"
                    Stretch="Uniform"
                    HorizontalAlignment="Center"
                    AutomationProperties.Name="AVO Performance logo"/>
+
+            <!-- Title: driven by Progress.Title (hidden when no Progress set) -->
+            <TextBlock x:Name="TitleTextBlock"
+                       HorizontalAlignment="Center"
+                       Foreground="#FFFFFF"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       FontFamily="Consolas"
+                       Visibility="Collapsed"/>
+
+            <!-- Detail / StatusText -->
             <TextBlock x:Name="StatusTextBlock"
                        HorizontalAlignment="Center"
                        Foreground="#FFFFFF"
-                       Opacity="0.9"
-                       FontSize="18"
-                       FontWeight="SemiBold"
+                       Opacity="0.7"
+                       FontSize="16"
                        FontFamily="Consolas"/>
+
+            <!-- ProgressRing: visible when IsIndeterminate=true (default) -->
             <ProgressRing x:Name="Ring"
                           IsActive="True"
                           Width="54" Height="54"
                           Foreground="#FF00B4B4"
                           HorizontalAlignment="Center"/>
+
+            <!-- ProgressBar: visible when IsIndeterminate=false -->
+            <ProgressBar x:Name="BusyProgressBar"
+                         Minimum="0" Maximum="100"
+                         Width="420" MaxWidth="620"
+                         Height="6"
+                         HorizontalAlignment="Center"
+                         Background="#22FFFFFF"
+                         Foreground="#FF00B4B4"
+                         Visibility="Collapsed"/>
+
+            <!-- Step checklist: shown when Progress is assigned -->
+            <StackPanel x:Name="ChecklistPanel"
+                        HorizontalAlignment="Center"
+                        Spacing="10"
+                        Margin="0,6,0,0"
+                        Visibility="Collapsed">
+
+                <!-- Step 1: UI + Settings -->
+                <StackPanel x:Name="CheckRow1" Orientation="Horizontal" Spacing="10" Opacity="0.3">
+                    <FontIcon Glyph="&#xE73E;"
+                              FontFamily="Segoe MDL2 Assets"
+                              FontSize="16"
+                              Foreground="#FF00B4B4"/>
+                    <TextBlock Text="Interfaz y ajustes"
+                               FontFamily="Consolas" FontSize="14"
+                               Foreground="#CCFFFFFF" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 2: Folders + Profiles -->
+                <StackPanel x:Name="CheckRow2" Orientation="Horizontal" Spacing="10" Opacity="0.3">
+                    <FontIcon Glyph="&#xE73E;"
+                              FontFamily="Segoe MDL2 Assets"
+                              FontSize="16"
+                              Foreground="#FF00B4B4"/>
+                    <TextBlock Text="Carpetas y perfiles"
+                               FontFamily="Consolas" FontSize="14"
+                               Foreground="#CCFFFFFF" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 3: ML / RL Models -->
+                <StackPanel x:Name="CheckRow3" Orientation="Horizontal" Spacing="10" Opacity="0.3">
+                    <FontIcon Glyph="&#xE73E;"
+                              FontFamily="Segoe MDL2 Assets"
+                              FontSize="16"
+                              Foreground="#FF00B4B4"/>
+                    <TextBlock Text="Modelos ML/RL"
+                               FontFamily="Consolas" FontSize="14"
+                               Foreground="#CCFFFFFF" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 4: Telemetry -->
+                <StackPanel x:Name="CheckRow4" Orientation="Horizontal" Spacing="10" Opacity="0.3">
+                    <FontIcon Glyph="&#xE73E;"
+                              FontFamily="Segoe MDL2 Assets"
+                              FontSize="16"
+                              Foreground="#FF00B4B4"/>
+                    <TextBlock Text="Telemetr&#237;a"
+                               FontFamily="Consolas" FontSize="14"
+                               Foreground="#CCFFFFFF" VerticalAlignment="Center"/>
+                </StackPanel>
+
+            </StackPanel>
         </StackPanel>
     </Grid>
 </UserControl>

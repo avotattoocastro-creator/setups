@@ -4,6 +4,8 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Windows.Graphics;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.Services.Initialization;
+using AvoPerformanceSetupAI.UI.Progress;
 
 namespace AvoPerformanceSetupAI;
 
@@ -63,14 +65,15 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            SplashOverlay.StatusText = "Cargando UI...";
-            await SplashOverlay.CloseWhenReadyAsync(async () =>
+            var progress = new InitProgress
             {
-                await Task.Delay(200); // allow UI to finish initial render
-                SplashOverlay.StatusText = "Inicializando telemetría...";
-                await TelemetryService.InitializeAsync();
-                SplashOverlay.StatusText = "Listo";
-            });
+                Title          = "AVO Performance",
+                Detail         = "Inicializando...",
+                IsIndeterminate = false,
+            };
+            await SplashOverlay.ShowAsync(progress);
+            await SplashOverlay.CloseWhenReadyAsync(
+                () => InitOrchestrator.RunAsync(progress, DispatcherQueue));
         }
         catch (Exception ex)
         {
@@ -78,6 +81,33 @@ public sealed partial class MainWindow : Window
             SplashOverlay.IsOpen = false;
         }
     }
+
+    // ── Global busy overlay ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Shows the splash overlay for long-running operations
+    /// (e.g. CSV import, ML training, apply setup, load session).
+    /// </summary>
+    public void ShowBusy(string title, string detail, bool indeterminate = true)
+    {
+        var p = new InitProgress { Title = title, Detail = detail, IsIndeterminate = indeterminate };
+        SplashOverlay.Progress = p;
+        SplashOverlay.IsOpen   = true;
+    }
+
+    /// <summary>Updates the busy overlay progress percentage and detail text.</summary>
+    public void UpdateBusy(double percent, string detail)
+    {
+        if (SplashOverlay.Progress is { } p)
+        {
+            p.Percent         = percent;
+            p.Detail          = detail;
+            p.IsIndeterminate = false;
+        }
+    }
+
+    /// <summary>Hides the busy overlay, respecting the minimum visible duration.</summary>
+    public Task HideBusy() => SplashOverlay.CloseAsync();
 
     private void OnBrandingSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
