@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using AvoPerformanceSetupAI.Models;
 
@@ -7,12 +8,26 @@ namespace AvoPerformanceSetupAI.Services;
 /// <summary>
 /// Parses Assetto Corsa / ACC setup <c>.ini</c> files into a flat list of <see cref="IniEntry"/> records,
 /// preserving the section context of every key so proposals can be applied back accurately.
+/// <para>
+/// Two formats are supported:
+/// <list type="bullet">
+/// <item><description>
+///   <b>Format A (AC per-section)</b>: each tunable parameter is a section name and its
+///   numeric value is stored as <c>VALUE=n</c> inside that section.
+///   The emitted <see cref="IniEntry.Key"/> is set to the section name.
+/// </description></item>
+/// <item><description>
+///   <b>Format B (generic key=value)</b>: the key name is the parameter name and the
+///   section is the category — standard INI behaviour.
+/// </description></item>
+/// </list>
+/// </para>
 /// </summary>
 public static class SetupIniParser
 {
     /// <summary>
     /// Reads <paramref name="filePath"/> and returns every key=value pair together with its INI section.
-    /// Comment lines (starting with <c>;</c> or <c>//</c>) and blank lines are ignored.
+    /// Comment lines (starting with <c>;</c>, <c>//</c>, or <c>#</c>) and blank lines are ignored.
     /// </summary>
     public static List<IniEntry> Parse(string filePath)
         => ParseLines(File.ReadLines(filePath));
@@ -34,7 +49,7 @@ public static class SetupIniParser
             var line = raw.Trim();
 
             // Skip blank lines and comments
-            if (line.Length == 0 || line.StartsWith(';') || line.StartsWith("//"))
+            if (line.Length == 0 || line.StartsWith(';') || line.StartsWith("//") || line.StartsWith('#'))
                 continue;
 
             // Section header
@@ -44,16 +59,38 @@ public static class SetupIniParser
                 continue;
             }
 
-            // Key=value pair
+            // Key=value pair — split only at the first '='
             var eqIdx = line.IndexOf('=');
             if (eqIdx > 0)
             {
-                entries.Add(new IniEntry
+                var key = line[..eqIdx].Trim();
+                var val = line[(eqIdx + 1)..].Trim();
+
+                // Format A (AC per-section): VALUE key inside a named section →
+                // use the section name as the parameter key so callers see e.g. CAMBER_LF.
+                // Both Section and Key are set to currentSection intentionally: the section
+                // name IS the parameter identity in this format.
+                if (key.Equals("VALUE", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrEmpty(currentSection) &&
+                    double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
                 {
-                    Section = currentSection,
-                    Key     = line[..eqIdx].Trim(),
-                    Value   = line[(eqIdx + 1)..].Trim()
-                });
+                    entries.Add(new IniEntry
+                    {
+                        Section = currentSection,
+                        Key     = currentSection,
+                        Value   = val
+                    });
+                }
+                else
+                {
+                    // Format B (generic key=value): key name is the parameter
+                    entries.Add(new IniEntry
+                    {
+                        Section = currentSection,
+                        Key     = key,
+                        Value   = val
+                    });
+                }
             }
         }
 

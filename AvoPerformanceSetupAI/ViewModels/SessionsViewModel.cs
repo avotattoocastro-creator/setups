@@ -314,7 +314,9 @@ public partial class SessionsViewModel : ObservableObject
 
     private void BuildProposals(IEnumerable<IniEntry> entries)
     {
-        var tunable = entries
+        var allEntries = entries as List<IniEntry> ?? entries.ToList();
+
+        var tunable = allEntries
             .Where(e =>
                 !NonTunableKeys.Contains(e.Key) &&
                 double.TryParse(e.Value,
@@ -322,6 +324,15 @@ public partial class SessionsViewModel : ObservableObject
                     System.Globalization.CultureInfo.InvariantCulture,
                     out var v) && v != 0.0)
             .ToList();
+
+        var sectionCount = allEntries.Select(e => e.Section).Distinct().Count();
+        AppLogger.Instance.Data($"INI parsed: sections={sectionCount}, numericParams={tunable.Count}");
+
+        if (tunable.Count == 0)
+        {
+            foreach (var e in allEntries.Take(20))
+                AppLogger.Instance.Data($"  candidate: [{e.Section}] {e.Key}={e.Value}");
+        }
 
         var sample = tunable
             .GroupBy(e => e.Section)
