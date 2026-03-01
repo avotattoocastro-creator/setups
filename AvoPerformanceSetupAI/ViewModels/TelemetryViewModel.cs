@@ -12,6 +12,7 @@ using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Reference;
 using AvoPerformanceSetupAI.Reference.Import;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.Services.Agent;
 using AvoPerformanceSetupAI.Telemetry;
 
 namespace AvoPerformanceSetupAI.ViewModels;
@@ -26,6 +27,9 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     // Stored so Initialize can subscribe and Dispose can unsubscribe (prevents memory leaks).
     private Action<bool, string>? _connectionChangedHandler;
     private Action?               _suggestSwitchHandler;
+    private Action<AgentLogEntry>? _logEntryHandler;
+    private Action<string>?        _logStatusHandler;
+    private System.Collections.Specialized.NotifyCollectionChangedEventHandler? _sessionLogsHandler;
 
     // ── Telemetry service (AC shared memory + simulation routing) ─────────────
 
@@ -291,6 +295,21 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsEnduranceMode));
     }
 
+    // ── Race View mode ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When <see langword="true"/> the TelemetryPage switches to the large-font
+    /// Race View overlay, hiding the normal tab panel.
+    /// Changes are persisted to <see cref="SetupSettings.RaceViewEnabled"/>.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isRaceViewActive;
+
+    partial void OnIsRaceViewActiveChanged(bool value)
+    {
+        SetupSettings.Instance.RaceViewEnabled = value;
+    }
+
     /// <summary>
     /// Convenience bool for the Sprint toggle button binding:
     /// <see langword="true"/> when <see cref="CurrentDrivingMode"/> is
@@ -459,6 +478,16 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// <summary>Setup-improvement steps log.</summary>
     public ObservableCollection<AnalysisEntry>    SetupLogs    { get; } = new();
 
+    // ── Agent log stream (Remote mode) ───────────────────────────────────────
+
+    private readonly AgentLogStream _logStream = new();
+
+    /// <summary>Maximum number of entries kept in <see cref="Logs"/>.</summary>
+    private const int MaxLogEntries = 500;
+
+    /// <summary>Live Agent log entries streamed via WebSocket.</summary>
+    public ObservableCollection<AgentLogEntry> Logs { get; } = new();
+
     /// <summary>Per-corner phase analysis log.</summary>
     public ObservableCollection<AnalysisEntry>    CornerLogs   { get; } = new();
 
@@ -613,13 +642,16 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
 
         // Keep IsMultiEmptyState in sync whenever CombinedProposals changes
         CombinedProposals.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsMultiEmptyState));
+
+        // Read the persisted Race View state after SetupSettings is fully initialised.
+        _isRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
     }
 
     /// <summary>
     /// Must be called once from the UI thread (page constructor) to allow the timer
     /// callbacks to marshal back onto the UI dispatcher.
     /// </summary>
-    public void Initialize(DispatcherQueue dispatcher)
+    public async Task InitializeAsync(DispatcherQueue dispatcher)
     {
         _dispatcher = dispatcher;
 
@@ -650,6 +682,60 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         _fastTimer          = new DispatcherTimer();
         _fastTimer.Interval = TimeSpan.FromMilliseconds(50);
         _fastTimer.Tick    += OnFastTick;
+
+        // Keep IsRaceViewActive in sync when the user changes the setting from
+        // the Configuración page (fires on the UI thread via SetupSettings).
+        SetupSettings.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SetupSettings.RaceViewEnabled))
+                IsRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
+        };
+
+        // Forward diagnostic entries from SessionsViewModel (Apply Proposal etc.) to this
+        // Logs collection so they appear in the Agent Logs tab automatically.
+        _sessionLogsHandler = (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add &&
+                e.NewItems is not null)
+            {
+                foreach (var item in e.NewItems)
+                {
+                    if (item is not AgentLogEntry entry) continue;
+                    var captured = entry;
+                    dispatcher.TryEnqueue(() =>
+                    {
+                        Logs.Add(captured);
+                        while (Logs.Count > MaxLogEntries)
+                            Logs.RemoveAt(0);
+                    });
+                }
+            }
+        };
+        SessionsViewModel.Shared.Logs.CollectionChanged += _sessionLogsHandler;
+
+        // Start live-log stream when in Remote mode — awaited so failures surface
+        // immediately rather than being lost in a fire-and-forget task.
+        if (SetupSettings.Instance.Mode == AppMode.Remote)
+        {
+            try
+            {
+                await StartLogStreamAsync(dispatcher);
+            }
+            catch (Exception ex)
+            {
+                var inner = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
+                var msg = $"LOG WS FAILED [{ex.GetType().Name}]: {ex.Message}{inner}";
+                AppLogger.Instance.Warn(msg);
+                dispatcher.TryEnqueue(() =>
+                    Logs.Add(new AgentLogEntry
+                    {
+                        TUtc = DateTime.UtcNow.ToString("O"),
+                        Lvl  = "ERR",
+                        Cat  = "Client",
+                        Msg  = msg,
+                    }));
+            }
+        }
     }
 
     /// <summary>Unsubscribes from <see cref="TelemetryService"/> events and releases resources.</summary>
@@ -667,6 +753,69 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         }
         _telemetryService.Dispose();
         _updateTimer?.Dispose();
+
+        if (_logEntryHandler is not null)
+        {
+            _logStream.OnLog -= _logEntryHandler;
+            _logEntryHandler  = null;
+        }
+        if (_logStatusHandler is not null)
+        {
+            _logStream.OnStatus -= _logStatusHandler;
+            _logStatusHandler    = null;
+        }
+        if (_sessionLogsHandler is not null)
+        {
+            SessionsViewModel.Shared.Logs.CollectionChanged -= _sessionLogsHandler;
+            _sessionLogsHandler = null;
+        }
+        // Best-effort graceful shutdown of the WebSocket (fire-and-forget is acceptable
+        // here because the ViewModel is being disposed — the read loop will self-terminate
+        // when the cancellation token fires).
+        _ = _logStream.StopAsync();
+    }
+
+    // ── Agent log stream helpers ──────────────────────────────────────────────
+
+    private async Task StartLogStreamAsync(DispatcherQueue dispatcher)
+    {
+        void EnqueueLogEntry(AgentLogEntry entry) =>
+            dispatcher.TryEnqueue(() =>
+            {
+                Logs.Add(entry);
+                while (Logs.Count > MaxLogEntries)
+                    Logs.RemoveAt(0);
+            });
+
+        void AddSyntheticEntry(string msg) =>
+            EnqueueLogEntry(new AgentLogEntry
+            {
+                TUtc = DateTime.UtcNow.ToString("O"),
+                Lvl  = "SYS",
+                Cat  = "LogStream",
+                Msg  = msg,
+            });
+
+        _logEntryHandler  = EnqueueLogEntry;
+        _logStatusHandler = AddSyntheticEntry;
+
+        _logStream.OnLog    += _logEntryHandler;
+        _logStream.OnStatus += _logStatusHandler;
+
+        var wsUrl = SetupSettings.Instance.AgentLogsWsUrl;
+        AppLogger.Instance.Info($"[LogStream] Connecting to: {wsUrl}");
+
+        try
+        {
+            await _logStream.StartAsync(wsUrl).ConfigureAwait(false);
+            AppLogger.Instance.Info("[LogStream] StartAsync completed.");
+        }
+        catch (Exception ex)
+        {
+            var msg = $"Log WS connection failed: {ex.Message}";
+            AppLogger.Instance.Warn(msg);
+            AddSyntheticEntry(msg);
+        }
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────

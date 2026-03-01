@@ -26,5 +26,8 @@
 
   <ItemGroup>
     <Content Include="Strings\**\*.resw" />
+    <Content Include="Assets\Brand\avo_performance.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

@@ -5,13 +5,24 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:AvoPerformanceSetupAI"
     xmlns:views="using:AvoPerformanceSetupAI.Views"
+    xmlns:controls="using:AvoPerformanceSetupAI.Controls"
     Title="AvoPerformanceSetupAI">
 
-    <Grid Background="#FF0F1A1A">
+    <Grid Background="{StaticResource CarbonBackgroundBrush}" Loaded="RootGrid_Loaded">
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
+        <!-- Watermark: rendered first (behind everything), spans entire window -->
+        <Image x:Name="WatermarkImage"
+               Grid.RowSpan="2"
+               Source="ms-appx:///Assets/Brand/avo_performance.png"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               IsHitTestVisible="False"
+               AutomationProperties.Name="AVO Performance watermark"/>
 
         <!-- Custom Title Bar -->
         <Grid Grid.Row="0" Background="#FF0A1414" x:Name="TitleBarGrid">
@@ -20,7 +31,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
-                <TextBlock Text="⚡" FontSize="16" VerticalAlignment="Center" Foreground="#FF00B4B4" Margin="0,0,8,0"/>
+                <Image Source="ms-appx:///Assets/Brand/avo_performance.png"
+                       Height="30" Stretch="Uniform"
+                       VerticalAlignment="Center" Margin="0,0,8,0"
+                       IsHitTestVisible="False" Opacity="0.90"
+                       AutomationProperties.Name="AVO Performance logo"/>
                 <TextBlock Text="AvoPerformanceSetupAI" FontSize="13" FontWeight="SemiBold"
                            Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
             </StackPanel>
@@ -28,12 +43,12 @@
 
         <!-- Main Tab View -->
         <TabView Grid.Row="1" x:Name="MainTabView"
-                 Background="#FF0F1A1A"
+                 Background="Transparent"
                  TabWidthMode="Equal"
                  IsAddTabButtonVisible="False"
                  SelectionChanged="MainTabView_SelectionChanged">
             <TabView.Resources>
-                <SolidColorBrush x:Key="TabViewBackground" Color="#FF0F1A1A" />
+                <SolidColorBrush x:Key="TabViewBackground" Color="Transparent" />
             </TabView.Resources>
 
             <TabViewItem x:Name="TabConfiguracion" Header="Configuración" IsClosable="False">
@@ -44,17 +59,28 @@
                 <views:SesionesPage />
             </TabViewItem>
 
-            <TabViewItem x:Name="TabControl" Header="Control" IsClosable="False">
-                <views:ControlPage />
+            <TabViewItem x:Name="TabTelemetria" Header="📡 Telemetría" IsClosable="False">
+                <views:TelemetryPage />
             </TabViewItem>
 
             <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
                 <views:TerminalPage />
             </TabViewItem>
 
-            <TabViewItem x:Name="TabTelemetria" Header="📡 Telemetría" IsClosable="False">
-                <views:TelemetryPage />
+            <TabViewItem x:Name="TabSetupDiff" Header="🔀 Setup Diff" IsClosable="False">
+                <views:SetupDiffPage />
+            </TabViewItem>
+
+            <TabViewItem x:Name="TabIa" Header="🤖 IA" IsClosable="False">
+                <views:IaPage />
             </TabViewItem>
         </TabView>
+
+        <!-- Startup splash overlay: last child so it renders above everything -->
+        <controls:StartupSplashOverlay x:Name="SplashOverlay"
+                                       Grid.RowSpan="2"
+                                       Canvas.ZIndex="100"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Stretch"/>
     </Grid>
 </Window>

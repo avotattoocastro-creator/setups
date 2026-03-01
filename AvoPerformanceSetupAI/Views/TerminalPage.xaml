@@ -4,11 +4,10 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:AvoPerformanceSetupAI.Models"
-    Background="Transparent"
+    Background="{StaticResource CarbonBackgroundBrush}"
     RequestedTheme="Dark">
 
     <Page.Resources>
-        <!-- Category → foreground colour converters defined in code-behind via x:Bind -->
 
         <!-- Log row template -->
         <DataTemplate x:Key="LogEntryTemplate" x:DataType="models:LogEntry">

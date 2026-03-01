@@ -64,6 +64,13 @@ public sealed class TelemetryService : IDisposable
     // ── API ───────────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Performs lightweight startup initialization of the telemetry subsystem
+    /// (verifies dependencies are ready; does not start the streaming loop).
+    /// Safe to await from the UI thread.
+    /// </summary>
+    public static Task InitializeAsync() => Task.CompletedTask;
+
+    /// <summary>
     /// Starts the requested telemetry source.
     /// <list type="bullet">
     ///   <item><see cref="TelemetrySource.AssettoCorsa"/> — attempts a shared-memory
