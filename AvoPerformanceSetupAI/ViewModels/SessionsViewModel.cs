@@ -94,12 +94,12 @@ public partial class SessionsViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<SetupParameter> ParsedParameters { get; } = new();
 
-    /// <summary>
-    /// The parameter universe built from the currently loaded setup INI file.
+    /// <summary>The parameter universe built from the currently loaded setup INI file.
     /// Null when no setup is loaded. Used to restrict proposals to keys that exist.
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UniverseInfo))]
+    [NotifyPropertyChangedFor(nameof(CategoryCountInfo))]
     private SetupParamUniverse? _currentUniverse;
 
     /// <summary>Human-readable summary of available parameters for the UI.</summary>
@@ -107,6 +107,37 @@ public partial class SessionsViewModel : ObservableObject
         _currentUniverse is null
             ? "Selecciona y carga un setup primero."
             : $"Keys disponibles: {_currentUniverse.NumericCount} numéricos / {_currentUniverse.KeyCount} total";
+
+    // ── Category filter ───────────────────────────────────────────────────────
+
+    /// <summary>All category names, including the "All" catch-all option.</summary>
+    public IReadOnlyList<string> Categories { get; } =
+        new[] { "All" }.Concat(Enum.GetNames<SetupCategory>()).ToList();
+
+    /// <summary>Currently selected category filter. Changing it rebuilds <see cref="LastProposals"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CategoryCountInfo))]
+    private string _selectedCategory = "All";
+
+    /// <summary>Shows how many numeric keys are available in the selected category.</summary>
+    public string CategoryCountInfo
+    {
+        get
+        {
+            if (_currentUniverse is null) return string.Empty;
+            var cat = _selectedCategory;
+            if (string.IsNullOrEmpty(cat) || cat == "All") return string.Empty;
+            if (!Enum.TryParse<SetupCategory>(cat, out var selectedCat)) return string.Empty;
+            if (!_currentUniverse.ByCategory.TryGetValue(selectedCat, out var keys))
+                return $"Disponible: 0 numéricos en {cat}";
+            var numericCount = keys.Count(k => k.IsNumeric);
+            return $"Disponible: {numericCount} numéricos en {cat}";
+        }
+    }
+
+    // Cached parsed entries from the last successful INI read, used to rebuild proposals
+    // when only the category filter changes (avoids re-reading the file from disk/network).
+    private List<AvoPerformanceSetupAI.Models.IniEntry>? _cachedEntries;
 
     public ObservableCollection<string> SetupSources { get; } = new() { "Local File", "Server", "Git Repo" };
     public ObservableCollection<string> Modes { get; } = new() { "Hotlap", "Race", "Qualify" };
@@ -209,6 +240,15 @@ public partial class SessionsViewModel : ObservableObject
         if (value != null)
             SelectedSetupFile = value.Setup;
         ApplyCommand.NotifyCanExecuteChanged();
+        ApplyProposalCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Rebuilds proposals from cached entries when the category filter changes.</summary>
+    partial void OnSelectedCategoryChanged(string value)
+    {
+        LastProposals.Clear();
+        if (_cachedEntries is not null)
+            BuildProposals(_cachedEntries);
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
@@ -332,6 +372,7 @@ public partial class SessionsViewModel : ObservableObject
             string.IsNullOrEmpty(CarId) ||
             string.IsNullOrEmpty(TrackId))
         {
+            _cachedEntries  = null;
             CurrentUniverse = null;
             return;
         }
@@ -343,6 +384,7 @@ public partial class SessionsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            _cachedEntries  = null;
             CurrentUniverse = null;
             AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
@@ -350,15 +392,27 @@ public partial class SessionsViewModel : ObservableObject
 
         try
         {
-            var allEntries = SetupIniParser.ParseText(iniText);
+            var allEntries  = SetupIniParser.ParseText(iniText);
+            _cachedEntries  = allEntries;
             CurrentUniverse = SetupParamUniverse.Build(CarId, TrackId, SelectedSetupFile!, allEntries);
+
+            // Log totals
             AppLogger.Instance.Data(
                 $"Universe loaded: sections={CurrentUniverse.SectionCount} keys={CurrentUniverse.KeyCount} numeric={CurrentUniverse.NumericCount}");
             AddLog($"Universe loaded: sections={CurrentUniverse.SectionCount} keys={CurrentUniverse.KeyCount} numeric={CurrentUniverse.NumericCount}");
+
+            // Log per-category breakdown
+            var catLog = string.Join(" ", Enum.GetValues<SetupCategory>()
+                .Where(c => CurrentUniverse.ByCategory.ContainsKey(c))
+                .Select(c => $"{c}={CurrentUniverse.ByCategory[c].Count}"));
+            AppLogger.Instance.Data($"Universe categorized: {catLog}");
+            AddLog($"Universe categorized: {catLog}");
+
             BuildProposals(allEntries);
         }
         catch (Exception ex)
         {
+            _cachedEntries  = null;
             CurrentUniverse = null;
             AppLogger.Instance.Error($"Error al leer parámetros del setup: {ex.Message}");
         }
@@ -366,10 +420,14 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
+    // Maximum proposals shown in the UI — limited to 6 to keep the proposals card readable.
+    private const int MaxProposals = 6;
+
     private void BuildProposals(IEnumerable<IniEntry> entries)
     {
         var allEntries = entries as List<IniEntry> ?? entries.ToList();
 
+        // All numerically tunable entries (non-zero value, not a selector key).
         var tunable = allEntries
             .Where(e =>
                 !NonTunableKeys.Contains(e.Key) &&
@@ -388,7 +446,7 @@ public partial class SessionsViewModel : ObservableObject
                 AppLogger.Instance.Data($"  candidate: [{e.Section}] {e.Key}={e.Value}");
         }
 
-        // ── Build and classify SetupParameter list ────────────────────────────
+        // ── Build SetupParameter list for the Setup Diff view ─────────────────
         ParsedParameters.Clear();
         foreach (var e in tunable)
         {
@@ -398,13 +456,51 @@ public partial class SessionsViewModel : ObservableObject
             ParsedParameters.Add(sp);
         }
 
-        var sample = tunable
-            .GroupBy(e => e.Section)
-            .SelectMany(g => g.Take(2))
-            .Take(6)
+        // ── Categorize + weight every tunable entry ────────────────────────────
+        var weighted = tunable
+            .Select(e =>
+            {
+                var cat    = SetupParamClassifier.Classify(e.Section, e.Key);
+                var weight = SetupParamClassifier.ImpactWeight(cat, e.Key);
+                return (Entry: e, Category: cat, Weight: weight);
+            })
             .ToList();
 
-        foreach (var entry in sample)
+        // ── Apply category filter ──────────────────────────────────────────────
+        var cat = _selectedCategory;
+        List<(IniEntry Entry, SetupCategory Category, double Weight)> candidates;
+
+        if (string.IsNullOrEmpty(cat) || cat == "All")
+        {
+            candidates = weighted;
+        }
+        else if (Enum.TryParse<SetupCategory>(cat, out var selectedCat))
+        {
+            candidates = weighted.Where(t => t.Category == selectedCat).ToList();
+            if (candidates.Count == 0)
+            {
+                var noParamMsg = $"Este setup no tiene parámetros de {cat}.";
+                AppLogger.Instance.Warn(noParamMsg);
+                AddLog(noParamMsg, "WRN");
+            }
+        }
+        else
+        {
+            candidates = weighted;
+        }
+
+        // ── Sort by weight descending (deterministic weighted selection) ───────
+        candidates = candidates.OrderByDescending(t => t.Weight).ToList();
+
+        // ── Log top candidates ─────────────────────────────────────────────────
+        var topLog = string.Join(", ",
+            candidates.Take(3).Select(t => $"{t.Entry.Key}={t.Weight:F2}"));
+        var logMsg = $"AI candidates: category={cat ?? "All"} count={candidates.Count} top weights: {topLog}";
+        AppLogger.Instance.Data(logMsg);
+        AddLog(logMsg);
+
+        // ── Emit top MaxProposals proposals with safe steps ────────────────────
+        foreach (var (entry, category, _) in candidates.Take(MaxProposals))
         {
             if (!double.TryParse(entry.Value,
                     System.Globalization.NumberStyles.Float,
@@ -412,12 +508,9 @@ public partial class SessionsViewModel : ObservableObject
                     out var current))
                 continue;
 
-            var abs     = Math.Abs(current);
-            var nudge   = abs >= 100.0 ? Math.Round(abs * 0.02, 0)
-                        : abs >= 1.0   ? Math.Round(abs * 0.02, 3)
-                                       : 0.05;
-            var proposed = Math.Round(current - nudge, 4);
-            var deltaStr = $"-{nudge.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            var step     = SetupParamClassifier.SafeStep(category, entry.Key, current);
+            var proposed = Math.Round(current - step, 4);
+            var deltaStr = $"-{step.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
             LastProposals.Add(new Proposal
             {
@@ -425,7 +518,7 @@ public partial class SessionsViewModel : ObservableObject
                 Parameter = entry.Key,
                 From      = entry.Value,
                 To        = proposed.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Delta     = deltaStr
+                Delta     = deltaStr,
             });
         }
 

@@ -196,6 +196,16 @@
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Last Proposal" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <!-- Category filter -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Categoría:" Foreground="#FF8AABAB" FontSize="11" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding Categories}"
+                                  SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                                  Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                  BorderBrush="#FF2E4040" FontSize="11" MinWidth="110"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding CategoryCountInfo}"
+                               Foreground="#FF507070" FontSize="11" TextWrapping="Wrap"/>
                     <ItemsControl ItemsSource="{Binding LastProposals}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:Proposal">

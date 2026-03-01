@@ -39,6 +39,13 @@ public sealed class SetupParamUniverse
     /// <summary>Number of distinct section names.</summary>
     public int SectionCount { get; init; }
 
+    /// <summary>
+    /// All keys grouped by their <see cref="SetupCategory"/> classification.
+    /// Includes both numeric and non-numeric keys.
+    /// </summary>
+    public IReadOnlyDictionary<SetupCategory, IReadOnlyList<CategorizedKeyInfo>> ByCategory { get; init; }
+        = new Dictionary<SetupCategory, IReadOnlyList<CategorizedKeyInfo>>();
+
     // Normalized upper-case (section, key) pairs for O(1) lookup.
     private readonly HashSet<(string section, string key)> _lookup;
 
@@ -60,12 +67,14 @@ public sealed class SetupParamUniverse
     /// <summary>
     /// Builds a <see cref="SetupParamUniverse"/> from a list of <see cref="IniEntry"/>
     /// objects produced by <c>SetupIniParser</c>.
+    /// Also categorizes every key via <see cref="SetupParamClassifier.Classify"/>.
     /// </summary>
     public static SetupParamUniverse Build(string car, string track, string file, IEnumerable<IniEntry> entries)
     {
-        var lookup   = new HashSet<(string, string)>();
-        var sections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        int numeric  = 0;
+        var lookup     = new HashSet<(string, string)>();
+        var sections   = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var byCategory = new Dictionary<SetupCategory, List<CategorizedKeyInfo>>();
+        int numeric    = 0;
 
         foreach (var e in entries)
         {
@@ -73,15 +82,46 @@ public sealed class SetupParamUniverse
             var key = (e.Key     ?? string.Empty).ToUpperInvariant();
             lookup.Add((sec, key));
             sections.Add(sec);
-            if (double.TryParse(e.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
+
+            double? numericValue = null;
+            bool    isNumeric    = false;
+            if (double.TryParse(e.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var dv))
+            {
+                numericValue = dv;
+                isNumeric    = true;
                 numeric++;
+            }
+
+            var cat  = SetupParamClassifier.Classify(e.Section ?? string.Empty, e.Key ?? string.Empty);
+            var info = new CategorizedKeyInfo
+            {
+                Section      = sec,
+                Key          = key,
+                RawValue     = e.Value ?? string.Empty,
+                NumericValue = numericValue,
+                IsNumeric    = isNumeric,
+                Category     = cat,
+            };
+
+            if (!byCategory.TryGetValue(cat, out var list))
+            {
+                list = new List<CategorizedKeyInfo>();
+                byCategory[cat] = list;
+            }
+            list.Add(info);
         }
+
+        // Seal the per-category lists as read-only.
+        var readOnly = new Dictionary<SetupCategory, IReadOnlyList<CategorizedKeyInfo>>();
+        foreach (var (cat, list) in byCategory)
+            readOnly[cat] = list.AsReadOnly();
 
         return new SetupParamUniverse(lookup, lookup.Count, numeric, sections.Count)
         {
-            Car   = car,
-            Track = track,
-            File  = file,
+            Car        = car,
+            Track      = track,
+            File       = file,
+            ByCategory = readOnly,
         };
     }
 }
