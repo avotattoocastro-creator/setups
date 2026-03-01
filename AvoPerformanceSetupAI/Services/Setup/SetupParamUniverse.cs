@@ -49,12 +49,28 @@ public sealed class SetupParamUniverse
     // Normalized upper-case (section, key) pairs for O(1) lookup.
     private readonly HashSet<(string section, string key)> _lookup;
 
+    // Allowlist in "[SECTION]KEY" format, pre-computed at construction time.
+    private readonly IReadOnlySet<string> _allowlistKeys;
+
+    /// <summary>
+    /// All parameter keys present in the setup file in the canonical
+    /// <c>"[SECTION]KEY"</c> format (upper-case).  Used to constrain
+    /// AI proposal generation so that only existing parameters are proposed.
+    /// </summary>
+    public IReadOnlySet<string> AllowlistKeys => _allowlistKeys;
+
     private SetupParamUniverse(HashSet<(string, string)> lookup, int keyCount, int numericCount, int sectionCount)
     {
         _lookup      = lookup;
         KeyCount     = keyCount;
         NumericCount = numericCount;
         SectionCount = sectionCount;
+
+        // Build allowlist strings once.
+        var allowlistKeys = new HashSet<string>(lookup.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (sec, key) in lookup)
+            allowlistKeys.Add($"[{sec}]{key}");
+        _allowlistKeys = allowlistKeys;
     }
 
     /// <summary>

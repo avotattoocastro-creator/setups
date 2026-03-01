@@ -153,6 +153,8 @@ public partial class SessionsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UniverseInfo))]
     [NotifyPropertyChangedFor(nameof(CategoryCountInfo))]
+    [NotifyPropertyChangedFor(nameof(CurrentSetupAllowlist))]
+    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     private SetupParamUniverse? _currentUniverse;
 
     /// <summary>Human-readable summary of available parameters for the UI.</summary>
@@ -160,6 +162,13 @@ public partial class SessionsViewModel : ObservableObject
         _currentUniverse is null
             ? "Selecciona y carga un setup primero."
             : $"Keys disponibles: {_currentUniverse.NumericCount} numéricos / {_currentUniverse.KeyCount} total";
+
+    /// <summary>
+    /// Current setup allowlist in <c>"[SECTION]KEY"</c> format.
+    /// Populated when a setup file is loaded; <see langword="null"/> otherwise.
+    /// RUN button is disabled while this is null or empty.
+    /// </summary>
+    public IReadOnlySet<string>? CurrentSetupAllowlist => _currentUniverse?.AllowlistKeys;
 
     // ── Category filter ───────────────────────────────────────────────────────
 
@@ -527,7 +536,13 @@ public partial class SessionsViewModel : ObservableObject
             AppLogger.Instance.Data($"Universe categorized: {catLog}");
             AddLog($"Universe categorized: {catLog}");
 
+            // Log first 20 allowlist keys as a diagnostic summary (unsorted sample).
+            var allowlistSample = string.Join(", ", CurrentUniverse.AllowlistKeys.Take(20));
+            AppLogger.Instance.Data($"Allowlist sample (first 20): {allowlistSample}");
+            AddLog($"Allowlist: {CurrentUniverse.AllowlistKeys.Count} keys — sample: {allowlistSample}");
+
             // Note: proposals are NOT generated here — only RUN (StartCommand) generates them.
+            StartCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
         {
@@ -554,9 +569,13 @@ public partial class SessionsViewModel : ObservableObject
         }
 
         // All numerically tunable entries (non-zero value, not a selector key).
+        // Explicitly intersect with the loaded universe allowlist so that only
+        // parameters actually present in the selected INI file are ever proposed.
+        var universe = _currentUniverse;
         var tunable = allEntries
             .Where(e =>
                 !NonTunableKeys.Contains(e.Key) &&
+                (universe is null || universe.Contains(e.Section, e.Key)) &&
                 double.TryParse(e.Value,
                     System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture,
@@ -687,9 +706,12 @@ public partial class SessionsViewModel : ObservableObject
             $"recentKeys=[{string.Join(", ", _recentProposalKeys.TakeLast(5))}]");
 
         // Build weighted tunable list (same filter as BuildProposals).
+        // Explicitly intersect with the loaded universe to ensure only INI-present params are proposed.
+        var simUniverse = _currentUniverse;
         var weighted = allEntries
             .Where(e =>
                 !NonTunableKeys.Contains(e.Key) &&
+                (simUniverse is null || simUniverse.Contains(e.Section, e.Key)) &&
                 double.TryParse(e.Value,
                     System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture,
@@ -882,7 +904,7 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanStart() => !IsRunning;
+    private bool CanStart() => !IsRunning && _currentUniverse is not null;
 
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
