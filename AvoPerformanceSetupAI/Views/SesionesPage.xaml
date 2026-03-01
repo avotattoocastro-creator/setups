@@ -206,7 +206,15 @@
                     </StackPanel>
                     <TextBlock Text="{Binding CategoryCountInfo}"
                                Foreground="#FF507070" FontSize="11" TextWrapping="Wrap"/>
-                    <ItemsControl ItemsSource="{Binding LastProposals}">
+
+                    <!-- Placeholder shown until the user presses RUN -->
+                    <TextBlock Text="⏳ Waiting for AI. Press RUN."
+                               Foreground="#FF506870" FontSize="12" FontStyle="Italic"
+                               Visibility="{Binding NoProposalVisibility}"/>
+
+                    <!-- Proposals list — visible only when a proposal exists -->
+                    <ItemsControl ItemsSource="{Binding LastProposals}"
+                                  Visibility="{Binding ProposalVisibility}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:Proposal">
                                 <Grid ColumnSpacing="8" Margin="0,3">
