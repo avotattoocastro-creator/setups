@@ -227,6 +227,10 @@
                             <TextBlock Text="{Binding RiskLevel}" Foreground="#FF00E676" FontSize="12" FontWeight="Bold"/>
                         </StackPanel>
                     </Border>
+                    <!-- Available parameters from loaded setup -->
+                    <TextBlock Text="{Binding UniverseInfo}"
+                               Foreground="#FF507070" FontSize="11"
+                               Margin="0,4,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 

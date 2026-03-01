@@ -93,6 +93,21 @@ public partial class SessionsViewModel : ObservableObject
     /// Consumed by the Setup Diff feature.
     /// </summary>
     public ObservableCollection<SetupParameter> ParsedParameters { get; } = new();
+
+    /// <summary>
+    /// The parameter universe built from the currently loaded setup INI file.
+    /// Null when no setup is loaded. Used to restrict proposals to keys that exist.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UniverseInfo))]
+    private SetupParamUniverse? _currentUniverse;
+
+    /// <summary>Human-readable summary of available parameters for the UI.</summary>
+    public string UniverseInfo =>
+        _currentUniverse is null
+            ? "Selecciona y carga un setup primero."
+            : $"Keys disponibles: {_currentUniverse.NumericCount} numéricos / {_currentUniverse.KeyCount} total";
+
     public ObservableCollection<string> SetupSources { get; } = new() { "Local File", "Server", "Git Repo" };
     public ObservableCollection<string> Modes { get; } = new() { "Hotlap", "Race", "Qualify" };
 
@@ -316,7 +331,10 @@ public partial class SessionsViewModel : ObservableObject
         if (string.IsNullOrEmpty(SelectedSetupFile) ||
             string.IsNullOrEmpty(CarId) ||
             string.IsNullOrEmpty(TrackId))
+        {
+            CurrentUniverse = null;
             return;
+        }
 
         string iniText;
         try
@@ -325,16 +343,23 @@ public partial class SessionsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            CurrentUniverse = null;
             AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
         }
 
         try
         {
-            BuildProposals(SetupIniParser.ParseText(iniText));
+            var allEntries = SetupIniParser.ParseText(iniText);
+            CurrentUniverse = SetupParamUniverse.Build(CarId, TrackId, SelectedSetupFile!, allEntries);
+            AppLogger.Instance.Data(
+                $"Universe loaded: sections={CurrentUniverse.SectionCount} keys={CurrentUniverse.KeyCount} numeric={CurrentUniverse.NumericCount}");
+            AddLog($"Universe loaded: sections={CurrentUniverse.SectionCount} keys={CurrentUniverse.KeyCount} numeric={CurrentUniverse.NumericCount}");
+            BuildProposals(allEntries);
         }
         catch (Exception ex)
         {
+            CurrentUniverse = null;
             AppLogger.Instance.Error($"Error al leer parámetros del setup: {ex.Message}");
         }
 
@@ -572,11 +597,27 @@ public partial class SessionsViewModel : ObservableObject
             return;
         }
 
+        // Safety filter: only apply proposals whose (Section, Parameter) exists in the loaded universe.
+        // This prevents "no encontrado" errors caused by AI proposals with hardcoded parameter names
+        // that don't match the actual keys in this INI.
+        var universe = _currentUniverse;
+        var proposalsToApply = universe is null
+            ? LastProposals.ToList()
+            : LastProposals.Where(p =>
+            {
+                if (universe.Contains(p.Section, p.Parameter)) return true;
+                var filtered = $"Filtered out unsupported param: {p.Section}.{p.Parameter}";
+                System.Diagnostics.Debug.WriteLine($"[SessionsVM] {filtered}");
+                AddLog(filtered, "WRN");
+                AppLogger.Instance.Warn(filtered);
+                return false;
+            }).ToList();
+
         // Apply proposals in-memory
         var lines = SetupIniParser.NormalizeText(iniText)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
             .ToList();
-        foreach (var proposal in LastProposals)
+        foreach (var proposal in proposalsToApply)
         {
             bool applied = false;
             var currentSection = string.Empty;
@@ -705,6 +746,13 @@ public partial class SessionsViewModel : ObservableObject
     {
         if (SelectedIteration is null) return;
 
+        // Filter: skip proposals whose (Section, Parameter) is not in the loaded universe.
+        if (_currentUniverse is not null && !_currentUniverse.Contains(p.Section, p.Parameter))
+        {
+            AppLogger.Instance.Warn($"Filtered out unsupported param: {p.Section}.{p.Parameter}");
+            return;
+        }
+
         bool replaced = false;
         for (int i = 0; i < LastProposals.Count; i++)
         {
@@ -735,6 +783,13 @@ public partial class SessionsViewModel : ObservableObject
 
         foreach (var p in proposals)
         {
+            // Filter: skip proposals whose (Section, Parameter) is not in the loaded universe.
+            if (_currentUniverse is not null && !_currentUniverse.Contains(p.Section, p.Parameter))
+            {
+                AppLogger.Instance.Warn($"Filtered out unsupported param: {p.Section}.{p.Parameter}");
+                continue;
+            }
+
             bool replaced = false;
             for (int i = 0; i < LastProposals.Count; i++)
             {
