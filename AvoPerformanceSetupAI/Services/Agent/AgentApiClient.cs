@@ -175,7 +175,7 @@ public sealed class AgentApiClient : IDisposable
             var task = FetchStringListWithRetryAsync(path, ct);
             _inFlight[path] = task;
             // Remove from the dict once settled (success or failure) so later calls can start fresh.
-            _ = task.ContinueWith(_ => { lock (_inFlightLock) { _inFlight.Remove(path); } },
+            _ = task.ContinueWith(t => { lock (_inFlightLock) { _inFlight.Remove(path); } },
                                   TaskScheduler.Default);
             return task;
         }
@@ -191,7 +191,7 @@ public sealed class AgentApiClient : IDisposable
     /// </summary>
     private async Task<List<string>> FetchStringListWithRetryAsync(string path, CancellationToken ct)
     {
-        int totalAttempts = BrowseRetryDelays.Length + 1; // 4 total
+        int totalAttempts = BrowseRetryDelays.Length + 1;
         Exception? lastEx = null;
 
         for (int attempt = 1; attempt <= totalAttempts; attempt++)

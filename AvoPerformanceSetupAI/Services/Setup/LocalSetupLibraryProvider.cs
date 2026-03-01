@@ -10,6 +10,10 @@ namespace AvoPerformanceSetupAI.Services.Setup;
 /// </summary>
 public sealed class LocalSetupLibraryProvider : ISetupLibraryProvider
 {
+    /// <summary>File extensions recognised as setup files (case-insensitive).</summary>
+    private static readonly HashSet<string> AllowedExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".ini", ".json" };
+
     private readonly Window _window;
     private string _rootFolder;
 
@@ -73,7 +77,17 @@ public sealed class LocalSetupLibraryProvider : ISetupLibraryProvider
         if (!Directory.Exists(trackPath))
             return Task.FromResult<IReadOnlyList<SetupItem>>(Array.Empty<SetupItem>());
 
-        var items = Directory.GetFiles(trackPath, "*.ini")
+        var items = Directory.EnumerateFiles(trackPath)
+                             .Where(f =>
+                             {
+                                 var ext  = Path.GetExtension(f);
+                                 var name = Path.GetFileName(f);
+                                 // Accept only known setup extensions; skip backups and temp files.
+                                 return AllowedExtensions.Contains(ext)
+                                     && !name.EndsWith(".bak", StringComparison.OrdinalIgnoreCase)
+                                     && !name.StartsWith("~",  StringComparison.Ordinal)
+                                     && !name.StartsWith(".",  StringComparison.Ordinal);
+                             })
                              .Select(f => new SetupItem
                              {
                                  FileName = Path.GetFileName(f)!,
