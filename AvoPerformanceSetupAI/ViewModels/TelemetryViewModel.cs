@@ -650,7 +650,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// Must be called once from the UI thread (page constructor) to allow the timer
     /// callbacks to marshal back onto the UI dispatcher.
     /// </summary>
-    public void Initialize(DispatcherQueue dispatcher)
+    public async Task InitializeAsync(DispatcherQueue dispatcher)
     {
         _dispatcher = dispatcher;
 
@@ -690,9 +690,29 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
                 IsRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
         };
 
-        // Start live-log stream when in Remote mode
+        // Start live-log stream when in Remote mode — awaited so failures surface
+        // immediately rather than being lost in a fire-and-forget task.
         if (SetupSettings.Instance.Mode == AppMode.Remote)
-            _ = StartLogStreamAsync(dispatcher);
+        {
+            try
+            {
+                await StartLogStreamAsync(dispatcher);
+            }
+            catch (Exception ex)
+            {
+                var inner = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
+                var msg = $"LOG WS FAILED [{ex.GetType().Name}]: {ex.Message}{inner}";
+                AppLogger.Instance.Warn(msg);
+                dispatcher.TryEnqueue(() =>
+                    Logs.Add(new AgentLogEntry
+                    {
+                        TUtc = DateTime.UtcNow.ToString("O"),
+                        Lvl  = "ERR",
+                        Cat  = "Client",
+                        Msg  = msg,
+                    }));
+            }
+        }
     }
 
     /// <summary>Unsubscribes from <see cref="TelemetryService"/> events and releases resources.</summary>

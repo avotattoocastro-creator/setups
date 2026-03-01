@@ -45,8 +45,6 @@ public sealed partial class TelemetryPage : Page, INotifyPropertyChanged
     {
         this.InitializeComponent();
 
-        ViewModel.Initialize(DispatcherQueue);
-
         ViewModel.BehaviorLogs.CollectionChanged += (_, _) => AutoScroll(BehaviorScrollViewer);
         ViewModel.DrivingLogs.CollectionChanged  += (_, _) => AutoScroll(DrivingScrollViewer);
         ViewModel.SetupLogs.CollectionChanged    += (_, _) => AutoScroll(SetupScrollViewer);
@@ -85,7 +83,13 @@ public sealed partial class TelemetryPage : Page, INotifyPropertyChanged
             SetupSettings.Instance.PropertyChanged -= _settingsChanged;
         };
 
-        Loaded += (_, _) => ApplyRaceViewState(animated: false);
+        // Use Loaded (async void) so we can await ViewModel.InitializeAsync without
+        // fire-and-forget — the proper WinUI3 pattern for async page initialization.
+        Loaded += async (_, _) =>
+        {
+            ApplyRaceViewState(animated: false);
+            await ViewModel.InitializeAsync(DispatcherQueue);
+        };
 
         // TAB key → show HUD quick overlay (handled before focus navigation).
         var tabKey = new KeyboardAccelerator { Key = VirtualKey.Tab };

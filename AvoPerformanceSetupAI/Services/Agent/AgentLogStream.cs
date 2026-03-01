@@ -61,6 +61,8 @@ public sealed class AgentLogStream : IDisposable
 
         System.Diagnostics.Debug.WriteLine($"[AgentLogStream] Connecting to: {wsUrl}");
 
+        Exception? lastEx = null;
+
         for (var attempt = 1; attempt <= MaxConnectAttempts; attempt++)
         {
             if (ct.IsCancellationRequested) return;
@@ -87,6 +89,7 @@ public sealed class AgentLogStream : IDisposable
             }
             catch (Exception ex)
             {
+                lastEx = ex;
                 var msg = $"Connection failed (attempt {attempt}/{MaxConnectAttempts}): {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"[AgentLogStream] {msg}");
                 OnStatus?.Invoke(msg);
@@ -102,10 +105,13 @@ public sealed class AgentLogStream : IDisposable
             }
         }
 
-        // All attempts exhausted
-        OnStatus?.Invoke($"Could not connect to {wsUrl} after {MaxConnectAttempts} attempts.");
+        // All attempts exhausted — notify and throw so the caller can observe the failure.
+        var finalMsg = $"Could not connect to {wsUrl} after {MaxConnectAttempts} attempts.";
+        System.Diagnostics.Debug.WriteLine($"[AgentLogStream] {finalMsg}");
+        OnStatus?.Invoke(finalMsg);
         _cts.Dispose();
         _cts = null;
+        throw new InvalidOperationException(finalMsg, lastEx);
     }
 
     /// <summary>Closes the WebSocket and stops the receive loop.</summary>
