@@ -56,13 +56,6 @@ public partial class SessionsViewModel : ObservableObject
     private static readonly string[] SimProcessNames =
         ["acs", "AC2-Win64-Shipping", "AssettoCorsaCompetizione", "ACCS", "acc"];
 
-    // ── INI sections considered tunable (AC/ACC setup structure) ────────────
-    private static readonly HashSet<string> TunableSections = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ALIGNMENT", "TYRES", "SUSPENSION", "FRONT", "REAR", "BRAKE", "BRAKES",
-        "ELECTRONICS", "FUEL", "AERO", "DAMPERS", "GEOMETRY", "ARB", "SPRINGS"
-    };
-
     // ── Keys that carry integer selectors, not tunable numeric values ────────
     private static readonly HashSet<string> NonTunableKeys = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -309,17 +302,7 @@ public partial class SessionsViewModel : ObservableObject
 
         try
         {
-            // Write to a temp file so the existing SetupIniParser (which takes a path) can parse it
-            var tmpPath = Path.GetTempFileName();
-            await File.WriteAllTextAsync(tmpPath, iniText);
-            try
-            {
-                BuildProposals(SetupIniParser.Parse(tmpPath));
-            }
-            finally
-            {
-                File.Delete(tmpPath);
-            }
+            BuildProposals(SetupIniParser.ParseText(iniText));
         }
         catch (Exception ex)
         {
@@ -333,10 +316,9 @@ public partial class SessionsViewModel : ObservableObject
     {
         var tunable = entries
             .Where(e =>
-                TunableSections.Contains(e.Section) &&
                 !NonTunableKeys.Contains(e.Key) &&
                 double.TryParse(e.Value,
-                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture,
                     out var v) && v != 0.0)
             .ToList();
@@ -378,7 +360,7 @@ public partial class SessionsViewModel : ObservableObject
 
         if (tunable.Count == 0)
             AppLogger.Instance.Warn(
-                "El archivo de setup no contiene parámetros reconocibles en secciones tunables.");
+                "El archivo de setup no contiene parámetros numéricos reconocibles.");
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────

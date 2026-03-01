@@ -15,11 +15,21 @@ public static class SetupIniParser
     /// Comment lines (starting with <c>;</c> or <c>//</c>) and blank lines are ignored.
     /// </summary>
     public static List<IniEntry> Parse(string filePath)
+        => ParseLines(File.ReadLines(filePath));
+
+    /// <summary>
+    /// Parses INI content already loaded as a string.
+    /// Accepts both <c>\r\n</c> and <c>\n</c> line endings.
+    /// </summary>
+    public static List<IniEntry> ParseText(string text)
+        => ParseLines(text.Split('\n'));
+
+    private static List<IniEntry> ParseLines(IEnumerable<string> lines)
     {
         var entries = new List<IniEntry>();
         var currentSection = string.Empty;
 
-        foreach (var raw in File.ReadLines(filePath))
+        foreach (var raw in lines)
         {
             var line = raw.Trim();
 
