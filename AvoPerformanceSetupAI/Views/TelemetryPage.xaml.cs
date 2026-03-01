@@ -6,21 +6,40 @@ using Windows.Storage.Pickers;
 using Windows.System;
 using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.ViewModels;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace AvoPerformanceSetupAI.Views;
 
-public sealed partial class TelemetryPage : Page
+public sealed partial class TelemetryPage : Page, INotifyPropertyChanged
 {
     public TelemetryViewModel ViewModel { get; } = new TelemetryViewModel();
 
+    private Visibility _isRemoteModeVisible = Visibility.Collapsed;
+
     /// <summary>Drives the "REMOTE CONNECTED" badge visibility in the header.</summary>
-    public Visibility IsRemoteModeVisible =>
-        SetupSettings.Instance.Mode == AppMode.Remote
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+    public Visibility IsRemoteModeVisible
+    {
+        get => _isRemoteModeVisible;
+        private set
+        {
+            if (_isRemoteModeVisible != value)
+            {
+                _isRemoteModeVisible = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     // Keep handler reference for unsubscription
     private readonly System.ComponentModel.PropertyChangedEventHandler _settingsChanged;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
     public TelemetryPage()
     {
@@ -42,10 +61,22 @@ public sealed partial class TelemetryPage : Page
         _settingsChanged = (_, e) =>
         {
             if (e.PropertyName == nameof(SetupSettings.Mode))
-                DispatcherQueue.TryEnqueue(() => Bindings.Update());
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    IsRemoteModeVisible = SetupSettings.Instance.Mode == AppMode.Remote
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                });
+            }
         };
 
         SetupSettings.Instance.PropertyChanged += _settingsChanged;
+
+        // Initialize the property
+        IsRemoteModeVisible = SetupSettings.Instance.Mode == AppMode.Remote
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         Unloaded += (_, _) =>
         {
