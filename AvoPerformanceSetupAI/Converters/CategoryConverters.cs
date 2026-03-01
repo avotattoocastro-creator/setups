@@ -136,6 +136,12 @@ public sealed class DiffKindToColorConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) =>
         throw new NotImplementedException();
 }
+
+/// <summary>
+/// Maps an AC connection status string to the appropriate border
+/// <see cref="SolidColorBrush"/> for the status badge.
+/// </summary>
+public sealed class AcStatusToBorderConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
