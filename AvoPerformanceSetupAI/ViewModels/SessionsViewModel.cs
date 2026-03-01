@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -70,6 +71,21 @@ public partial class SessionsViewModel : ObservableObject
     // ── Collections ───────────────────────────────────────────────────────────
     public ObservableCollection<SetupIteration> Iterations { get; } = new();
     public ObservableCollection<Proposal> LastProposals { get; } = new();
+
+    /// <summary>
+    /// Diagnostic log entries produced by Apply Proposal and similar commands.
+    /// Forwarded to the Agent Logs tab by <see cref="TelemetryViewModel"/>.
+    /// </summary>
+    public ObservableCollection<AgentLogEntry> Logs { get; } = new();
+
+    private void AddLog(string msg, string lvl = "SYS") =>
+        Logs.Add(new AgentLogEntry
+        {
+            TUtc = DateTime.UtcNow.ToString("O"),
+            Lvl  = lvl,
+            Cat  = "Client",
+            Msg  = msg,
+        });
 
     /// <summary>
     /// All numeric tunable parameters from the currently loaded setup file,
@@ -538,6 +554,9 @@ public partial class SessionsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanApplyProposal))]
     private async Task ApplyProposalAsync()
     {
+        System.Diagnostics.Debug.WriteLine("[SessionsVM] APPLY CLICKED");
+        AddLog("APPLY CLICKED");
+
         // Read current INI via provider (works local or remote)
         string iniText;
         try
@@ -546,6 +565,9 @@ public partial class SessionsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            var readErr = $"APPLY READ ERROR: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"[SessionsVM] {readErr}");
+            AddLog(readErr, "ERR");
             AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
         }
@@ -595,7 +617,14 @@ public partial class SessionsViewModel : ObservableObject
             string savedPath;
             if (IsRemoteMode)
             {
+                var postUrl = $"http://{SetupSettings.Instance.RemoteHost}:{SetupSettings.Instance.RemotePort}/api/reference/setups/save";
+                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY HTTP POST → {postUrl}");
+                AddLog($"APPLY HTTP POST → {postUrl}");
+
                 savedPath = await CreateSaver().SaveAsync(CarId, TrackId, versionedName, modifiedText);
+
+                System.Diagnostics.Debug.WriteLine("[SessionsVM] APPLY HTTP SENT");
+                AddLog("APPLY HTTP SENT");
                 AppLogger.Instance.Ai($"Propuesta de IA aplicada y guardada en PC simulador: {savedPath}");
             }
             else
@@ -618,6 +647,10 @@ public partial class SessionsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            var inner = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
+            var failMsg = $"APPLY HTTP FAILED [{ex.GetType().Name}]: {ex.Message}{inner}";
+            System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
+            AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
             AppLogger.Instance.Error($"Error al aplicar propuesta: {ex.Message}");
         }

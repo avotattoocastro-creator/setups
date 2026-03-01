@@ -29,6 +29,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     private Action?               _suggestSwitchHandler;
     private Action<AgentLogEntry>? _logEntryHandler;
     private Action<string>?        _logStatusHandler;
+    private System.Collections.Specialized.NotifyCollectionChangedEventHandler? _sessionLogsHandler;
 
     // ── Telemetry service (AC shared memory + simulation routing) ─────────────
 
@@ -690,6 +691,28 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
                 IsRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
         };
 
+        // Forward diagnostic entries from SessionsViewModel (Apply Proposal etc.) to this
+        // Logs collection so they appear in the Agent Logs tab automatically.
+        _sessionLogsHandler = (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add &&
+                e.NewItems is not null)
+            {
+                foreach (var item in e.NewItems)
+                {
+                    if (item is not AgentLogEntry entry) continue;
+                    var captured = entry;
+                    dispatcher.TryEnqueue(() =>
+                    {
+                        Logs.Add(captured);
+                        while (Logs.Count > MaxLogEntries)
+                            Logs.RemoveAt(0);
+                    });
+                }
+            }
+        };
+        SessionsViewModel.Shared.Logs.CollectionChanged += _sessionLogsHandler;
+
         // Start live-log stream when in Remote mode — awaited so failures surface
         // immediately rather than being lost in a fire-and-forget task.
         if (SetupSettings.Instance.Mode == AppMode.Remote)
@@ -740,6 +763,11 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         {
             _logStream.OnStatus -= _logStatusHandler;
             _logStatusHandler    = null;
+        }
+        if (_sessionLogsHandler is not null)
+        {
+            SessionsViewModel.Shared.Logs.CollectionChanged -= _sessionLogsHandler;
+            _sessionLogsHandler = null;
         }
         // Best-effort graceful shutdown of the WebSocket (fire-and-forget is acceptable
         // here because the ViewModel is being disposed — the read loop will self-terminate
