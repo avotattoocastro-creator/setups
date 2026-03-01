@@ -34,10 +34,23 @@ public static class SetupIniParser
 
     /// <summary>
     /// Parses INI content already loaded as a string.
-    /// Accepts both <c>\r\n</c> and <c>\n</c> line endings.
+    /// Accepts both real line endings (<c>\r\n</c>, <c>\n</c>) and JSON-escaped sequences
+    /// (<c>\\r\\n</c>, <c>\\n</c>) that arise when setup text is transmitted as a JSON
+    /// string value and the caller has not yet unescaped it.
     /// </summary>
     public static List<IniEntry> ParseText(string text)
-        => ParseLines(text.Split('\n'));
+    {
+        // Normalize JSON-escaped newline sequences so the parser always sees real line breaks.
+        if (text.Contains("\\n"))
+        {
+            text = text
+                .Replace("\\r\\n", "\n")
+                .Replace("\\n", "\n")
+                .Replace("\\t", "\t");
+        }
+
+        return ParseLines(text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None));
+    }
 
     private static List<IniEntry> ParseLines(IEnumerable<string> lines)
     {
