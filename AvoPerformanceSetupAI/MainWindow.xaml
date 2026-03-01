@@ -71,7 +71,7 @@
         <!-- Startup splash overlay: last child so it renders above everything -->
         <controls:StartupSplashOverlay x:Name="SplashOverlay"
                                        Grid.RowSpan="2"
-                                       Panel.ZIndex="100"
+                                       Canvas.ZIndex="100"
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Stretch"/>
     </Grid>
