@@ -37,6 +37,7 @@ public sealed partial class ConfiguracionPage : Page
         WatermarkEnabledToggle.IsOn = SetupSettings.Instance.BrandWatermarkEnabled;
         WatermarkOpacitySlider.Value = SetupSettings.Instance.BrandWatermarkOpacity;
         WatermarkOpacityValueText.Text = $"{SetupSettings.Instance.BrandWatermarkOpacity * 100:F0}%";
+        SplashScreenToggle.IsOn = SetupSettings.Instance.ShowSplashScreen;
     }
 
     private async void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -96,6 +97,11 @@ public sealed partial class ConfiguracionPage : Page
     private void WatermarkToggle_Toggled(object sender, RoutedEventArgs e)
     {
         SetupSettings.Instance.BrandWatermarkEnabled = WatermarkEnabledToggle.IsOn;
+    }
+
+    private void SplashScreenToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        SetupSettings.Instance.ShowSplashScreen = SplashScreenToggle.IsOn;
     }
 
     private void WatermarkOpacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)

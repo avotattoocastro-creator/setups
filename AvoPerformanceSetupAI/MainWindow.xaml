@@ -5,9 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:AvoPerformanceSetupAI"
     xmlns:views="using:AvoPerformanceSetupAI.Views"
+    xmlns:controls="using:AvoPerformanceSetupAI.Controls"
     Title="AvoPerformanceSetupAI">
 
-    <Grid Background="{StaticResource CarbonBackgroundBrush}">
+    <Grid Background="{StaticResource CarbonBackgroundBrush}" Loaded="RootGrid_Loaded">
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
             <RowDefinition Height="*" />
@@ -66,5 +67,12 @@
                 <views:TerminalPage />
             </TabViewItem>
         </TabView>
+
+        <!-- Startup splash overlay: last child so it renders above everything -->
+        <controls:StartupSplashOverlay x:Name="SplashOverlay"
+                                       Grid.RowSpan="2"
+                                       Panel.ZIndex="100"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Stretch"/>
     </Grid>
 </Window>

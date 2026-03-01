@@ -53,6 +53,31 @@ public sealed partial class MainWindow : Window
         // Tab changed - can add logic here
     }
 
+    private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!SetupSettings.Instance.ShowSplashScreen)
+            {
+                SplashOverlay.IsOpen = false;
+                return;
+            }
+
+            SplashOverlay.StatusText = "Cargando UI...";
+            await Task.Delay(300);
+            SplashOverlay.StatusText = "Inicializando telemetría...";
+            await Task.Delay(350);
+            SplashOverlay.StatusText = "Listo";
+            await Task.Delay(250);
+            await SplashOverlay.CloseAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Info($"Error en pantalla de inicio: {ex.Message}");
+            SplashOverlay.IsOpen = false;
+        }
+    }
+
     private void OnBrandingSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(SetupSettings.BrandWatermarkEnabled)

@@ -129,6 +129,9 @@
                     <ToggleSwitch x:Name="WatermarkEnabledToggle"
                                   Header="Mostrar marca de fondo"
                                   Toggled="WatermarkToggle_Toggled"/>
+                    <ToggleSwitch x:Name="SplashScreenToggle"
+                                  Header="Mostrar pantalla de inicio"
+                                  Toggled="SplashScreenToggle_Toggled"/>
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <TextBlock Text="Intensidad:" Foreground="#FF8AABAB" VerticalAlignment="Center" MinWidth="80"/>
                         <Slider x:Name="WatermarkOpacitySlider"
