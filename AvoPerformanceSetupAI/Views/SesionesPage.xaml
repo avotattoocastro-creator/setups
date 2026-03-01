@@ -235,7 +235,7 @@
                 <Button Content="✔ Apply Proposal"
                         Style="{StaticResource AccentActionButton}"
                         HorizontalAlignment="Stretch"
-                        Command="{Binding ApplyProposalAsyncCommand}"/>
+                        Command="{Binding ApplyProposalCommand}"/>
                 <Button Content="↩ Rollback"
                         Style="{StaticResource SecondaryActionButton}"
                         HorizontalAlignment="Stretch"

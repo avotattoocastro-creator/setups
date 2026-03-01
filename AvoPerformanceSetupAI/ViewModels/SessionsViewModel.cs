@@ -617,14 +617,14 @@ public partial class SessionsViewModel : ObservableObject
             string savedPath;
             if (IsRemoteMode)
             {
-                var postUrl = $"http://{SetupSettings.Instance.RemoteHost}:{SetupSettings.Instance.RemotePort}/api/reference/setups/save";
-                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY HTTP POST → {postUrl}");
-                AddLog($"APPLY HTTP POST → {postUrl}");
+                var postUrl = $"{SetupSettings.Instance.AgentBaseUrl}/api/reference/setups/save";
+                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: sending POST {postUrl}");
+                AddLog($"APPLY REMOTE: sending POST {postUrl}");
 
                 savedPath = await CreateSaver().SaveAsync(CarId, TrackId, versionedName, modifiedText);
 
-                System.Diagnostics.Debug.WriteLine("[SessionsVM] APPLY HTTP SENT");
-                AddLog("APPLY HTTP SENT");
+                System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: OK saved as {versionedName}");
+                AddLog($"APPLY REMOTE: OK saved as {versionedName}");
                 AppLogger.Instance.Ai($"Propuesta de IA aplicada y guardada en PC simulador: {savedPath}");
             }
             else
@@ -644,11 +644,15 @@ public partial class SessionsViewModel : ObservableObject
             // Refresh file list so the new versioned file appears, then select it.
             await LoadSetupFilesAsync(TrackId);
             SelectedSetupFile = versionedName;
+
+            // Reload proposals from the newly selected versioned file so ParsedParameters
+            // (Setup Diff) reflects the applied changes.
+            await LoadProposalsFromFileAsync();
         }
         catch (Exception ex)
         {
             var inner = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
-            var failMsg = $"APPLY HTTP FAILED [{ex.GetType().Name}]: {ex.Message}{inner}";
+            var failMsg = $"APPLY REMOTE: ERROR [{ex.GetType().Name}] {ex.Message}{inner}";
             System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
             AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
