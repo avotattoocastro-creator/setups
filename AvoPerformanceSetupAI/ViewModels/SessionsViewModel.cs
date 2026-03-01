@@ -436,8 +436,9 @@ public partial class SessionsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanApply))]
     private async Task ApplyAsync()
     {
-        var saver = CreateSaver();
-        var iniText = string.Empty;
+        var saver             = CreateSaver();
+        var iniText           = string.Empty;
+        var versionedFileName = NextVersionedFileName(SelectedSetupFile!);
 
         // Read the current setup text (needed for remote save; for local we still copy the file)
         try
@@ -453,16 +454,17 @@ public partial class SessionsViewModel : ObservableObject
 
         try
         {
-            var savedPath = await saver.SaveAsync(CarId, TrackId, SelectedSetupFile!, iniText);
-
-            var iter = Iterations.FirstOrDefault(i => i.Setup == SelectedSetupFile);
-            if (iter != null) iter.Exported = true;
+            var savedPath = await saver.SaveAsync(CarId, TrackId, versionedFileName, iniText);
 
             StatusText = "● APPLIED";
-            AppLogger.Instance.Info($"Setup aplicado correctamente: {SelectedSetupFile}");
+            AppLogger.Instance.Info($"Setup guardado como: {versionedFileName}");
             AppLogger.Instance.Data(IsRemoteMode
                 ? $"Setup guardado en PC simulador: {savedPath}"
                 : $"Destino: {savedPath}");
+
+            // Refresh file list so the new versioned file appears, then select it.
+            await LoadSetupFilesAsync(TrackId);
+            SelectedSetupFile = versionedFileName;
         }
         catch (Exception ex)
         {
@@ -474,8 +476,43 @@ public partial class SessionsViewModel : ObservableObject
     private bool CanApply() => !string.IsNullOrEmpty(SelectedSetupFile);
 
     /// <summary>
-    /// Detecta si hay un proceso del simulador (AC / ACC) en ejecución y actualiza el estado de conexión.
+    /// Returns a new versioned file name based on <paramref name="baseName"/>.
+    /// <para>
+    /// Pattern: <c>{stem}__AI__v{NNN}{ext}</c>, where NNN is the next three-digit
+    /// integer after the highest existing version found in <see cref="SetupFiles"/>.
+    /// </para>
+    /// <example>
+    /// If <c>SetupFiles</c> contains "Supra MKIV Race mid__AI__v001.ini" and
+    /// "Supra MKIV Race mid__AI__v002.ini", the next name returned is
+    /// "Supra MKIV Race mid__AI__v003.ini".
+    /// </example>
     /// </summary>
+    private string NextVersionedFileName(string baseName)
+    {
+        var ext    = Path.GetExtension(baseName);
+        var stem   = Path.GetFileNameWithoutExtension(baseName);
+        var prefix = $"{stem}__AI__v";
+
+        int maxVersion = 0;
+        foreach (var f in SetupFiles)
+        {
+            var fStem = Path.GetFileNameWithoutExtension(f);
+            if (fStem.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                // Only accept pure-digit suffixes (e.g. "001", "002") to avoid false matches.
+                var numStr = fStem[prefix.Length..];
+                if (numStr.Length > 0 &&
+                    numStr.All(char.IsDigit) &&
+                    int.TryParse(numStr, out int n) &&
+                    n > maxVersion)
+                    maxVersion = n;
+            }
+        }
+
+        return $"{prefix}{(maxVersion + 1):D3}{ext}";
+    }
+
+
     [RelayCommand]
     private void Connect()
     {
@@ -550,28 +587,34 @@ public partial class SessionsViewModel : ObservableObject
         }
 
         var modifiedText = string.Join("\n", lines);
+        var versionedName = NextVersionedFileName(SelectedSetupFile!);
 
-        // Save via saver (local writes .bak + file; remote sends to agent)
+        // Save versioned file (local: writes to circuit folder; remote: sends to Agent)
         try
         {
+            string savedPath;
             if (IsRemoteMode)
             {
-                var savedPath = await CreateSaver().SaveAsync(CarId, TrackId, SelectedSetupFile!, modifiedText);
-                StatusText = "● PROPOSAL APPLIED";
+                savedPath = await CreateSaver().SaveAsync(CarId, TrackId, versionedName, modifiedText);
                 AppLogger.Instance.Ai($"Propuesta de IA aplicada y guardada en PC simulador: {savedPath}");
             }
             else
             {
-                // Local: write backup then file
-                var filePath = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId, SelectedSetupFile!);
-                _backupPath = filePath + BackupExtension;
-                await File.WriteAllTextAsync(_backupPath, iniText);
-                AppLogger.Instance.Info($"Backup creado: {Path.GetFileName(_backupPath)}");
+                // Local: write the new versioned file (original is untouched — no overwrite/backup needed)
+                var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
+                Directory.CreateDirectory(destFolder);
+                var filePath = Path.Combine(destFolder, versionedName);
                 await File.WriteAllTextAsync(filePath, modifiedText);
-                StatusText = "● PROPOSAL APPLIED";
-                AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
+                savedPath = filePath;
+                AppLogger.Instance.Ai($"Propuesta de IA aplicada al archivo de setup.");
             }
-            RollbackCommand.NotifyCanExecuteChanged();
+
+            StatusText = "● PROPOSAL APPLIED";
+            AppLogger.Instance.Info($"Setup guardado como: {versionedName}  →  {savedPath}");
+
+            // Refresh file list so the new versioned file appears, then select it.
+            await LoadSetupFilesAsync(TrackId);
+            SelectedSetupFile = versionedName;
         }
         catch (Exception ex)
         {
