@@ -1,3 +1,4 @@
+using AvoPerformanceSetupAI.Services.Agent;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using Windows.Storage;
@@ -59,7 +60,7 @@ public sealed partial class SetupSettings : ObservableObject
     private string _remoteHost = "localhost";
 
     [ObservableProperty]
-    private int _remotePort = 5000;
+    private int _remotePort = AgentEndpointResolver.DefaultHttpPort;
 
     [ObservableProperty]
     private string _remoteToken = string.Empty;
@@ -90,7 +91,7 @@ public sealed partial class SetupSettings : ObservableObject
             _raceViewEnabled       = local.Values[KeyRaceViewEnabled]       is bool rve ? rve : false;
             _mode                  = local.Values[KeyAppMode] is string ms && Enum.TryParse<AppMode>(ms, out var pm) ? pm : AppMode.Local;
             _remoteHost            = local.Values[KeyRemoteHost]  as string ?? "localhost";
-            _remotePort            = local.Values[KeyRemotePort]  is int rp  ? rp  : 5000;
+            _remotePort            = local.Values[KeyRemotePort]  is int rp  ? rp  : AgentEndpointResolver.DefaultHttpPort;
             _remoteToken           = local.Values[KeyRemoteToken] as string ?? string.Empty;
         }
         catch (InvalidOperationException)
@@ -106,7 +107,7 @@ public sealed partial class SetupSettings : ObservableObject
             _raceViewEnabled       = false;
             _mode                  = AppMode.Local;
             _remoteHost            = "localhost";
-            _remotePort            = 5000;
+            _remotePort            = AgentEndpointResolver.DefaultHttpPort;
             _remoteToken           = string.Empty;
         }
     }

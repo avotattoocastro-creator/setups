@@ -14,26 +14,45 @@ public sealed class AgentApiClient : IDisposable
 {
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
+    // ── Per-request timeout budgets ───────────────────────────────────────────
+    private static readonly TimeSpan PingTimeout   = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan BrowseTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan SaveTimeout   = TimeSpan.FromSeconds(15);
+
+    // Retry delays for reference-browsing endpoints (between attempts 1→2, 2→3, 3→4)
+    private static readonly TimeSpan[] BrowseRetryDelays =
+    [
+        TimeSpan.FromMilliseconds(250),
+        TimeSpan.FromMilliseconds(750),
+        TimeSpan.FromMilliseconds(1500),
+    ];
+
     private readonly HttpClient _http;
     private readonly string     _baseUrl;
 
+    // In-flight deduplication — avoids duplicate parallel requests from rapid UI events
+    private readonly Dictionary<string, Task<List<string>>> _inFlight = new();
+    private readonly object _inFlightLock = new();
+
     public AgentApiClient(string host, int port, string token)
     {
-        _baseUrl = $"http://{host}:{port}";
-        _http    = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        // AgentEndpointResolver guards against the 8182-UDP mistake and returns the corrected URL.
+        _baseUrl = AgentEndpointResolver.GetBaseHttpUrl(host, port);
+        // Use InfiniteTimeSpan so individual CancellationTokenSource instances control each request.
+        _http    = new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
         if (!string.IsNullOrWhiteSpace(token))
             _http.DefaultRequestHeaders.Add("X-API-TOKEN", token);
     }
 
     // ── Connectivity ──────────────────────────────────────────────────────────
 
-    /// <summary>Returns true if the agent responds to a HEAD /api/reference/root within 10 s.</summary>
+    /// <summary>Returns true if the agent responds to GET /api/ping within 3 s.</summary>
     public async Task<bool> PingAsync()
     {
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Head, $"{_baseUrl}/api/reference/root");
-            using var res = await _http.SendAsync(req);
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/api/ping");
+            using var res = await SendWithTimeoutAsync(req, PingTimeout);
             return res.IsSuccessStatusCode;
         }
         catch
@@ -52,19 +71,19 @@ public sealed class AgentApiClient : IDisposable
     public Task<BrowseRootResponse> BrowseReferenceRootAsync()
         => PostAsync<BrowseRootResponse>("/api/admin/referenceRoot/browse", null);
 
-    /// <summary>GET /api/reference/cars — list of car folder names.</summary>
-    public Task<List<string>> GetCarsAsync()
-        => GetStringListFromEndpointAsync("/api/reference/cars");
+    /// <summary>GET /api/reference/cars — list of car folder names. Deduplicates parallel calls.</summary>
+    public Task<List<string>> GetCarsAsync(CancellationToken ct = default)
+        => GetDeduplicatedStringListAsync("/api/reference/cars", ct);
 
-    /// <summary>GET /api/reference/tracks?car=... — list of track folder names for a car.</summary>
-    public Task<List<string>> GetTracksAsync(string car)
-        => GetStringListFromEndpointAsync($"/api/reference/tracks?car={Uri.EscapeDataString(car)}");
+    /// <summary>GET /api/reference/tracks?car=... — list of track folder names. Deduplicates parallel calls.</summary>
+    public Task<List<string>> GetTracksAsync(string car, CancellationToken ct = default)
+        => GetDeduplicatedStringListAsync($"/api/reference/tracks?car={Uri.EscapeDataString(car)}", ct);
 
-    /// <summary>GET /api/reference/setups?car=...&amp;track=... — list of setup files.</summary>
-    public async Task<List<SetupItem>> GetSetupsAsync(string car, string track)
+    /// <summary>GET /api/reference/setups?car=...&amp;track=... — list of setup files. Deduplicates parallel calls.</summary>
+    public async Task<List<SetupItem>> GetSetupsAsync(string car, string track, CancellationToken ct = default)
     {
-        var files = await GetStringListFromEndpointAsync(
-            $"/api/reference/setups?car={Uri.EscapeDataString(car)}&track={Uri.EscapeDataString(track)}");
+        var files = await GetDeduplicatedStringListAsync(
+            $"/api/reference/setups?car={Uri.EscapeDataString(car)}&track={Uri.EscapeDataString(track)}", ct);
         return files
             .Select(f => new SetupItem { FileName = f, Car = car, Track = track })
             .ToList();
@@ -91,13 +110,35 @@ public sealed class AgentApiClient : IDisposable
             Overwrite = overwrite,
         });
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Core HTTP helpers ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sends <paramref name="req"/> with a per-call <paramref name="timeout"/>,
+    /// avoiding dependence on the global <see cref="HttpClient.Timeout"/>.
+    /// Throws <see cref="TaskCanceledException"/> (with a descriptive message) on timeout.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithTimeoutAsync(
+        HttpRequestMessage req, TimeSpan timeout, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        try
+        {
+            return await _http.SendAsync(req, cts.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TaskCanceledException(
+                $"Request to {req.RequestUri} timed out after {timeout.TotalSeconds:F0}s.");
+        }
+    }
 
     private async Task<T> GetAsync<T>(string path)
     {
         try
         {
-            var res = await _http.GetAsync(_baseUrl + path);
+            using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + path);
+            var res = await SendWithTimeoutAsync(req, BrowseTimeout);
             await EnsureSuccessAsync(res);
             var result = await res.Content.ReadFromJsonAsync<T>(JsonOpts);
             return result ?? throw new AgentException("Empty response from agent.");
@@ -110,7 +151,8 @@ public sealed class AgentApiClient : IDisposable
     {
         try
         {
-            var res = await _http.GetAsync(_baseUrl + path);
+            using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + path);
+            var res = await SendWithTimeoutAsync(req, BrowseTimeout);
             await EnsureSuccessAsync(res);
             return await res.Content.ReadAsStringAsync();
         }
@@ -118,24 +160,93 @@ public sealed class AgentApiClient : IDisposable
         catch (Exception ex)   { throw new AgentException($"Agent no accesible: {ex.Message}", ex); }
     }
 
+    // ── Deduplication + retry for list endpoints ──────────────────────────────
+
     /// <summary>
-    /// GET <paramref name="path"/> and return the body as a string list,
-    /// tolerating both raw JSON arrays and wrapped objects.
+    /// Returns the in-flight Task for <paramref name="path"/> if one is already running,
+    /// otherwise starts a new retriable fetch and caches it until it settles.
+    /// This prevents duplicate parallel requests from rapid UI events.
     /// </summary>
-    private async Task<List<string>> GetStringListFromEndpointAsync(string path)
+    private Task<List<string>> GetDeduplicatedStringListAsync(string path, CancellationToken ct)
     {
-        try
+        lock (_inFlightLock)
         {
-            var res = await _http.GetAsync(_baseUrl + path);
-            await EnsureSuccessAsync(res);
-            return await ReadStringListAsync(res);
-        }
-        catch (AgentException) { throw; }
-        catch (Exception ex)
-        {
-            throw new AgentException($"Agent no accesible en {_baseUrl}{path}: {ex.Message}", ex);
+            if (_inFlight.TryGetValue(path, out var existing)) return existing;
+            var task = FetchStringListWithRetryAsync(path, ct);
+            _inFlight[path] = task;
+            // Remove from the dict once settled (success or failure) so later calls can start fresh.
+            _ = task.ContinueWith(_ => { lock (_inFlightLock) { _inFlight.Remove(path); } },
+                                  TaskScheduler.Default);
+            return task;
         }
     }
+
+    /// <summary>
+    /// Fetches <paramref name="path"/> with up to 4 attempts (initial + 3 retries),
+    /// backing off 250 ms → 750 ms → 1 500 ms between attempts.
+    /// Retries on <see cref="TaskCanceledException"/> (timeout) and
+    /// <see cref="HttpRequestException"/> (connection errors).
+    /// Does NOT retry on HTTP 4xx/5xx (those surface as <see cref="AgentException"/>).
+    /// Logs endpoint, timeout, attempt number, and next retry delay on each transient failure.
+    /// </summary>
+    private async Task<List<string>> FetchStringListWithRetryAsync(string path, CancellationToken ct)
+    {
+        int totalAttempts = BrowseRetryDelays.Length + 1; // 4 total
+        Exception? lastEx = null;
+
+        for (int attempt = 1; attempt <= totalAttempts; attempt++)
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + path);
+                var res = await SendWithTimeoutAsync(req, BrowseTimeout, ct);
+                await EnsureSuccessAsync(res);
+                return await ReadStringListAsync(res);
+            }
+            catch (AgentException)
+            {
+                // HTTP-level error (401, 404, 5xx…) — do NOT retry.
+                throw;
+            }
+            catch (TaskCanceledException ex)
+            {
+                lastEx = ex;
+                if (attempt < totalAttempts)
+                {
+                    var delay = BrowseRetryDelays[attempt - 1];
+                    AppLogger.Instance.Warn(
+                        $"Timeout en {_baseUrl}{path} " +
+                        $"(intento {attempt}/{totalAttempts}, timeout={BrowseTimeout.TotalSeconds:F0}s). " +
+                        $"Reintentando en {delay.TotalMilliseconds:F0}ms…");
+                    await Task.Delay(delay, ct);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                lastEx = ex;
+                if (attempt < totalAttempts)
+                {
+                    var delay = BrowseRetryDelays[attempt - 1];
+                    AppLogger.Instance.Warn(
+                        $"Error de red en {_baseUrl}{path} " +
+                        $"(intento {attempt}/{totalAttempts}): {ex.Message}. " +
+                        $"Reintentando en {delay.TotalMilliseconds:F0}ms…");
+                    await Task.Delay(delay, ct);
+                }
+            }
+        }
+
+        // All attempts exhausted — log and throw a detailed exception.
+        var hint = "Sugerencia: Puerto HTTP/WS por defecto 8181; discovery UDP 8182.";
+        AppLogger.Instance.Error(
+            $"Todos los intentos fallaron para {_baseUrl}{path}: {lastEx?.Message}\n  {hint}");
+        throw new AgentException(
+            $"Agent no accesible en {_baseUrl}{path} tras {totalAttempts} intentos: {lastEx?.Message}\n" +
+            $"  {hint}",
+            lastEx!);
+    }
+
+    // ── JSON deserialization ───────────────────────────────────────────────────
 
     /// <summary>
     /// Deserializes an HTTP response into a <c>List&lt;string&gt;</c>.
@@ -172,7 +283,7 @@ public sealed class AgentApiClient : IDisposable
                                         .Where(e => e.ValueKind == JsonValueKind.String)
                                         .Select(e => e.GetString()!)
                                         .ToList();
-                        AvoPerformanceSetupAI.Services.AppLogger.Instance.Warn(
+                        AppLogger.Instance.Warn(
                             $"Agent devolvió lista envuelta en propiedad '{key}'. " +
                             $"Considera actualizar el Agent para devolver un array plano.");
                         return result;
@@ -184,7 +295,7 @@ public sealed class AgentApiClient : IDisposable
 
         // 3) Could not parse — log raw content and throw
         var preview = rawJson.Length > 300 ? rawJson[..300] + "…" : rawJson;
-        AvoPerformanceSetupAI.Services.AppLogger.Instance.Error(
+        AppLogger.Instance.Error(
             $"Error de deserialización JSON del Agent. JSON recibido: {preview}");
         throw new AgentException(
             $"Respuesta JSON no reconocida del Agent. " +
@@ -202,7 +313,7 @@ public sealed class AgentApiClient : IDisposable
                 : new HttpRequestMessage(HttpMethod.Post, _baseUrl + path)
                   { Content = JsonContent.Create(body, options: JsonOpts) };
 
-            var res = await _http.SendAsync(req);
+            var res = await SendWithTimeoutAsync(req, SaveTimeout);
             await EnsureSuccessAsync(res);
             var result = await res.Content.ReadFromJsonAsync<T>(JsonOpts);
             return result ?? throw new AgentException("Empty response from agent.");

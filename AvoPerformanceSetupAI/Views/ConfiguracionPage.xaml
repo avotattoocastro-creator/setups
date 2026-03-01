@@ -207,6 +207,8 @@
                                        Background="#FF0F2020" Foreground="#FFE0F0F0"
                                        BorderBrush="#FF2E4040"
                                        ValueChanged="RemotePortBox_ValueChanged"/>
+                            <TextBlock Text="HTTP/WS (defecto 8181). Discovery UDP: 8182."
+                                       Foreground="#FF607070" FontSize="10" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Grid>
 
