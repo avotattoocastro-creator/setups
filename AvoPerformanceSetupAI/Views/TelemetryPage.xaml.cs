@@ -51,6 +51,7 @@ public sealed partial class TelemetryPage : Page, INotifyPropertyChanged
         ViewModel.DrivingLogs.CollectionChanged  += (_, _) => AutoScroll(DrivingScrollViewer);
         ViewModel.SetupLogs.CollectionChanged    += (_, _) => AutoScroll(SetupScrollViewer);
         ViewModel.CornerLogs.CollectionChanged   += (_, _) => AutoScroll(CornerScrollViewer);
+        ViewModel.Logs.CollectionChanged         += (_, _) => AutoScroll(AgentLogsScrollViewer);
 
         ViewModel.PropertyChanged += (_, e) =>
         {

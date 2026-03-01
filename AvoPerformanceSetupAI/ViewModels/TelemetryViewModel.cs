@@ -12,6 +12,7 @@ using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Reference;
 using AvoPerformanceSetupAI.Reference.Import;
 using AvoPerformanceSetupAI.Services;
+using AvoPerformanceSetupAI.Services.Agent;
 using AvoPerformanceSetupAI.Telemetry;
 
 namespace AvoPerformanceSetupAI.ViewModels;
@@ -26,6 +27,7 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     // Stored so Initialize can subscribe and Dispose can unsubscribe (prevents memory leaks).
     private Action<bool, string>? _connectionChangedHandler;
     private Action?               _suggestSwitchHandler;
+    private Action<AgentLogEntry>? _logEntryHandler;
 
     // ── Telemetry service (AC shared memory + simulation routing) ─────────────
 
@@ -474,6 +476,16 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
     /// <summary>Setup-improvement steps log.</summary>
     public ObservableCollection<AnalysisEntry>    SetupLogs    { get; } = new();
 
+    // ── Agent log stream (Remote mode) ───────────────────────────────────────
+
+    private readonly AgentLogStream _logStream = new();
+
+    /// <summary>Maximum number of entries kept in <see cref="Logs"/>.</summary>
+    private const int MaxLogEntries = 500;
+
+    /// <summary>Live Agent log entries streamed via WebSocket.</summary>
+    public ObservableCollection<AgentLogEntry> Logs { get; } = new();
+
     /// <summary>Per-corner phase analysis log.</summary>
     public ObservableCollection<AnalysisEntry>    CornerLogs   { get; } = new();
 
@@ -676,6 +688,10 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
             if (e.PropertyName == nameof(SetupSettings.RaceViewEnabled))
                 IsRaceViewActive = SetupSettings.Instance.RaceViewEnabled;
         };
+
+        // Start live-log stream when in Remote mode
+        if (SetupSettings.Instance.Mode == AppMode.Remote)
+            _ = StartLogStreamAsync(dispatcher);
     }
 
     /// <summary>Unsubscribes from <see cref="TelemetryService"/> events and releases resources.</summary>
@@ -693,6 +709,41 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         }
         _telemetryService.Dispose();
         _updateTimer?.Dispose();
+
+        if (_logEntryHandler is not null)
+        {
+            _logStream.OnLog -= _logEntryHandler;
+            _logEntryHandler  = null;
+        }
+        // Best-effort graceful shutdown of the WebSocket (fire-and-forget is acceptable
+        // here because the ViewModel is being disposed — the read loop will self-terminate
+        // when the cancellation token fires).
+        _ = _logStream.StopAsync();
+    }
+
+    // ── Agent log stream helpers ──────────────────────────────────────────────
+
+    private async Task StartLogStreamAsync(DispatcherQueue dispatcher)
+    {
+        _logEntryHandler = entry =>
+            dispatcher.TryEnqueue(() =>
+            {
+                Logs.Add(entry);
+                while (Logs.Count > MaxLogEntries)
+                    Logs.RemoveAt(0);
+            });
+
+        _logStream.OnLog += _logEntryHandler;
+
+        try
+        {
+            await _logStream.StartAsync(SetupSettings.Instance.AgentLogsWsUrl)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Warn($"Log stream no disponible: {ex.Message}");
+        }
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────

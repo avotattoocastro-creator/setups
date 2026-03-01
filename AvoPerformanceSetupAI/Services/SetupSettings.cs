@@ -73,6 +73,9 @@ public sealed partial class SetupSettings : ObservableObject
     /// <summary>WebSocket URL for the remote Agent, including the auth token.</summary>
     public string AgentWsUrl   => $"ws://{RemoteHost}:{RemotePort}/ws?token={RemoteToken}";
 
+    /// <summary>WebSocket URL for the Agent live-log stream (last 300 lines).</summary>
+    public string AgentLogsWsUrl => $"ws://{RemoteHost}:{RemotePort}/ws/logs?token={RemoteToken}&tail=300";
+
     private SetupSettings()
     {
         try

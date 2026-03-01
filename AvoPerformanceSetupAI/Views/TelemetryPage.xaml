@@ -9,6 +9,7 @@
     xmlns:local="using:AvoPerformanceSetupAI.Reference"
     xmlns:telemetry="using:AvoPerformanceSetupAI.Telemetry"
     xmlns:ml="using:AvoPerformanceSetupAI.ML"
+    xmlns:agent="using:AvoPerformanceSetupAI.Services.Agent"
     Background="{StaticResource CarbonBackgroundBrush}"
     RequestedTheme="Dark">
 
@@ -1222,6 +1223,52 @@
                                       HorizontalScrollBarVisibility="Disabled">
                             <ItemsControl ItemsSource="{x:Bind ViewModel.CornerLogs}"
                                           ItemTemplate="{StaticResource AnalysisEntryRow}"/>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabViewItem>
+
+            <!-- ── Agent Logs Tab ─────────────────────────────────────────── -->
+            <TabViewItem Header="Logs" IsClosable="False">
+                <Grid Margin="8,4,8,8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Background="#FF0C1414" BorderBrush="#FF2E4040"
+                            BorderThickness="1,1,1,0" CornerRadius="8,8,0,0" Padding="14,10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="&#128220;"
+                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"/>
+                            <TextBlock Text="Agent Logs"
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseNormal}, Converter={StaticResource Mul}}"
+                                       FontWeight="SemiBold" Foreground="#FF00B4B4"/>
+                            <TextBlock Text="streaming en vivo &#8212; &#250;ltimas 500 l&#237;neas"
+                                       FontFamily="Consolas"
+                                       FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                       Opacity="0.6" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1"
+                            Background="#FF060E0E" BorderBrush="#FF2E4040"
+                            BorderThickness="1,0,1,1" CornerRadius="0,0,8,8">
+                        <ScrollViewer x:Name="AgentLogsScrollViewer"
+                                      Padding="10" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Logs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="agent:AgentLogEntry">
+                                        <TextBlock FontFamily="Consolas"
+                                                   FontSize="{Binding Source={StaticResource FontBaseSmall}, Converter={StaticResource Mul}}"
+                                                   Foreground="#FFB0D0D0"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,1"
+                                                   Text="{x:Bind DisplayText}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </ScrollViewer>
                     </Border>
                 </Grid>
