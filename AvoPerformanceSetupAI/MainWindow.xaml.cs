@@ -64,12 +64,13 @@ public sealed partial class MainWindow : Window
             }
 
             SplashOverlay.StatusText = "Cargando UI...";
-            await Task.Delay(300);
-            SplashOverlay.StatusText = "Inicializando telemetría...";
-            await Task.Delay(350);
-            SplashOverlay.StatusText = "Listo";
-            await Task.Delay(250);
-            await SplashOverlay.CloseAsync();
+            await SplashOverlay.CloseWhenReadyAsync(async () =>
+            {
+                await Task.Delay(200); // allow UI to finish initial render
+                SplashOverlay.StatusText = "Inicializando telemetría...";
+                await TelemetryService.InitializeAsync();
+                SplashOverlay.StatusText = "Listo";
+            });
         }
         catch (Exception ex)
         {

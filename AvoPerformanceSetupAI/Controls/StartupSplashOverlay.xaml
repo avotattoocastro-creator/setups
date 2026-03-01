@@ -7,16 +7,84 @@
     VerticalAlignment="Stretch">
 
     <UserControl.Resources>
+        <!-- Entrance: scale 1.02 → 1.0 on open -->
+        <Storyboard x:Name="ContentEntranceStoryboard">
+            <DoubleAnimation
+                Storyboard.TargetName="ContentPanel"
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.ScaleX)"
+                From="1.02" To="1.0" Duration="0:0:0.400">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation
+                Storyboard.TargetName="ContentPanel"
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.ScaleY)"
+                From="1.02" To="1.0" Duration="0:0:0.400">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- Exit: opacity 1→0 + scale 1.0→0.98 in 600ms with easing -->
         <Storyboard x:Name="FadeOutStoryboard">
             <DoubleAnimation
                 Storyboard.TargetName="RootOverlay"
                 Storyboard.TargetProperty="Opacity"
                 From="1.0" To="0.0"
-                Duration="0:0:0.350"/>
+                Duration="0:0:0.600">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation
+                Storyboard.TargetName="ContentPanel"
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.ScaleX)"
+                From="1.0" To="0.98" Duration="0:0:0.600">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation
+                Storyboard.TargetName="ContentPanel"
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.ScaleY)"
+                From="1.0" To="0.98" Duration="0:0:0.600">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
         </Storyboard>
     </UserControl.Resources>
 
     <Grid x:Name="RootOverlay">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="WindowSizeStates">
+                <!-- Small (<1400): Width=420, FontSize=18 (base values in XAML) -->
+                <VisualState x:Name="SmallState"/>
+                <!-- Normal (>=1400): Width=520, FontSize=20 -->
+                <VisualState x:Name="NormalState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1400"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="LogoImage.Width" Value="520"/>
+                        <Setter Target="StatusTextBlock.FontSize" Value="20"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <!-- Large (>=2200): Width=650, FontSize=22 -->
+                <VisualState x:Name="LargeState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="2200"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="LogoImage.Width" Value="650"/>
+                        <Setter Target="StatusTextBlock.FontSize" Value="22"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                 <GradientStop Color="#FF0A1414" Offset="0.0"/>
@@ -25,19 +93,31 @@
             </LinearGradientBrush>
         </Grid.Background>
 
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20">
-            <Image Source="ms-appx:///Assets/Brand/avo_performance.png"
-                   Height="180" Stretch="Uniform"
+        <StackPanel x:Name="ContentPanel"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="24"
+                    RenderTransformOrigin="0.5,0.5">
+            <StackPanel.RenderTransform>
+                <CompositeTransform/>
+            </StackPanel.RenderTransform>
+
+            <Image x:Name="LogoImage"
+                   Source="ms-appx:///Assets/Brand/avo_performance.png"
+                   Width="420" MaxWidth="620"
+                   Stretch="Uniform"
                    HorizontalAlignment="Center"
                    AutomationProperties.Name="AVO Performance logo"/>
             <TextBlock x:Name="StatusTextBlock"
                        HorizontalAlignment="Center"
-                       Foreground="#FFE0F0F0"
-                       FontSize="14"
+                       Foreground="#FFFFFF"
+                       Opacity="0.9"
+                       FontSize="18"
+                       FontWeight="SemiBold"
                        FontFamily="Consolas"/>
             <ProgressRing x:Name="Ring"
                           IsActive="True"
-                          Width="32" Height="32"
+                          Width="54" Height="54"
                           Foreground="#FF00B4B4"
                           HorizontalAlignment="Center"/>
         </StackPanel>
