@@ -16,6 +16,8 @@ public sealed partial class MainWindow : Window
         AppLogger.Instance.Info("AvoPerformanceSetupAI iniciado correctamente.");
         AppLogger.Instance.Info("Motor de UI: WinUI 3 / Windows App SDK 1.5");
         SetupWindow();
+        ApplyWatermarkSettings();
+        SetupSettings.Instance.PropertyChanged += OnBrandingSettingsChanged;
     }
 
     private void SetupWindow()
@@ -49,5 +51,21 @@ public sealed partial class MainWindow : Window
     private void MainTabView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // Tab changed - can add logic here
+    }
+
+    private void OnBrandingSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SetupSettings.BrandWatermarkEnabled)
+                           or nameof(SetupSettings.BrandWatermarkOpacity))
+        {
+            DispatcherQueue.TryEnqueue(ApplyWatermarkSettings);
+        }
+    }
+
+    private void ApplyWatermarkSettings()
+    {
+        WatermarkImage.Opacity = SetupSettings.Instance.BrandWatermarkEnabled
+            ? SetupSettings.Instance.BrandWatermarkOpacity
+            : 0.0;
     }
 }

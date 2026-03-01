@@ -12,9 +12,11 @@ namespace AvoPerformanceSetupAI.Services;
 /// </summary>
 public sealed partial class SetupSettings : ObservableObject
 {
-    private const string KeyRootFolder   = "RootFolder";
-    private const string KeyOutputFolder = "OutputFolder";
-    private const string KeyUiScale      = "UiScale";
+    private const string KeyRootFolder            = "RootFolder";
+    private const string KeyOutputFolder          = "OutputFolder";
+    private const string KeyUiScale               = "UiScale";
+    private const string KeyBrandWatermarkEnabled = "BrandWatermarkEnabled";
+    private const string KeyBrandWatermarkOpacity = "BrandWatermarkOpacity";
 
     private readonly bool _hasPackageIdentity;
 
@@ -29,6 +31,12 @@ public sealed partial class SetupSettings : ObservableObject
     [ObservableProperty]
     private double _uiScale = 1.0;
 
+    [ObservableProperty]
+    private bool _brandWatermarkEnabled = true;
+
+    [ObservableProperty]
+    private double _brandWatermarkOpacity = 0.06;
+
     private SetupSettings()
     {
         try
@@ -41,6 +49,8 @@ public sealed partial class SetupSettings : ObservableObject
             _rootFolder   = local.Values[KeyRootFolder]   as string ?? string.Empty;
             _outputFolder = local.Values[KeyOutputFolder] as string ?? string.Empty;
             _uiScale      = local.Values[KeyUiScale] is double d ? d : 1.0;
+            _brandWatermarkEnabled = local.Values[KeyBrandWatermarkEnabled] is bool bwm ? bwm : true;
+            _brandWatermarkOpacity = local.Values[KeyBrandWatermarkOpacity] is double bwo ? bwo : 0.06;
         }
         catch (InvalidOperationException)
         {
@@ -49,6 +59,8 @@ public sealed partial class SetupSettings : ObservableObject
             _rootFolder  = string.Empty;
             _outputFolder = string.Empty;
             _uiScale     = 1.0;
+            _brandWatermarkEnabled = true;
+            _brandWatermarkOpacity = 0.06;
         }
     }
 
@@ -76,5 +88,17 @@ public sealed partial class SetupSettings : ObservableObject
         // correctly on the next app launch via OnLaunched in App.xaml.cs.
         if (Application.Current?.Resources is { } res)
             res["UiScale"] = value;
+    }
+
+    partial void OnBrandWatermarkEnabledChanged(bool value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyBrandWatermarkEnabled] = value;
+    }
+
+    partial void OnBrandWatermarkOpacityChanged(double value)
+    {
+        if (_hasPackageIdentity)
+            ApplicationData.Current.LocalSettings.Values[KeyBrandWatermarkOpacity] = value;
     }
 }

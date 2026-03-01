@@ -13,6 +13,16 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- Watermark: rendered first (behind everything), spans entire window -->
+        <Image x:Name="WatermarkImage"
+               Grid.RowSpan="2"
+               Source="ms-appx:///Assets/Brand/avo_performance.png"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               IsHitTestVisible="False"
+               AutomationProperties.Name="AVO Performance watermark"/>
+
         <!-- Custom Title Bar -->
         <Grid Grid.Row="0" Background="#FF0A1414" x:Name="TitleBarGrid">
             <Grid.ColumnDefinitions>
@@ -20,7 +30,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
-                <TextBlock Text="⚡" FontSize="16" VerticalAlignment="Center" Foreground="#FF00B4B4" Margin="0,0,8,0"/>
+                <Image Source="ms-appx:///Assets/Brand/avo_performance.png"
+                       Height="30" Stretch="Uniform"
+                       VerticalAlignment="Center" Margin="0,0,8,0"
+                       IsHitTestVisible="False" Opacity="0.90"
+                       AutomationProperties.Name="AVO Performance logo"/>
                 <TextBlock Text="AvoPerformanceSetupAI" FontSize="13" FontWeight="SemiBold"
                            Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
             </StackPanel>

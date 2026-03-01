@@ -117,6 +117,30 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
+
+            <!-- Branding / Marca de fondo -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Marca de fondo (Branding)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Muestra el logotipo AVO Performance como marca de agua sutil en el fondo de la aplicación."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <ToggleSwitch x:Name="WatermarkEnabledToggle"
+                                  Header="Mostrar marca de fondo"
+                                  Toggled="WatermarkToggle_Toggled"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="Intensidad:" Foreground="#FF8AABAB" VerticalAlignment="Center" MinWidth="80"/>
+                        <Slider x:Name="WatermarkOpacitySlider"
+                                Minimum="0.02" Maximum="0.12" StepFrequency="0.01"
+                                Width="200"
+                                ValueChanged="WatermarkOpacity_ValueChanged"/>
+                        <TextBlock x:Name="WatermarkOpacityValueText"
+                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" MinWidth="36"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Page>

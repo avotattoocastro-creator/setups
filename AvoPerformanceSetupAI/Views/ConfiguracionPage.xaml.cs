@@ -32,6 +32,11 @@ public sealed partial class ConfiguracionPage : Page
         // Initialise the UI scale slider from persisted setting
         UiScaleSlider.Value = SetupSettings.Instance.UiScale;
         UiScaleValueText.Text = $"{SetupSettings.Instance.UiScale:F2}×";
+
+        // Initialise branding controls from persisted settings
+        WatermarkEnabledToggle.IsOn = SetupSettings.Instance.BrandWatermarkEnabled;
+        WatermarkOpacitySlider.Value = SetupSettings.Instance.BrandWatermarkOpacity;
+        WatermarkOpacityValueText.Text = $"{SetupSettings.Instance.BrandWatermarkOpacity * 100:F0}%";
     }
 
     private async void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -86,5 +91,19 @@ public sealed partial class ConfiguracionPage : Page
         SetupSettings.Instance.UiScale = v;
         if (UiScaleValueText is not null)
             UiScaleValueText.Text = $"{v:F2}×";
+    }
+
+    private void WatermarkToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        SetupSettings.Instance.BrandWatermarkEnabled = WatermarkEnabledToggle.IsOn;
+    }
+
+    private void WatermarkOpacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        const double step = 0.01;
+        double v = Math.Round(e.NewValue / step) * step;
+        SetupSettings.Instance.BrandWatermarkOpacity = v;
+        if (WatermarkOpacityValueText is not null)
+            WatermarkOpacityValueText.Text = $"{v * 100:F0}%";
     }
 }
